@@ -1,1 +1,41 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #f5f6f8; color: #17202a; }
+a { color: inherit; text-decoration: none; }
+.header { background: #17202a; color: white; padding: 14px 24px; display:flex; align-items:center; justify-content:space-between; }
+.header a { margin-left: 16px; color: white; font-weight: 600; }
+.container { max-width: 1180px; margin: 24px auto; padding: 0 16px; }
+.card { background:white; border-radius: 12px; padding: 18px; box-shadow: 0 1px 5px rgba(0,0,0,.08); margin-bottom: 16px; }
+.grid { display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+label { display:block; font-size: 13px; font-weight: 700; margin-bottom:6px; }
+input, select, textarea { width:100%; padding:10px; border:1px solid #d0d7de; border-radius:8px; font-size:14px; background:white; }
+textarea { min-height: 88px; }
+button, .button { border:0; border-radius: 8px; padding:10px 14px; background:#17202a; color:white; font-weight:700; cursor:pointer; display:inline-block; }
+button.secondary, .button.secondary { background:#5d6d7e; }
+button.danger { background:#a93226; }
+table { width:100%; border-collapse: collapse; background:white; border-radius:12px; overflow:hidden; }
+th, td { text-align:left; padding: 11px; border-bottom:1px solid #edf0f2; font-size:14px; }
+th { background:#eef1f4; font-size:13px; }
+.badge { display:inline-block; border-radius:999px; padding:5px 9px; font-size:12px; font-weight:700; background:#e5e7eb; }
+.badge.red { background:#fde2e2; color:#8a1f1f; }
+.badge.yellow { background:#fff2c6; color:#7a5600; }
+.badge.blue { background:#dcecff; color:#174a7c; }
+.badge.green { background:#dff3e5; color:#1e6b35; }
+.badge.gray { background:#e5e7eb; color:#4b5563; }
+.actions { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+.error { color:#a93226; font-weight:700; }
+.success { color:#1e6b35; font-weight:700; }
+.small { color:#617080; font-size:13px; }
+.card {
+  display: block;
+}
 
+a.card {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+a.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
