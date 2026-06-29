@@ -126,7 +126,12 @@ function OrdersContent() {
   return (
     <main className="container">
       <div className="actions" style={{ justifyContent: 'space-between' }}>
-        <h1>Bestellungen</h1>
+        
+      <div>
+          <h1>Bestellungen</h1>
+          <p>Admin: {isAdmin ? 'JA' : 'NEIN'}</p>
+      </div>
+        
         <Link className="button" href="/orders/new">Neue Bestellung</Link>
       </div>
 
