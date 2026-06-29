@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
@@ -11,7 +11,7 @@ type CrossSection = { id:string; name:string }
 
 type TypeKey = 'customers' | 'suppliers' | 'materials' | 'cross_sections'
 
-export default function MasterDataPage() {
+function MasterDataPage() {
   const searchParams = useSearchParams()
 
   const [type, setType] = useState<TypeKey>('customers')
@@ -364,5 +364,12 @@ export default function MasterDataPage() {
         </>
       )}
     </main>
+  )
+}
+export default function MasterDataPage() {
+  return (
+    <Suspense fallback={<main className="container">Lade Stammdaten...</main>}>
+      <MasterDataContent />
+    </Suspense>
   )
 }
