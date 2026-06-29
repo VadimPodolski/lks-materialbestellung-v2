@@ -1,34 +1,35 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
-type Supplier = {
-  id: string
-  name: string
-}
-
-type MasterData = {
-  id: string
-  name: string
-}
+type Supplier = { id: string; name: string }
+type Customer = { id: string; name: string }
+type Material = { id: string; name: string; material_name: string | null; material_number: string | null }
+type CrossSection = { id: string; name: string }
 
 export default function NewOrderPage() {
   const router = useRouter()
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [materials, setMaterials] = useState<MasterData[]>([])
-  const [crossSections, setCrossSections] = useState<MasterData[]>([])
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [materials, setMaterials] = useState<Material[]>([])
+  const [crossSections, setCrossSections] = useState<CrossSection[]>([])
 
-  const [newMaterial, setNewMaterial] = useState('')
-  const [newCrossSection, setNewCrossSection] = useState('')
+  const [showMaterialModal, setShowMaterialModal] = useState(false)
+  const [showCrossModal, setShowCrossModal] = useState(false)
+  const [showCustomerModal, setShowCustomerModal] = useState(false)
+
+  const [materialForm, setMaterialForm] = useState({ material_name: '', material_number: '' })
+  const [crossForm, setCrossForm] = useState({ name: '' })
+  const [customerForm, setCustomerForm] = useState({ name: '', contact_person: '', email: '', phone: '', notes: '' })
 
   const [form, setForm] = useState({
     order_number: 'AB-',
     customer: '',
     supplier_id: '',
-    material: 'S235',
+    material: '',
     cross_section: '',
     length_mm: '6000',
     quantity: '1',
@@ -45,10 +46,11 @@ export default function NewOrderPage() {
   async function loadMasterData() {
     const supabase = createClient()
 
-    const [{ data: supplierData }, { data: materialData }, { data: crossSectionData }] =
+    const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }] =
       await Promise.all([
         supabase.from('suppliers').select('id,name').order('name'),
-        supabase.from('materials').select('id,name').order('name'),
+        supabase.from('customers').select('id,name').order('name'),
+        supabase.from('materials').select('id,name,material_name,material_number').order('name'),
         supabase.from('cross_sections').select('id,name').order('name')
       ])
 
@@ -57,6 +59,7 @@ export default function NewOrderPage() {
     const crossSectionList = crossSectionData || []
 
     setSuppliers(supplierList)
+    setCustomers(customerData || [])
     setMaterials(materialList)
     setCrossSections(crossSectionList)
 
@@ -66,22 +69,17 @@ export default function NewOrderPage() {
 
     setForm(prev => ({
       ...prev,
-      supplier_id:
-        lastSupplier && supplierList.some(s => s.id === lastSupplier)
-          ? lastSupplier
-          : prev.supplier_id,
-      material:
-        lastMaterial && materialList.some(m => m.name === lastMaterial)
-          ? lastMaterial
-          : materialList.some(m => m.name === prev.material)
-            ? prev.material
-            : materialList[0]?.name || prev.material,
-      cross_section:
-        lastCrossSection && crossSectionList.some(q => q.name === lastCrossSection)
-          ? lastCrossSection
-          : crossSectionList[0]?.name || prev.cross_section
+      supplier_id: lastSupplier && supplierList.some(s => s.id === lastSupplier) ? lastSupplier : prev.supplier_id,
+      material: lastMaterial && materialList.some(m => m.name === lastMaterial) ? lastMaterial : materialList[0]?.name || prev.material,
+      cross_section: lastCrossSection && crossSectionList.some(q => q.name === lastCrossSection) ? lastCrossSection : crossSectionList[0]?.name || prev.cross_section
     }))
   }
+
+  const customerSuggestions = useMemo(() => {
+    const q = form.customer.trim().toLowerCase()
+    if (q.length < 1) return []
+    return customers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 8)
+  }, [customers, form.customer])
 
   function set(k: string, v: string) {
     if (k === 'order_number') {
@@ -93,46 +91,71 @@ export default function NewOrderPage() {
     setForm(prev => ({ ...prev, [k]: v }))
   }
 
-  async function addMaterial() {
-    const name = newMaterial.trim()
-    if (!name) return
+  function materialLabel(m: Material) {
+    if (m.material_number && m.material_name) return `${m.material_number} - ${m.material_name}`
+    return m.name
+  }
 
+  async function saveMaterial() {
+    const materialName = materialForm.material_name.trim()
+    const materialNumber = materialForm.material_number.trim()
+
+    if (!materialName) return setMsg('Bitte Materialbezeichnung eintragen.')
+
+    const name = materialNumber ? `${materialNumber} - ${materialName}` : materialName
     const supabase = createClient()
 
-    const { error } = await supabase
-      .from('materials')
-      .insert({ name })
+    const { error } = await supabase.from('materials').insert({
+      name,
+      material_name: materialName,
+      material_number: materialNumber || null
+    })
 
-    if (error && !error.message.includes('duplicate')) {
-      setMsg(error.message)
-      return
-    }
+    if (error && !error.message.includes('duplicate')) return setMsg(error.message)
 
-    setNewMaterial('')
+    setMaterialForm({ material_name: '', material_number: '' })
+    setShowMaterialModal(false)
     setMsg('')
     await loadMasterData()
     setForm(prev => ({ ...prev, material: name }))
   }
 
-  async function addCrossSection() {
-    const name = newCrossSection.trim()
-    if (!name) return
+  async function saveCrossSection() {
+    const name = crossForm.name.trim()
+    if (!name) return setMsg('Bitte Querschnitt eintragen.')
 
     const supabase = createClient()
+    const { error } = await supabase.from('cross_sections').insert({ name })
 
-    const { error } = await supabase
-      .from('cross_sections')
-      .insert({ name })
+    if (error && !error.message.includes('duplicate')) return setMsg(error.message)
 
-    if (error && !error.message.includes('duplicate')) {
-      setMsg(error.message)
-      return
-    }
-
-    setNewCrossSection('')
+    setCrossForm({ name: '' })
+    setShowCrossModal(false)
     setMsg('')
     await loadMasterData()
     setForm(prev => ({ ...prev, cross_section: name }))
+  }
+
+  async function saveCustomer() {
+    const name = customerForm.name.trim()
+    if (!name) return setMsg('Bitte Kundennamen eintragen.')
+
+    const supabase = createClient()
+    const { error } = await supabase.from('customers').insert({
+      name,
+      contact_person: customerForm.contact_person || null,
+      email: customerForm.email || null,
+      phone: customerForm.phone || null,
+      notes: customerForm.notes || null
+    })
+
+    if (error && !error.message.includes('duplicate')) return setMsg(error.message)
+
+    setCustomerForm({ name: '', contact_person: '', email: '', phone: '', notes: '' })
+    setShowCustomerModal(false)
+    setMsg('')
+    await loadMasterData()
+    setForm(prev => ({ ...prev, customer: name }))
   }
 
   async function save(e: React.FormEvent) {
@@ -171,136 +194,135 @@ export default function NewOrderPage() {
       <form className="card grid" onSubmit={save}>
         <div>
           <label>Auftragsnummer</label>
-          <input
-            value={form.order_number}
-            onChange={e => set('order_number', e.target.value)}
-            required
-          />
+          <input value={form.order_number} onChange={e => set('order_number', e.target.value)} required />
         </div>
 
-        <div>
+        <div style={{ position: 'relative' }}>
           <label>Kunde</label>
-          <input
-            value={form.customer}
-            onChange={e => set('customer', e.target.value)}
-            required
-          />
+          <div className="actions">
+            <input value={form.customer} onChange={e => set('customer', e.target.value)} required />
+            <button type="button" onClick={() => {
+              setCustomerForm(prev => ({ ...prev, name: form.customer }))
+              setShowCustomerModal(true)
+            }}>
+              + Kunde
+            </button>
+          </div>
+
+          {customerSuggestions.length > 0 && (
+            <div className="suggestions">
+              {customerSuggestions.map(c => (
+                <button type="button" key={c.id} onClick={() => set('customer', c.name)}>
+                  {c.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div>
           <label>Lieferant</label>
-          <select
-            value={form.supplier_id}
-            onChange={e => set('supplier_id', e.target.value)}
-          >
+          <select value={form.supplier_id} onChange={e => set('supplier_id', e.target.value)}>
             <option value="">Bitte wählen</option>
-            {suppliers.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
+            {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </div>
 
         <div>
           <label>Material</label>
-          <select
-            value={form.material}
-            onChange={e => set('material', e.target.value)}
-            required
-          >
-            {materials.map(m => (
-              <option key={m.id} value={m.name}>
-                {m.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label>Neues Material hinzufügen</label>
           <div className="actions">
-            <input
-              value={newMaterial}
-              onChange={e => setNewMaterial(e.target.value)}
-              placeholder="z.B. Corten, 1.4571, Hardox"
-            />
-            <button type="button" onClick={addMaterial}>
-              + Material
-            </button>
+            <select value={form.material} onChange={e => set('material', e.target.value)} required>
+              {materials.map(m => <option key={m.id} value={m.name}>{materialLabel(m)}</option>)}
+            </select>
+            <button type="button" onClick={() => setShowMaterialModal(true)}>+ Material</button>
           </div>
         </div>
 
         <div>
           <label>Rohrquerschnitt</label>
-          <select
-            value={form.cross_section}
-            onChange={e => set('cross_section', e.target.value)}
-            required
-          >
-            {crossSections.map(q => (
-              <option key={q.id} value={q.name}>
-                {q.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label>Neuen Querschnitt hinzufügen</label>
           <div className="actions">
-            <input
-              value={newCrossSection}
-              onChange={e => setNewCrossSection(e.target.value)}
-              placeholder="z.B. 70x70x4"
-            />
-            <button type="button" onClick={addCrossSection}>
-              + Querschnitt
-            </button>
+            <select value={form.cross_section} onChange={e => set('cross_section', e.target.value)} required>
+              {crossSections.map(q => <option key={q.id} value={q.name}>{q.name}</option>)}
+            </select>
+            <button type="button" onClick={() => setShowCrossModal(true)}>+ Querschnitt</button>
           </div>
         </div>
 
         <div>
           <label>Länge mm</label>
-          <input
-            type="number"
-            value={form.length_mm}
-            onChange={e => set('length_mm', e.target.value)}
-          />
+          <input type="number" value={form.length_mm} onChange={e => set('length_mm', e.target.value)} />
         </div>
 
         <div>
           <label>Stückzahl</label>
-          <input
-            type="number"
-            min="1"
-            value={form.quantity}
-            onChange={e => set('quantity', e.target.value)}
-            required
-          />
+          <input type="number" min="1" value={form.quantity} onChange={e => set('quantity', e.target.value)} required />
         </div>
 
         <div>
           <label>Gewünschter Liefertermin</label>
-          <input
-            type="date"
-            value={form.desired_delivery_date}
-            onChange={e => set('desired_delivery_date', e.target.value)}
-          />
+          <input type="date" value={form.desired_delivery_date} onChange={e => set('desired_delivery_date', e.target.value)} />
         </div>
 
         <div style={{ gridColumn: '1/-1' }}>
           <label>Bemerkung</label>
-          <textarea
-            value={form.notes}
-            onChange={e => set('notes', e.target.value)}
-          />
+          <textarea value={form.notes} onChange={e => set('notes', e.target.value)} />
         </div>
 
         <button>Speichern</button>
-
         {msg && <p className="error">{msg}</p>}
       </form>
+
+      {showMaterialModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2>Material anlegen</h2>
+            <label>Werkstoffnummer</label>
+            <input value={materialForm.material_number} onChange={e => setMaterialForm({ ...materialForm, material_number: e.target.value })} placeholder="z.B. 1.4301 oder S235" />
+            <label>Materialbezeichnung</label>
+            <input value={materialForm.material_name} onChange={e => setMaterialForm({ ...materialForm, material_name: e.target.value })} placeholder="z.B. Edelstahl oder Baustahl" />
+            <div className="actions">
+              <button type="button" onClick={saveMaterial}>Speichern</button>
+              <button type="button" className="secondary" onClick={() => setShowMaterialModal(false)}>Abbrechen</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCrossModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2>Querschnitt anlegen</h2>
+            <label>Querschnitt</label>
+            <input value={crossForm.name} onChange={e => setCrossForm({ name: e.target.value })} placeholder="z.B. 70x70x4" />
+            <div className="actions">
+              <button type="button" onClick={saveCrossSection}>Speichern</button>
+              <button type="button" className="secondary" onClick={() => setShowCrossModal(false)}>Abbrechen</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCustomerModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2>Kunde anlegen</h2>
+            <label>Kundenname</label>
+            <input value={customerForm.name} onChange={e => setCustomerForm({ ...customerForm, name: e.target.value })} />
+            <label>Ansprechpartner</label>
+            <input value={customerForm.contact_person} onChange={e => setCustomerForm({ ...customerForm, contact_person: e.target.value })} />
+            <label>E-Mail</label>
+            <input value={customerForm.email} onChange={e => setCustomerForm({ ...customerForm, email: e.target.value })} />
+            <label>Telefon</label>
+            <input value={customerForm.phone} onChange={e => setCustomerForm({ ...customerForm, phone: e.target.value })} />
+            <label>Bemerkung</label>
+            <textarea value={customerForm.notes} onChange={e => setCustomerForm({ ...customerForm, notes: e.target.value })} />
+            <div className="actions">
+              <button type="button" onClick={saveCustomer}>Speichern</button>
+              <button type="button" className="secondary" onClick={() => setShowCustomerModal(false)}>Abbrechen</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }
