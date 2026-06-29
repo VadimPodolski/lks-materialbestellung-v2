@@ -14,12 +14,23 @@ type Order = {
   quantity: number
   status: string
   desired_delivery_date: string | null
+  created_by: string | null
+  ordered_by: string | null
   suppliers: { name: string } | null
+}
+
+type Profile = {
+  id: string
+  name: string | null
+  email: string | null
+  role: string | null
 }
 
 function OrdersContent() {
   const searchParams = useSearchParams()
   const [orders, setOrders] = useState<Order[]>([])
+  const [profiles, setProfiles] = useState<Profile[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
@@ -32,12 +43,65 @@ function OrdersContent() {
 
   async function load() {
     const supabase = createClient()
-    const { data } = await supabase
-      .from('material_orders')
-      .select('id,order_number,customer,material,cross_section,quantity,status,desired_delivery_date,suppliers(name)')
-      .order('created_at', { ascending: false })
 
-    setOrders((data as any) || [])
+    const { data: userData } = await supabase.auth.getUser()
+    const user = userData.user
+
+    if (user) {
+      const { data: profileById } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      const { data: profileByEmail } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', user.email)
+        .maybeSingle()
+
+      setIsAdmin(profileById?.role === 'admin' || profileByEmail?.role === 'admin')
+    }
+
+    const [{ data: orderData }, { data: profileData }] = await Promise.all([
+      supabase
+        .from('material_orders')
+        .select('id,order_number,customer,material,cross_section,quantity,status,desired_delivery_date,created_by,ordered_by,suppliers(name)')
+        .order('created_at', { ascending: false }),
+      supabase.from('profiles').select('id,name,email,role')
+    ])
+
+    setOrders((orderData as any) || [])
+    setProfiles(profileData || [])
+  }
+
+  function profileName(id: string | null) {
+    if (!id) return '-'
+    const p = profiles.find(x => x.id === id)
+    return p?.name || p?.email || '-'
+  }
+
+  async function deleteOrder(order: Order) {
+    if (!isAdmin) {
+      alert('Nur Administratoren dürfen Bestellungen löschen.')
+      return
+    }
+
+    const check = prompt(`Zum Löschen bitte die Auftragsnummer eingeben:\n${order.order_number}`)
+
+    if (check !== order.order_number) {
+      alert('Auftragsnummer stimmt nicht überein.')
+      return
+    }
+
+    const supabase = createClient()
+
+    await supabase.from('goods_receipts').delete().eq('material_order_id', order.id)
+    await supabase.from('order_history').delete().eq('material_order_id', order.id)
+    await supabase.from('scrap_items').delete().eq('material_order_id', order.id)
+    await supabase.from('material_orders').delete().eq('id', order.id)
+
+    await load()
   }
 
   const today = new Date().toISOString().slice(0, 10)
@@ -102,8 +166,12 @@ function OrdersContent() {
             <th>Menge</th>
             <th>Lieferant</th>
             <th>Liefertermin</th>
+            <th>Erstellt von</th>
+            <th>Bestellt von</th>
+            {isAdmin && <th>Aktion</th>}
           </tr>
         </thead>
+
         <tbody>
           {filtered.map(o => (
             <tr key={o.id}>
@@ -115,6 +183,15 @@ function OrdersContent() {
               <td>{o.quantity}</td>
               <td>{o.suppliers?.name || '-'}</td>
               <td>{o.desired_delivery_date || '-'}</td>
+              <td>{profileName(o.created_by)}</td>
+              <td>{profileName(o.ordered_by)}</td>
+              {isAdmin && (
+                <td>
+                  <button className="danger" onClick={() => deleteOrder(o)}>
+                    🗑
+                  </button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
