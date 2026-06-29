@@ -60,7 +60,11 @@ function OrdersContent() {
         .eq('email', user.email)
         .maybeSingle()
 
-      setIsAdmin(profileById?.role === 'admin' || profileByEmail?.role === 'admin')
+      setIsAdmin(
+  user.email === 'v.podolski@lks-technik.de' ||
+  profileById?.role === 'admin' ||
+  profileByEmail?.role === 'admin'
+)
     }
 
     const [{ data: orderData }, { data: profileData }] = await Promise.all([
