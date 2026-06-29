@@ -12,11 +12,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <div className="header">
           <strong>LKS-Materialbestellung</strong>
-          <nav>
-            <Link href="/dashboard">Dashboard</Link>
-            <Link href="/orders">Bestellungen</Link>
+          <nav>           
+            <Link href="/dashboard">Dashboard</Link> 
             <Link href="/orders/new">Neu</Link>
+            <Link href="/orders">Bestellungen</Link>
             <Link href="/suppliers">Lieferanten</Link>
+            <Link href="/login">Login</Link>
           </nav>
         </div>
         {children}
