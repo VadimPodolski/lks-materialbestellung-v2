@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 
@@ -28,11 +28,11 @@ type Profile = {
 
 function OrdersContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
-  const [currentUserEmail, setCurrentUserEmail] = useState('')
+
   const [orders, setOrders] = useState<Order[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
+  const [currentUserEmail, setCurrentUserEmail] = useState('')
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
@@ -47,36 +47,35 @@ function OrdersContent() {
     const supabase = createClient()
 
     const { data: sessionData } = await supabase.auth.getSession()
-const { data: userData } = await supabase.auth.getUser()
+    const { data: userData } = await supabase.auth.getUser()
 
-const user = userData.user || sessionData.session?.user || null
-const email = user?.email?.toLowerCase() || ''
+    const user = userData.user || sessionData.session?.user || null
+    const email = user?.email?.toLowerCase() || ''
 
-setCurrentUserEmail(email)
+    setCurrentUserEmail(email)
 
-let admin = email === 'v.podolski@lks-technik.de'
+    let admin = email === 'v.podolski@lks-technik.de'
 
-if (user) {
-  const { data: profileById } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle()
+    if (user) {
+      const { data: profileById } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
 
-  const { data: profileByEmail } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('email', email)
-    .maybeSingle()
+      const { data: profileByEmail } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', email)
+        .maybeSingle()
 
-  admin =
-    admin ||
-    profileById?.role === 'admin' ||
-    profileByEmail?.role === 'admin'
-}
-
-setIsAdmin(admin)
+      admin =
+        admin ||
+        profileById?.role === 'admin' ||
+        profileByEmail?.role === 'admin'
     }
+
+    setIsAdmin(admin)
 
     const [{ data: orderData }, { data: profileData }] = await Promise.all([
       supabase
@@ -102,7 +101,9 @@ setIsAdmin(admin)
       return
     }
 
-    const check = prompt(`Zum Löschen bitte die Auftragsnummer eingeben:\n${order.order_number}`)
+    const check = prompt(
+      `Zum Löschen bitte die Auftragsnummer eingeben:\n${order.order_number}`
+    )
 
     if (check !== order.order_number) {
       alert('Auftragsnummer stimmt nicht überein.')
@@ -141,20 +142,25 @@ setIsAdmin(admin)
   return (
     <main className="container">
       <div className="actions" style={{ justifyContent: 'space-between' }}>
-        
-      <div>
+        <div>
           <h1>Bestellungen</h1>
-          <p>Admin: {isAdmin ? 'JA' : 'NEIN'}</p>
-        <p>Eingeloggt als: {currentUserEmail || 'nicht erkannt'}</p>
-      </div>
-        
-        <Link className="button" href="/orders/new">Neue Bestellung</Link>
+          <p className="small">Admin: {isAdmin ? 'JA' : 'NEIN'}</p>
+          <p className="small">Eingeloggt als: {currentUserEmail || 'nicht erkannt'}</p>
+        </div>
+
+        <Link className="button" href="/orders/new">
+          Neue Bestellung
+        </Link>
       </div>
 
       <div className="card grid">
         <div>
           <label>Suche</label>
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Auftrag, Kunde, Material..." />
+          <input
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Auftrag, Kunde, Material..."
+          />
         </div>
 
         <div>
@@ -162,14 +168,19 @@ setIsAdmin(admin)
           <select value={status} onChange={e => setStatus(e.target.value)}>
             <option value="">Alle</option>
             {Object.entries(statusLabels).map(([k, v]) => (
-              <option key={k} value={k}>{v}</option>
+              <option key={k} value={k}>
+                {v}
+              </option>
             ))}
           </select>
         </div>
 
         <div>
           <label>Filter</label>
-          <select value={overdueOnly ? 'overdue' : ''} onChange={e => setOverdueOnly(e.target.value === 'overdue')}>
+          <select
+            value={overdueOnly ? 'overdue' : ''}
+            onChange={e => setOverdueOnly(e.target.value === 'overdue')}
+          >
             <option value="">Alle</option>
             <option value="overdue">Nur überfällig</option>
           </select>
@@ -196,8 +207,16 @@ setIsAdmin(admin)
         <tbody>
           {filtered.map(o => (
             <tr key={o.id}>
-              <td><span className={statusClass(o.status)}>{statusLabels[o.status]}</span></td>
-              <td><Link href={`/orders/${o.id}`}><b>{o.order_number}</b></Link></td>
+              <td>
+                <span className={statusClass(o.status)}>
+                  {statusLabels[o.status]}
+                </span>
+              </td>
+              <td>
+                <Link href={`/orders/${o.id}`}>
+                  <b>{o.order_number}</b>
+                </Link>
+              </td>
               <td>{o.customer}</td>
               <td>{o.material}</td>
               <td>{o.cross_section}</td>
@@ -208,7 +227,11 @@ setIsAdmin(admin)
               <td>{profileName(o.ordered_by)}</td>
               {isAdmin && (
                 <td>
-                  <button className="danger" onClick={() => deleteOrder(o)}>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={() => deleteOrder(o)}
+                  >
                     🗑
                   </button>
                 </td>
