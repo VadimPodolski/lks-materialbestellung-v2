@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 
@@ -28,6 +28,8 @@ type Profile = {
 
 function OrdersContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const [currentUserEmail, setCurrentUserEmail] = useState('')
   const [orders, setOrders] = useState<Order[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
@@ -44,27 +46,36 @@ function OrdersContent() {
   async function load() {
     const supabase = createClient()
 
-    const { data: userData } = await supabase.auth.getUser()
-    const user = userData.user
+    const { data: sessionData } = await supabase.auth.getSession()
+const { data: userData } = await supabase.auth.getUser()
 
-    if (user) {
-      const { data: profileById } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle()
+const user = userData.user || sessionData.session?.user || null
+const email = user?.email?.toLowerCase() || ''
 
-      const { data: profileByEmail } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('email', user.email)
-        .maybeSingle()
+setCurrentUserEmail(email)
 
-      setIsAdmin(
-  user.email === 'v.podolski@lks-technik.de' ||
-  profileById?.role === 'admin' ||
-  profileByEmail?.role === 'admin'
-)
+let admin = email === 'v.podolski@lks-technik.de'
+
+if (user) {
+  const { data: profileById } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const { data: profileByEmail } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('email', email)
+    .maybeSingle()
+
+  admin =
+    admin ||
+    profileById?.role === 'admin' ||
+    profileByEmail?.role === 'admin'
+}
+
+setIsAdmin(admin)
     }
 
     const [{ data: orderData }, { data: profileData }] = await Promise.all([
@@ -134,6 +145,7 @@ function OrdersContent() {
       <div>
           <h1>Bestellungen</h1>
           <p>Admin: {isAdmin ? 'JA' : 'NEIN'}</p>
+        <p>Eingeloggt als: {currentUserEmail || 'nicht erkannt'}</p>
       </div>
         
         <Link className="button" href="/orders/new">Neue Bestellung</Link>
