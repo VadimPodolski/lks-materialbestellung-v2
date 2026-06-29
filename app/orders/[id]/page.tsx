@@ -72,54 +72,60 @@ export default function OrderDetailPage() {
   async function load() {
     const supabase = createClient()
 
-    const [{ data }, { data: r }, { data: s }, { data: m }, { data: q }, { data: userData }] =
+    const [{ data: orderData }, { data: receiptData }, { data: supplierData }, { data: materialData }, { data: crossData }] =
       await Promise.all([
-        supabase
-          .from('material_orders')
-          .select('*,suppliers(name,email)')
-          .eq('id', params.id)
-          .single(),
-        supabase
-          .from('goods_receipts')
-          .select('*')
-          .eq('material_order_id', params.id)
-          .order('received_at', { ascending: false }),
+        supabase.from('material_orders').select('*,suppliers(name,email)').eq('id', params.id).single(),
+        supabase.from('goods_receipts').select('*').eq('material_order_id', params.id).order('received_at', { ascending: false }),
         supabase.from('suppliers').select('id,name,email').order('name'),
         supabase.from('materials').select('id,name').order('name'),
-        supabase.from('cross_sections').select('id,name').order('name'),
-        supabase.auth.getUser()
+        supabase.from('cross_sections').select('id,name').order('name')
       ])
 
-    const loadedOrder = data as any
+    const loadedOrder = orderData as any
 
     setOrder(loadedOrder)
-    setReceipts(r || [])
-    setSuppliers(s || [])
-    setMaterials(m || [])
-    setCrossSections(q || [])
+    setReceipts(receiptData || [])
+    setSuppliers(supplierData || [])
+    setMaterials(materialData || [])
+    setCrossSections(crossData || [])
 
+    const { data: userData } = await supabase.auth.getUser()
     const user = userData.user
 
-if (user) {
-  const { data: profileById } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle()
+    if (user) {
+      const { data: profileById } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
 
-  const { data: profileByEmail } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('email', user.email)
-    .maybeSingle()
+      const { data: profileByEmail } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', user.email)
+        .maybeSingle()
 
-  setIsAdmin(
-    profileById?.role === 'admin' ||
-    profileByEmail?.role === 'admin'
-  )
-} else {
-  setIsAdmin(false)
-}
+      setIsAdmin(
+        profileById?.role === 'admin' ||
+        profileByEmail?.role === 'admin'
+      )
+    } else {
+      setIsAdmin(false)
+    }
+
+    if (loadedOrder) {
+      setEditForm({
+        customer: loadedOrder.customer || '',
+        supplier_id: loadedOrder.supplier_id || '',
+        material: loadedOrder.material || '',
+        cross_section: loadedOrder.cross_section || '',
+        length_mm: loadedOrder.length_mm ? String(loadedOrder.length_mm) : '',
+        quantity: loadedOrder.quantity ? String(loadedOrder.quantity) : '1',
+        desired_delivery_date: loadedOrder.desired_delivery_date || '',
+        notes: loadedOrder.notes || ''
+      })
+    }
+  }
 
   const receivedSum = useMemo(
     () => receipts.reduce((sum, r) => sum + r.received_quantity, 0),
@@ -200,13 +206,6 @@ LKS-Technik GmbH & Co. KG`
 
     if (error) return setMsg(error.message)
 
-    await supabase.from('order_history').insert({
-      material_order_id: order.id,
-      action: 'Bestellung bearbeitet',
-      old_status: order.status,
-      new_status: order.status
-    })
-
     await recalculateStatus(order.id, Number(editForm.quantity))
     setEditing(false)
     await load()
@@ -227,14 +226,6 @@ LKS-Technik GmbH & Co. KG`
         ordered_by: userData.user?.id || null
       })
       .eq('id', order.id)
-
-    await supabase.from('order_history').insert({
-      material_order_id: order.id,
-      action: 'Bestellung gesendet/vorbereitet',
-      old_status: order.status,
-      new_status: 'bestellt',
-      user_id: userData.user?.id || null
-    })
 
     await load()
     setMsg('Status wurde auf Bestellt gesetzt.')
@@ -408,36 +399,12 @@ LKS-Technik GmbH & Co. KG`
             </p>
 
             <div className="grid">
-              <p>
-                <b>Material:</b>
-                <br />
-                {order.material}
-              </p>
-              <p>
-                <b>Querschnitt:</b>
-                <br />
-                {order.cross_section}
-              </p>
-              <p>
-                <b>Länge:</b>
-                <br />
-                {order.length_mm || '-'} mm
-              </p>
-              <p>
-                <b>Stückzahl:</b>
-                <br />
-                {order.quantity}
-              </p>
-              <p>
-                <b>Liefertermin:</b>
-                <br />
-                {order.desired_delivery_date || '-'}
-              </p>
-              <p>
-                <b>Geliefert:</b>
-                <br />
-                {receivedSum} / {order.quantity}
-              </p>
+              <p><b>Material:</b><br />{order.material}</p>
+              <p><b>Querschnitt:</b><br />{order.cross_section}</p>
+              <p><b>Länge:</b><br />{order.length_mm || '-'} mm</p>
+              <p><b>Stückzahl:</b><br />{order.quantity}</p>
+              <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
+              <p><b>Geliefert:</b><br />{receivedSum} / {order.quantity}</p>
               <p>
                 <b>Lieferant:</b>
                 <br />
@@ -448,11 +415,7 @@ LKS-Technik GmbH & Co. KG`
             </div>
 
             {order.notes && (
-              <p>
-                <b>Bemerkung:</b>
-                <br />
-                {order.notes}
-              </p>
+              <p><b>Bemerkung:</b><br />{order.notes}</p>
             )}
 
             <div className="actions">
