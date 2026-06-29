@@ -336,10 +336,9 @@ LKS-Technik GmbH & Co. KG`
       `Zum Löschen bitte die Auftragsnummer eingeben:\n${order.order_number}`
     )
 
-    if (check !== order.order_number) {
-      alert('Auftragsnummer stimmt nicht überein.')
-      return
-    }
+    if (!confirm(`Bestellung ${order.order_number} wirklich löschen?`)) {
+  return
+}
 
     const supabase = createClient()
 
