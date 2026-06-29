@@ -5,34 +5,53 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 
 type Order = {
-  id:string; order_number:string; customer:string; material:string; cross_section:string; length_mm:number|null;
-  quantity:number; status:string; desired_delivery_date:string|null; notes:string|null; supplier_id:string|null;
-  suppliers:{name:string; email:string}|null; ordered_at:string|null
-}
-type Receipt = { id:string; received_quantity:number; delivery_note_number:string|null; notes:string|null; received_at:string }
-type Supplier = { id:string; name:string; email:string }
-type MasterData = { id:string; name:string }
-type ReceiptHistory = {
-  id:string; action:string; old_quantity:number|null; new_quantity:number|null;
-  old_delivery_note_number:string|null; new_delivery_note_number:string|null;
-  old_notes:string|null; new_notes:string|null; created_at:string
+  id: string
+  order_number: string
+  customer: string
+  material: string
+  cross_section: string
+  length_mm: number | null
+  quantity: number
+  status: string
+  desired_delivery_date: string | null
+  notes: string | null
+  supplier_id: string | null
+  suppliers: { name: string; email: string } | null
+  ordered_at: string | null
 }
 
-export default function OrderDetailPage(){
-  const params = useParams<{id:string}>()
+type Receipt = {
+  id: string
+  received_quantity: number
+  delivery_note_number: string | null
+  notes: string | null
+  received_at: string
+}
+
+type Supplier = { id: string; name: string; email: string }
+type MasterData = { id: string; name: string }
+
+export default function OrderDetailPage() {
+  const params = useParams<{ id: string }>()
   const router = useRouter()
 
-  const [order, setOrder] = useState<Order|null>(null)
+  const [order, setOrder] = useState<Order | null>(null)
   const [receipts, setReceipts] = useState<Receipt[]>([])
-  const [receiptHistory, setReceiptHistory] = useState<ReceiptHistory[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [materials, setMaterials] = useState<MasterData[]>([])
   const [crossSections, setCrossSections] = useState<MasterData[]>([])
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({
-    customer:'', supplier_id:'', material:'', cross_section:'', length_mm:'',
-    quantity:'', desired_delivery_date:'', notes:''
+    customer: '',
+    supplier_id: '',
+    material: '',
+    cross_section: '',
+    length_mm: '',
+    quantity: '',
+    desired_delivery_date: '',
+    notes: ''
   })
 
   const [receivedQuantity, setReceivedQuantity] = useState('')
@@ -46,27 +65,50 @@ export default function OrderDetailPage(){
 
   const [msg, setMsg] = useState('')
 
-  useEffect(()=>{ load() }, [])
+  useEffect(() => {
+    load()
+  }, [])
 
-  async function load(){
+  async function load() {
     const supabase = createClient()
 
-    const [{ data }, { data: r }, { data: h }, { data: s }, { data: m }, { data: q }] = await Promise.all([
-      supabase.from('material_orders').select('*,suppliers(name,email)').eq('id', params.id).single(),
-      supabase.from('goods_receipts').select('*').eq('material_order_id', params.id).order('received_at', { ascending:false }),
-      supabase.from('receipt_history').select('*').eq('material_order_id', params.id).order('created_at', { ascending:false }),
-      supabase.from('suppliers').select('id,name,email').order('name'),
-      supabase.from('materials').select('id,name').order('name'),
-      supabase.from('cross_sections').select('id,name').order('name')
-    ])
+    const [{ data }, { data: r }, { data: s }, { data: m }, { data: q }, { data: userData }] =
+      await Promise.all([
+        supabase
+          .from('material_orders')
+          .select('*,suppliers(name,email)')
+          .eq('id', params.id)
+          .single(),
+        supabase
+          .from('goods_receipts')
+          .select('*')
+          .eq('material_order_id', params.id)
+          .order('received_at', { ascending: false }),
+        supabase.from('suppliers').select('id,name,email').order('name'),
+        supabase.from('materials').select('id,name').order('name'),
+        supabase.from('cross_sections').select('id,name').order('name'),
+        supabase.auth.getUser()
+      ])
 
     const loadedOrder = data as any
+
     setOrder(loadedOrder)
     setReceipts(r || [])
-    setReceiptHistory(h || [])
     setSuppliers(s || [])
     setMaterials(m || [])
     setCrossSections(q || [])
+
+    if (userData.user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userData.user.id)
+        .single()
+
+      setIsAdmin(profile?.role === 'admin')
+    } else {
+      setIsAdmin(false)
+    }
 
     if (loadedOrder) {
       setEditForm({
@@ -82,47 +124,82 @@ export default function OrderDetailPage(){
     }
   }
 
-  const receivedSum = useMemo(()=>receipts.reduce((sum, r)=>sum + r.received_quantity, 0), [receipts])
+  const receivedSum = useMemo(
+    () => receipts.reduce((sum, r) => sum + r.received_quantity, 0),
+    [receipts]
+  )
 
-  function setEdit(k:string, v:string){
+  function setEdit(k: string, v: string) {
     setEditForm(prev => ({ ...prev, [k]: v }))
   }
 
-  function mailto(){
-    if(!order || !order.suppliers?.email) return '#'
+  function mailto() {
+    if (!order || !order.suppliers?.email) return '#'
+
     const subject = `Materialbestellung LKS - Auftrag ${order.order_number}`
-    const body = `Sehr geehrte Damen und Herren,\n\nbitte liefern Sie uns folgendes Material:\n\nAuftrag: ${order.order_number}\nKunde: ${order.customer}\nMaterial: ${order.material}\nQuerschnitt: ${order.cross_section}\nLänge: ${order.length_mm || '-'} mm\nStückzahl: ${order.quantity}\n\nGewünschter Liefertermin: ${order.desired_delivery_date || '-'}\n\nMit freundlichen Grüßen\nLKS-Technik GmbH & Co. KG`
+    const body = `Sehr geehrte Damen und Herren,
+
+bitte liefern Sie uns folgendes Material:
+
+Auftrag: ${order.order_number}
+Kunde: ${order.customer}
+Material: ${order.material}
+Querschnitt: ${order.cross_section}
+Länge: ${order.length_mm || '-'} mm
+Stückzahl: ${order.quantity}
+
+Gewünschter Liefertermin: ${order.desired_delivery_date || '-'}
+
+Mit freundlichen Grüßen
+LKS-Technik GmbH & Co. KG`
+
     return `mailto:${order.suppliers.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 
-  async function recalculateStatus(orderId:string, quantity:number){
+  async function recalculateStatus(orderId: string, quantity: number) {
     const supabase = createClient()
-    const { data } = await supabase.from('goods_receipts').select('received_quantity').eq('material_order_id', orderId)
-    const sum = (data || []).reduce((s,r)=>s + Number(r.received_quantity || 0), 0)
+
+    const { data } = await supabase
+      .from('goods_receipts')
+      .select('received_quantity')
+      .eq('material_order_id', orderId)
+
+    const sum = (data || []).reduce(
+      (s, r) => s + Number(r.received_quantity || 0),
+      0
+    )
 
     let newStatus = 'bestellt'
+
     if (sum === 0) newStatus = 'bestellt'
     else if (sum < quantity) newStatus = 'teilweise_geliefert'
     else newStatus = 'geliefert'
 
-    await supabase.from('material_orders').update({ status:newStatus }).eq('id', orderId)
+    await supabase
+      .from('material_orders')
+      .update({ status: newStatus })
+      .eq('id', orderId)
   }
 
-  async function saveEdit(e:React.FormEvent){
+  async function saveEdit(e: React.FormEvent) {
     e.preventDefault()
-    if(!order) return
+    if (!order) return
+
     const supabase = createClient()
 
-    const { error } = await supabase.from('material_orders').update({
-      customer: editForm.customer,
-      supplier_id: editForm.supplier_id || null,
-      material: editForm.material,
-      cross_section: editForm.cross_section,
-      length_mm: editForm.length_mm ? Number(editForm.length_mm) : null,
-      quantity: Number(editForm.quantity),
-      desired_delivery_date: editForm.desired_delivery_date || null,
-      notes: editForm.notes || null
-    }).eq('id', order.id)
+    const { error } = await supabase
+      .from('material_orders')
+      .update({
+        customer: editForm.customer,
+        supplier_id: editForm.supplier_id || null,
+        material: editForm.material,
+        cross_section: editForm.cross_section,
+        length_mm: editForm.length_mm ? Number(editForm.length_mm) : null,
+        quantity: Number(editForm.quantity),
+        desired_delivery_date: editForm.desired_delivery_date || null,
+        notes: editForm.notes || null
+      })
+      .eq('id', order.id)
 
     if (error) return setMsg(error.message)
 
@@ -139,31 +216,52 @@ export default function OrderDetailPage(){
     setMsg('Änderungen wurden gespeichert.')
   }
 
-  async function markOrdered(){
-    if(!order) return
+  async function markOrdered() {
+    if (!order) return
+
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
-    await supabase.from('material_orders').update({ status:'bestellt', ordered_at:new Date().toISOString(), ordered_by:userData.user?.id || null }).eq('id', order.id)
-    await supabase.from('order_history').insert({ material_order_id:order.id, action:'Bestellung gesendet/vorbereitet', old_status:order.status, new_status:'bestellt', user_id:userData.user?.id || null })
-    await load(); setMsg('Status wurde auf Bestellt gesetzt.')
+
+    await supabase
+      .from('material_orders')
+      .update({
+        status: 'bestellt',
+        ordered_at: new Date().toISOString(),
+        ordered_by: userData.user?.id || null
+      })
+      .eq('id', order.id)
+
+    await supabase.from('order_history').insert({
+      material_order_id: order.id,
+      action: 'Bestellung gesendet/vorbereitet',
+      old_status: order.status,
+      new_status: 'bestellt',
+      user_id: userData.user?.id || null
+    })
+
+    await load()
+    setMsg('Status wurde auf Bestellt gesetzt.')
   }
 
-  async function receiveGoods(e:React.FormEvent){
+  async function receiveGoods(e: React.FormEvent) {
     e.preventDefault()
-    if(!order) return
+    if (!order) return
 
     const supabase = createClient()
     const qty = Number(receivedQuantity)
-    if(!qty || qty < 1) return setMsg('Bitte gelieferte Stückzahl eingeben.')
+
+    if (!qty || qty < 1) {
+      return setMsg('Bitte gelieferte Stückzahl eingeben.')
+    }
 
     const { data: userData } = await supabase.auth.getUser()
 
     await supabase.from('goods_receipts').insert({
-      material_order_id:order.id,
-      received_quantity:qty,
-      delivery_note_number:deliveryNote,
-      notes:receiptNotes,
-      received_by:userData.user?.id || null
+      material_order_id: order.id,
+      received_quantity: qty,
+      delivery_note_number: deliveryNote || null,
+      notes: receiptNotes || null,
+      received_by: userData.user?.id || null
     })
 
     await recalculateStatus(order.id, order.quantity)
@@ -171,41 +269,37 @@ export default function OrderDetailPage(){
     setReceivedQuantity('')
     setDeliveryNote('')
     setReceiptNotes('')
+
     await load()
     setMsg('Wareneingang wurde gebucht.')
   }
 
-  function startEditReceipt(r:Receipt){
+  function startEditReceipt(r: Receipt) {
     setEditingReceiptId(r.id)
     setEditReceiptQty(String(r.received_quantity))
     setEditReceiptNote(r.delivery_note_number || '')
     setEditReceiptComment(r.notes || '')
   }
 
-  async function saveReceiptEdit(receipt:Receipt){
-    if(!order) return
+  async function saveReceiptEdit(receipt: Receipt) {
+    if (!order) return
+
     const qty = Number(editReceiptQty)
-    if(!qty || qty < 1) return setMsg('Bitte gültige Stückzahl eingeben.')
+
+    if (!qty || qty < 1) {
+      return setMsg('Bitte gültige Stückzahl eingeben.')
+    }
 
     const supabase = createClient()
 
-    await supabase.from('goods_receipts').update({
-      received_quantity: qty,
-      delivery_note_number: editReceiptNote || null,
-      notes: editReceiptComment || null
-    }).eq('id', receipt.id)
-
-    await supabase.from('receipt_history').insert({
-      goods_receipt_id: receipt.id,
-      material_order_id: order.id,
-      action: 'Wareneingang bearbeitet',
-      old_quantity: receipt.received_quantity,
-      new_quantity: qty,
-      old_delivery_note_number: receipt.delivery_note_number,
-      new_delivery_note_number: editReceiptNote || null,
-      old_notes: receipt.notes,
-      new_notes: editReceiptComment || null
-    })
+    await supabase
+      .from('goods_receipts')
+      .update({
+        received_quantity: qty,
+        delivery_note_number: editReceiptNote || null,
+        notes: editReceiptComment || null
+      })
+      .eq('id', receipt.id)
 
     setEditingReceiptId('')
     await recalculateStatus(order.id, order.quantity)
@@ -213,192 +307,416 @@ export default function OrderDetailPage(){
     setMsg('Wareneingang wurde geändert.')
   }
 
-  async function deleteReceipt(receipt:Receipt){
-    if(!order) return
-    if(!confirm('Wareneingang wirklich löschen?')) return
+  async function deleteReceipt(receipt: Receipt) {
+    if (!order) return
+    if (!confirm('Wareneingang wirklich löschen?')) return
 
     const supabase = createClient()
 
-    await supabase.from('receipt_history').insert({
-      goods_receipt_id: receipt.id,
-      material_order_id: order.id,
-      action: 'Wareneingang gelöscht',
-      old_quantity: receipt.received_quantity,
-      new_quantity: null,
-      old_delivery_note_number: receipt.delivery_note_number,
-      new_delivery_note_number: null,
-      old_notes: receipt.notes,
-      new_notes: null
-    })
-
-    await supabase.from('goods_receipts').delete().eq('id', receipt.id)
+    await supabase
+      .from('goods_receipts')
+      .delete()
+      .eq('id', receipt.id)
 
     await recalculateStatus(order.id, order.quantity)
     await load()
     setMsg('Wareneingang wurde gelöscht.')
   }
 
-  async function cancelOrder(){
+  async function cancelOrder() {
     const supabase = createClient()
-    if(!order || !confirm('Bestellung wirklich stornieren?')) return
-    await supabase.from('material_orders').update({ status:'storniert' }).eq('id', order.id)
+
+    if (!order || !confirm('Bestellung wirklich stornieren?')) return
+
+    await supabase
+      .from('material_orders')
+      .update({ status: 'storniert' })
+      .eq('id', order.id)
+
     await load()
   }
 
-  if(!order) return <main className="container"><p>Lade Bestellung...</p></main>
+  async function deleteOrder() {
+    if (!order) return
 
-  return <main className="container">
-    <button className="secondary" onClick={()=>router.push('/orders')}>Zurück</button>
+    if (!isAdmin) {
+      alert('Nur Administratoren dürfen Bestellungen löschen.')
+      return
+    }
 
-    <div className="actions" style={{ justifyContent:'space-between' }}>
-      <h1>Auftrag {order.order_number} — {order.customer}</h1>
-      <button type="button" className="secondary" onClick={() => setEditing(true)}>✏️ Bearbeiten</button>
-    </div>
+    const check = prompt(
+      `Zum Löschen bitte die Auftragsnummer eingeben:\n${order.order_number}`
+    )
 
-    <div className="card">
-      {!editing ? (
-        <>
-          <p><span className={statusClass(order.status)}>{statusLabels[order.status]}</span></p>
-          <div className="grid">
-            <p><b>Material:</b><br />{order.material}</p>
-            <p><b>Querschnitt:</b><br />{order.cross_section}</p>
-            <p><b>Länge:</b><br />{order.length_mm || '-'} mm</p>
-            <p><b>Stückzahl:</b><br />{order.quantity}</p>
-            <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
-            <p><b>Geliefert:</b><br />{receivedSum} / {order.quantity}</p>
-            <p><b>Lieferant:</b><br />{order.suppliers?.name || '-'}<br />{order.suppliers?.email || ''}</p>
-          </div>
+    if (check !== order.order_number) {
+      alert('Auftragsnummer stimmt nicht überein.')
+      return
+    }
 
-          {order.notes && <p><b>Bemerkung:</b><br />{order.notes}</p>}
+    const supabase = createClient()
 
-          <div className="actions">
-            <a className="button" href={mailto()} onClick={markOrdered}>Bestellung senden</a>
-            <button className="danger" onClick={cancelOrder}>Stornieren</button>
-          </div>
-        </>
-      ) : (
-        <form className="grid" onSubmit={saveEdit}>
-          <div><label>Kunde</label><input value={editForm.customer} onChange={e=>setEdit('customer', e.target.value)} required /></div>
+    await supabase
+      .from('goods_receipts')
+      .delete()
+      .eq('material_order_id', order.id)
 
-          <div>
-            <label>Lieferant</label>
-            <select value={editForm.supplier_id} onChange={e=>setEdit('supplier_id', e.target.value)}>
-              <option value="">Bitte wählen</option>
-              {suppliers.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
+    await supabase
+      .from('order_history')
+      .delete()
+      .eq('material_order_id', order.id)
 
-          <div>
-            <label>Material</label>
-            <select value={editForm.material} onChange={e=>setEdit('material', e.target.value)} required>
-              {materials.map(m=><option key={m.id} value={m.name}>{m.name}</option>)}
-            </select>
-          </div>
+    await supabase
+      .from('material_orders')
+      .delete()
+      .eq('id', order.id)
 
-          <div>
-            <label>Querschnitt</label>
-            <select value={editForm.cross_section} onChange={e=>setEdit('cross_section', e.target.value)} required>
-              {crossSections.map(q=><option key={q.id} value={q.name}>{q.name}</option>)}
-            </select>
-          </div>
+    router.push('/orders')
+  }
 
-          <div><label>Länge mm</label><input type="number" value={editForm.length_mm} onChange={e=>setEdit('length_mm', e.target.value)} /></div>
-          <div><label>Stückzahl</label><input type="number" min="1" value={editForm.quantity} onChange={e=>setEdit('quantity', e.target.value)} required /></div>
-          <div><label>Liefertermin</label><input type="date" value={editForm.desired_delivery_date} onChange={e=>setEdit('desired_delivery_date', e.target.value)} /></div>
+  if (!order) {
+    return (
+      <main className="container">
+        <p>Lade Bestellung...</p>
+      </main>
+    )
+  }
 
-          <div style={{ gridColumn:'1/-1' }}>
-            <label>Bemerkung</label>
-            <textarea value={editForm.notes} onChange={e=>setEdit('notes', e.target.value)} />
-          </div>
+  return (
+    <main className="container">
+      <button className="secondary" onClick={() => router.push('/orders')}>
+        Zurück
+      </button>
 
-          <div className="actions">
-            <button type="submit">Änderungen speichern</button>
-            <button type="button" className="secondary" onClick={() => { setEditing(false); load() }}>Abbrechen</button>
-          </div>
-        </form>
-      )}
+      <div className="actions" style={{ justifyContent: 'space-between' }}>
+        <h1>
+          Auftrag {order.order_number} — {order.customer}
+        </h1>
 
-      {msg && <p className="success">{msg}</p>}
-    </div>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => setEditing(true)}
+        >
+          ✏️ Bearbeiten
+        </button>
+      </div>
 
-    <div className="card">
-      <h2>Wareneingang buchen</h2>
-      <form className="grid" onSubmit={receiveGoods}>
-        <div><label>Gelieferte Stückzahl</label><input type="number" min="1" value={receivedQuantity} onChange={e=>setReceivedQuantity(e.target.value)} required /></div>
-        <div><label>Lieferscheinnummer</label><input value={deliveryNote} onChange={e=>setDeliveryNote(e.target.value)} /></div>
-        <div style={{gridColumn:'1/-1'}}><label>Bemerkung</label><textarea value={receiptNotes} onChange={e=>setReceiptNotes(e.target.value)} /></div>
-        <button>Wareneingang buchen</button>
-      </form>
-    </div>
+      <div className="card">
+        {!editing ? (
+          <>
+            <p>
+              <span className={statusClass(order.status)}>
+                {statusLabels[order.status]}
+              </span>
+            </p>
 
-    <div className="card">
-      <h2>Wareneingänge</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Datum</th>
-            <th>Stückzahl</th>
-            <th>Lieferschein</th>
-            <th>Bemerkung</th>
-            <th>Aktionen</th>
-          </tr>
-        </thead>
-        <tbody>
-          {receipts.map(r=>(
-            <tr key={r.id}>
-              <td>{new Date(r.received_at).toLocaleString('de-DE')}</td>
+            <div className="grid">
+              <p>
+                <b>Material:</b>
+                <br />
+                {order.material}
+              </p>
+              <p>
+                <b>Querschnitt:</b>
+                <br />
+                {order.cross_section}
+              </p>
+              <p>
+                <b>Länge:</b>
+                <br />
+                {order.length_mm || '-'} mm
+              </p>
+              <p>
+                <b>Stückzahl:</b>
+                <br />
+                {order.quantity}
+              </p>
+              <p>
+                <b>Liefertermin:</b>
+                <br />
+                {order.desired_delivery_date || '-'}
+              </p>
+              <p>
+                <b>Geliefert:</b>
+                <br />
+                {receivedSum} / {order.quantity}
+              </p>
+              <p>
+                <b>Lieferant:</b>
+                <br />
+                {order.suppliers?.name || '-'}
+                <br />
+                {order.suppliers?.email || ''}
+              </p>
+            </div>
 
-              {editingReceiptId === r.id ? (
-                <>
-                  <td><input type="number" min="1" value={editReceiptQty} onChange={e=>setEditReceiptQty(e.target.value)} /></td>
-                  <td><input value={editReceiptNote} onChange={e=>setEditReceiptNote(e.target.value)} /></td>
-                  <td><input value={editReceiptComment} onChange={e=>setEditReceiptComment(e.target.value)} /></td>
-                  <td className="actions">
-                    <button type="button" onClick={()=>saveReceiptEdit(r)}>Speichern</button>
-                    <button type="button" className="secondary" onClick={()=>setEditingReceiptId('')}>Abbrechen</button>
-                  </td>
-                </>
-              ) : (
-                <>
-                  <td>{r.received_quantity}</td>
-                  <td>{r.delivery_note_number || '-'}</td>
-                  <td>{r.notes || '-'}</td>
-                  <td className="actions">
-                    <button type="button" className="secondary" onClick={()=>startEditReceipt(r)}>✏️</button>
-                    <button type="button" className="danger" onClick={()=>deleteReceipt(r)}>🗑</button>
-                  </td>
-                </>
+            {order.notes && (
+              <p>
+                <b>Bemerkung:</b>
+                <br />
+                {order.notes}
+              </p>
+            )}
+
+            <div className="actions">
+              <a className="button" href={mailto()} onClick={markOrdered}>
+                Bestellung senden
+              </a>
+
+              <button className="danger" onClick={cancelOrder}>
+                Stornieren
+              </button>
+
+              {isAdmin && (
+                <button
+                  type="button"
+                  className="danger"
+                  onClick={deleteOrder}
+                >
+                  🗑 Bestellung löschen
+                </button>
               )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+            </div>
+          </>
+        ) : (
+          <form className="grid" onSubmit={saveEdit}>
+            <div>
+              <label>Kunde</label>
+              <input
+                value={editForm.customer}
+                onChange={e => setEdit('customer', e.target.value)}
+                required
+              />
+            </div>
 
-    <div className="card">
-      <h2>Wareneingang-Historie</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Datum</th>
-            <th>Aktion</th>
-            <th>Stückzahl</th>
-            <th>Lieferschein</th>
-            <th>Bemerkung</th>
-          </tr>
-        </thead>
-        <tbody>
-          {receiptHistory.map(h=>(
-            <tr key={h.id}>
-              <td>{new Date(h.created_at).toLocaleString('de-DE')}</td>
-              <td>{h.action}</td>
-              <td>{h.old_quantity ?? '-'} → {h.new_quantity ?? '-'}</td>
-              <td>{h.old_delivery_note_number || '-'} → {h.new_delivery_note_number || '-'}</td>
-              <td>{h.old_notes || '-'} → {h.new_notes || '-'}</td>
+            <div>
+              <label>Lieferant</label>
+              <select
+                value={editForm.supplier_id}
+                onChange={e => setEdit('supplier_id', e.target.value)}
+              >
+                <option value="">Bitte wählen</option>
+                {suppliers.map(s => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label>Material</label>
+              <select
+                value={editForm.material}
+                onChange={e => setEdit('material', e.target.value)}
+                required
+              >
+                {materials.map(m => (
+                  <option key={m.id} value={m.name}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label>Querschnitt</label>
+              <select
+                value={editForm.cross_section}
+                onChange={e => setEdit('cross_section', e.target.value)}
+                required
+              >
+                {crossSections.map(q => (
+                  <option key={q.id} value={q.name}>
+                    {q.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label>Länge mm</label>
+              <input
+                type="number"
+                value={editForm.length_mm}
+                onChange={e => setEdit('length_mm', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label>Stückzahl</label>
+              <input
+                type="number"
+                min="1"
+                value={editForm.quantity}
+                onChange={e => setEdit('quantity', e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label>Liefertermin</label>
+              <input
+                type="date"
+                value={editForm.desired_delivery_date}
+                onChange={e => setEdit('desired_delivery_date', e.target.value)}
+              />
+            </div>
+
+            <div style={{ gridColumn: '1/-1' }}>
+              <label>Bemerkung</label>
+              <textarea
+                value={editForm.notes}
+                onChange={e => setEdit('notes', e.target.value)}
+              />
+            </div>
+
+            <div className="actions">
+              <button type="submit">Änderungen speichern</button>
+
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setEditing(false)
+                  load()
+                }}
+              >
+                Abbrechen
+              </button>
+            </div>
+          </form>
+        )}
+
+        {msg && <p className="success">{msg}</p>}
+      </div>
+
+      <div className="card">
+        <h2>Wareneingang buchen</h2>
+
+        <form className="grid" onSubmit={receiveGoods}>
+          <div>
+            <label>Gelieferte Stückzahl</label>
+            <input
+              type="number"
+              min="1"
+              value={receivedQuantity}
+              onChange={e => setReceivedQuantity(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label>Lieferscheinnummer</label>
+            <input
+              value={deliveryNote}
+              onChange={e => setDeliveryNote(e.target.value)}
+            />
+          </div>
+
+          <div style={{ gridColumn: '1/-1' }}>
+            <label>Bemerkung</label>
+            <textarea
+              value={receiptNotes}
+              onChange={e => setReceiptNotes(e.target.value)}
+            />
+          </div>
+
+          <button>Wareneingang buchen</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h2>Wareneingänge</h2>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Stückzahl</th>
+              <th>Lieferschein</th>
+              <th>Bemerkung</th>
+              <th>Aktionen</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  </main>
+          </thead>
+
+          <tbody>
+            {receipts.map(r => (
+              <tr key={r.id}>
+                <td>{new Date(r.received_at).toLocaleString('de-DE')}</td>
+
+                {editingReceiptId === r.id ? (
+                  <>
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        value={editReceiptQty}
+                        onChange={e => setEditReceiptQty(e.target.value)}
+                      />
+                    </td>
+
+                    <td>
+                      <input
+                        value={editReceiptNote}
+                        onChange={e => setEditReceiptNote(e.target.value)}
+                      />
+                    </td>
+
+                    <td>
+                      <input
+                        value={editReceiptComment}
+                        onChange={e => setEditReceiptComment(e.target.value)}
+                      />
+                    </td>
+
+                    <td className="actions">
+                      <button
+                        type="button"
+                        onClick={() => saveReceiptEdit(r)}
+                      >
+                        Speichern
+                      </button>
+
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => setEditingReceiptId('')}
+                      >
+                        Abbrechen
+                      </button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td>{r.received_quantity}</td>
+                    <td>{r.delivery_note_number || '-'}</td>
+                    <td>{r.notes || '-'}</td>
+
+                    <td className="actions">
+                      <button
+                        type="button"
+                        className="secondary"
+                        onClick={() => startEditReceipt(r)}
+                      >
+                        ✏️
+                      </button>
+
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() => deleteReceipt(r)}
+                      >
+                        🗑
+                      </button>
+                    </td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </main>
+  )
 }
