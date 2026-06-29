@@ -92,3 +92,37 @@ a.card:hover {
 .quick-button:hover {
   background: #dfe6ed;
 }
+
+.dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 26px;
+  left: 0;
+  background: white;
+  min-width: 210px;
+  border-radius: 10px;
+  box-shadow: 0 8px 22px rgba(0,0,0,.18);
+  padding: 8px;
+  z-index: 100;
+}
+
+.dropdown-menu a {
+  display: block;
+  color: #17202a !important;
+  padding: 9px 10px;
+  border-radius: 8px;
+  margin: 0;
+}
+
+.dropdown-menu a:hover {
+  background: #eef1f4;
+}
+
+.dropdown:hover .dropdown-menu {
+  display: block;
+}
