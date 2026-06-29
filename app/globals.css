@@ -25,3 +25,17 @@ th { background:#eef1f4; font-size:13px; }
 .error { color:#a93226; font-weight:700; }
 .success { color:#1e6b35; font-weight:700; }
 .small { color:#617080; font-size:13px; }
+.card {
+  display: block;
+}
+
+a.card {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+a.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+}
