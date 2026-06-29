@@ -98,31 +98,28 @@ export default function OrderDetailPage() {
     setMaterials(m || [])
     setCrossSections(q || [])
 
-    if (userData.user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', userData.user.id)
-        .single()
+    const user = userData.user
 
-      setIsAdmin(profile?.role === 'admin')
-    } else {
-      setIsAdmin(false)
-    }
+if (user) {
+  const { data: profileById } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
 
-    if (loadedOrder) {
-      setEditForm({
-        customer: loadedOrder.customer || '',
-        supplier_id: loadedOrder.supplier_id || '',
-        material: loadedOrder.material || '',
-        cross_section: loadedOrder.cross_section || '',
-        length_mm: loadedOrder.length_mm ? String(loadedOrder.length_mm) : '',
-        quantity: loadedOrder.quantity ? String(loadedOrder.quantity) : '1',
-        desired_delivery_date: loadedOrder.desired_delivery_date || '',
-        notes: loadedOrder.notes || ''
-      })
-    }
-  }
+  const { data: profileByEmail } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('email', user.email)
+    .maybeSingle()
+
+  setIsAdmin(
+    profileById?.role === 'admin' ||
+    profileByEmail?.role === 'admin'
+  )
+} else {
+  setIsAdmin(false)
+}
 
   const receivedSum = useMemo(
     () => receipts.reduce((sum, r) => sum + r.received_quantity, 0),
