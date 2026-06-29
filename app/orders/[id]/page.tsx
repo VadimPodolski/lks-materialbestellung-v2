@@ -12,6 +12,11 @@ type Order = {
 type Receipt = { id:string; received_quantity:number; delivery_note_number:string|null; notes:string|null; received_at:string }
 type Supplier = { id:string; name:string; email:string }
 type MasterData = { id:string; name:string }
+type ReceiptHistory = {
+  id:string; action:string; old_quantity:number|null; new_quantity:number|null;
+  old_delivery_note_number:string|null; new_delivery_note_number:string|null;
+  old_notes:string|null; new_notes:string|null; created_at:string
+}
 
 export default function OrderDetailPage(){
   const params = useParams<{id:string}>()
@@ -19,25 +24,26 @@ export default function OrderDetailPage(){
 
   const [order, setOrder] = useState<Order|null>(null)
   const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [receiptHistory, setReceiptHistory] = useState<ReceiptHistory[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [materials, setMaterials] = useState<MasterData[]>([])
   const [crossSections, setCrossSections] = useState<MasterData[]>([])
 
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({
-    customer:'',
-    supplier_id:'',
-    material:'',
-    cross_section:'',
-    length_mm:'',
-    quantity:'',
-    desired_delivery_date:'',
-    notes:''
+    customer:'', supplier_id:'', material:'', cross_section:'', length_mm:'',
+    quantity:'', desired_delivery_date:'', notes:''
   })
 
   const [receivedQuantity, setReceivedQuantity] = useState('')
   const [deliveryNote, setDeliveryNote] = useState('')
   const [receiptNotes, setReceiptNotes] = useState('')
+
+  const [editingReceiptId, setEditingReceiptId] = useState('')
+  const [editReceiptQty, setEditReceiptQty] = useState('')
+  const [editReceiptNote, setEditReceiptNote] = useState('')
+  const [editReceiptComment, setEditReceiptComment] = useState('')
+
   const [msg, setMsg] = useState('')
 
   useEffect(()=>{ load() }, [])
@@ -45,18 +51,19 @@ export default function OrderDetailPage(){
   async function load(){
     const supabase = createClient()
 
-    const [{ data }, { data: r }, { data: s }, { data: m }, { data: q }] = await Promise.all([
+    const [{ data }, { data: r }, { data: h }, { data: s }, { data: m }, { data: q }] = await Promise.all([
       supabase.from('material_orders').select('*,suppliers(name,email)').eq('id', params.id).single(),
       supabase.from('goods_receipts').select('*').eq('material_order_id', params.id).order('received_at', { ascending:false }),
+      supabase.from('receipt_history').select('*').eq('material_order_id', params.id).order('created_at', { ascending:false }),
       supabase.from('suppliers').select('id,name,email').order('name'),
       supabase.from('materials').select('id,name').order('name'),
       supabase.from('cross_sections').select('id,name').order('name')
     ])
 
     const loadedOrder = data as any
-
     setOrder(loadedOrder)
     setReceipts(r || [])
+    setReceiptHistory(h || [])
     setSuppliers(s || [])
     setMaterials(m || [])
     setCrossSections(q || [])
@@ -88,10 +95,22 @@ export default function OrderDetailPage(){
     return `mailto:${order.suppliers.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 
+  async function recalculateStatus(orderId:string, quantity:number){
+    const supabase = createClient()
+    const { data } = await supabase.from('goods_receipts').select('received_quantity').eq('material_order_id', orderId)
+    const sum = (data || []).reduce((s,r)=>s + Number(r.received_quantity || 0), 0)
+
+    let newStatus = 'bestellt'
+    if (sum === 0) newStatus = 'bestellt'
+    else if (sum < quantity) newStatus = 'teilweise_geliefert'
+    else newStatus = 'geliefert'
+
+    await supabase.from('material_orders').update({ status:newStatus }).eq('id', orderId)
+  }
+
   async function saveEdit(e:React.FormEvent){
     e.preventDefault()
     if(!order) return
-
     const supabase = createClient()
 
     const { error } = await supabase.from('material_orders').update({
@@ -105,10 +124,7 @@ export default function OrderDetailPage(){
       notes: editForm.notes || null
     }).eq('id', order.id)
 
-    if (error) {
-      setMsg(error.message)
-      return
-    }
+    if (error) return setMsg(error.message)
 
     await supabase.from('order_history').insert({
       material_order_id: order.id,
@@ -117,6 +133,7 @@ export default function OrderDetailPage(){
       new_status: order.status
     })
 
+    await recalculateStatus(order.id, Number(editForm.quantity))
     setEditing(false)
     await load()
     setMsg('Änderungen wurden gespeichert.')
@@ -132,18 +149,93 @@ export default function OrderDetailPage(){
   }
 
   async function receiveGoods(e:React.FormEvent){
-    e.preventDefault(); if(!order) return
+    e.preventDefault()
+    if(!order) return
+
     const supabase = createClient()
     const qty = Number(receivedQuantity)
     if(!qty || qty < 1) return setMsg('Bitte gelieferte Stückzahl eingeben.')
+
     const { data: userData } = await supabase.auth.getUser()
-    await supabase.from('goods_receipts').insert({ material_order_id:order.id, received_quantity:qty, delivery_note_number:deliveryNote, notes:receiptNotes, received_by:userData.user?.id || null })
-    const newSum = receivedSum + qty
-    const newStatus = newSum >= order.quantity ? 'geliefert' : 'teilweise_geliefert'
-    await supabase.from('material_orders').update({ status:newStatus }).eq('id', order.id)
-    await supabase.from('order_history').insert({ material_order_id:order.id, action:'Wareneingang gebucht', old_status:order.status, new_status:newStatus, user_id:userData.user?.id || null })
-    setReceivedQuantity(''); setDeliveryNote(''); setReceiptNotes('')
-    await load(); setMsg('Wareneingang wurde gebucht.')
+
+    await supabase.from('goods_receipts').insert({
+      material_order_id:order.id,
+      received_quantity:qty,
+      delivery_note_number:deliveryNote,
+      notes:receiptNotes,
+      received_by:userData.user?.id || null
+    })
+
+    await recalculateStatus(order.id, order.quantity)
+
+    setReceivedQuantity('')
+    setDeliveryNote('')
+    setReceiptNotes('')
+    await load()
+    setMsg('Wareneingang wurde gebucht.')
+  }
+
+  function startEditReceipt(r:Receipt){
+    setEditingReceiptId(r.id)
+    setEditReceiptQty(String(r.received_quantity))
+    setEditReceiptNote(r.delivery_note_number || '')
+    setEditReceiptComment(r.notes || '')
+  }
+
+  async function saveReceiptEdit(receipt:Receipt){
+    if(!order) return
+    const qty = Number(editReceiptQty)
+    if(!qty || qty < 1) return setMsg('Bitte gültige Stückzahl eingeben.')
+
+    const supabase = createClient()
+
+    await supabase.from('goods_receipts').update({
+      received_quantity: qty,
+      delivery_note_number: editReceiptNote || null,
+      notes: editReceiptComment || null
+    }).eq('id', receipt.id)
+
+    await supabase.from('receipt_history').insert({
+      goods_receipt_id: receipt.id,
+      material_order_id: order.id,
+      action: 'Wareneingang bearbeitet',
+      old_quantity: receipt.received_quantity,
+      new_quantity: qty,
+      old_delivery_note_number: receipt.delivery_note_number,
+      new_delivery_note_number: editReceiptNote || null,
+      old_notes: receipt.notes,
+      new_notes: editReceiptComment || null
+    })
+
+    setEditingReceiptId('')
+    await recalculateStatus(order.id, order.quantity)
+    await load()
+    setMsg('Wareneingang wurde geändert.')
+  }
+
+  async function deleteReceipt(receipt:Receipt){
+    if(!order) return
+    if(!confirm('Wareneingang wirklich löschen?')) return
+
+    const supabase = createClient()
+
+    await supabase.from('receipt_history').insert({
+      goods_receipt_id: receipt.id,
+      material_order_id: order.id,
+      action: 'Wareneingang gelöscht',
+      old_quantity: receipt.received_quantity,
+      new_quantity: null,
+      old_delivery_note_number: receipt.delivery_note_number,
+      new_delivery_note_number: null,
+      old_notes: receipt.notes,
+      new_notes: null
+    })
+
+    await supabase.from('goods_receipts').delete().eq('id', receipt.id)
+
+    await recalculateStatus(order.id, order.quantity)
+    await load()
+    setMsg('Wareneingang wurde gelöscht.')
   }
 
   async function cancelOrder(){
@@ -186,10 +278,7 @@ export default function OrderDetailPage(){
         </>
       ) : (
         <form className="grid" onSubmit={saveEdit}>
-          <div>
-            <label>Kunde</label>
-            <input value={editForm.customer} onChange={e=>setEdit('customer', e.target.value)} required />
-          </div>
+          <div><label>Kunde</label><input value={editForm.customer} onChange={e=>setEdit('customer', e.target.value)} required /></div>
 
           <div>
             <label>Lieferant</label>
@@ -213,20 +302,9 @@ export default function OrderDetailPage(){
             </select>
           </div>
 
-          <div>
-            <label>Länge mm</label>
-            <input type="number" value={editForm.length_mm} onChange={e=>setEdit('length_mm', e.target.value)} />
-          </div>
-
-          <div>
-            <label>Stückzahl</label>
-            <input type="number" min="1" value={editForm.quantity} onChange={e=>setEdit('quantity', e.target.value)} required />
-          </div>
-
-          <div>
-            <label>Liefertermin</label>
-            <input type="date" value={editForm.desired_delivery_date} onChange={e=>setEdit('desired_delivery_date', e.target.value)} />
-          </div>
+          <div><label>Länge mm</label><input type="number" value={editForm.length_mm} onChange={e=>setEdit('length_mm', e.target.value)} /></div>
+          <div><label>Stückzahl</label><input type="number" min="1" value={editForm.quantity} onChange={e=>setEdit('quantity', e.target.value)} required /></div>
+          <div><label>Liefertermin</label><input type="date" value={editForm.desired_delivery_date} onChange={e=>setEdit('desired_delivery_date', e.target.value)} /></div>
 
           <div style={{ gridColumn:'1/-1' }}>
             <label>Bemerkung</label>
@@ -235,10 +313,7 @@ export default function OrderDetailPage(){
 
           <div className="actions">
             <button type="submit">Änderungen speichern</button>
-            <button type="button" className="secondary" onClick={() => {
-              setEditing(false)
-              load()
-            }}>Abbrechen</button>
+            <button type="button" className="secondary" onClick={() => { setEditing(false); load() }}>Abbrechen</button>
           </div>
         </form>
       )}
@@ -259,8 +334,70 @@ export default function OrderDetailPage(){
     <div className="card">
       <h2>Wareneingänge</h2>
       <table>
-        <thead><tr><th>Datum</th><th>Stückzahl</th><th>Lieferschein</th><th>Bemerkung</th></tr></thead>
-        <tbody>{receipts.map(r=><tr key={r.id}><td>{new Date(r.received_at).toLocaleString('de-DE')}</td><td>{r.received_quantity}</td><td>{r.delivery_note_number || '-'}</td><td>{r.notes || '-'}</td></tr>)}</tbody>
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Stückzahl</th>
+            <th>Lieferschein</th>
+            <th>Bemerkung</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {receipts.map(r=>(
+            <tr key={r.id}>
+              <td>{new Date(r.received_at).toLocaleString('de-DE')}</td>
+
+              {editingReceiptId === r.id ? (
+                <>
+                  <td><input type="number" min="1" value={editReceiptQty} onChange={e=>setEditReceiptQty(e.target.value)} /></td>
+                  <td><input value={editReceiptNote} onChange={e=>setEditReceiptNote(e.target.value)} /></td>
+                  <td><input value={editReceiptComment} onChange={e=>setEditReceiptComment(e.target.value)} /></td>
+                  <td className="actions">
+                    <button type="button" onClick={()=>saveReceiptEdit(r)}>Speichern</button>
+                    <button type="button" className="secondary" onClick={()=>setEditingReceiptId('')}>Abbrechen</button>
+                  </td>
+                </>
+              ) : (
+                <>
+                  <td>{r.received_quantity}</td>
+                  <td>{r.delivery_note_number || '-'}</td>
+                  <td>{r.notes || '-'}</td>
+                  <td className="actions">
+                    <button type="button" className="secondary" onClick={()=>startEditReceipt(r)}>✏️</button>
+                    <button type="button" className="danger" onClick={()=>deleteReceipt(r)}>🗑</button>
+                  </td>
+                </>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <div className="card">
+      <h2>Wareneingang-Historie</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Aktion</th>
+            <th>Stückzahl</th>
+            <th>Lieferschein</th>
+            <th>Bemerkung</th>
+          </tr>
+        </thead>
+        <tbody>
+          {receiptHistory.map(h=>(
+            <tr key={h.id}>
+              <td>{new Date(h.created_at).toLocaleString('de-DE')}</td>
+              <td>{h.action}</td>
+              <td>{h.old_quantity ?? '-'} → {h.new_quantity ?? '-'}</td>
+              <td>{h.old_delivery_note_number || '-'} → {h.new_delivery_note_number || '-'}</td>
+              <td>{h.old_notes || '-'} → {h.new_notes || '-'}</td>
+            </tr>
+          ))}
+        </tbody>
       </table>
     </div>
   </main>
