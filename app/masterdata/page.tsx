@@ -11,7 +11,7 @@ type CrossSection = { id:string; name:string }
 
 type TypeKey = 'customers' | 'suppliers' | 'materials' | 'cross_sections'
 
-function MasterDataPage() {
+function MasterDataContent() {
   const searchParams = useSearchParams()
 
   const [type, setType] = useState<TypeKey>('customers')
