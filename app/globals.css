@@ -72,3 +72,23 @@ a.card:hover {
   color: #17202a;
   border-radius: 0;
 }
+
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.quick-button {
+  background: #ffffff;
+  color: #17202a !important;
+  padding: 8px 11px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.quick-button:hover {
+  background: #dfe6ed;
+}
