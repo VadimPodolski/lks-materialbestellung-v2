@@ -49,16 +49,20 @@ export async function POST(req: Request) {
 
 bitte liefern Sie uns folgendes Material:
 
-Auftrag: ${orderNumber}
-Kunde: ${customer}
-Material: ${material}
-Querschnitt: ${crossSection}
-Länge: ${lengthMm || '-'} mm
-Stückzahl: ${quantity}
+Auftrag: ${body.orderNumber}
+Material: ${body.material}
+Querschnitt: ${body.crossSection}
+Länge: ${body.lengthMm || '-'} mm
+Stückzahl: ${body.quantity}
 
-Gewünschter Liefertermin: ${desiredDeliveryDate || '-'}
+Gewünschter Liefertermin: ${body.desiredDeliveryDate || '-'}
+
+Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere Kommission (AB-Nummer) an:
+
+AB-Nummer: ${body.orderNumber}
 
 Mit freundlichen Grüßen
+
 LKS-Technik GmbH & Co. KG`
     })
 
