@@ -45,6 +45,12 @@ function OrdersContent() {
     load()
   }, [searchParams])
 
+  async function logout() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  window.location.href = '/login'
+}
+  
   async function load() {
     const supabase = createClient()
 
@@ -181,9 +187,9 @@ function OrdersContent() {
           <p className="small">Eingeloggt als: {currentUserEmail || 'nicht erkannt'}</p>
         </div>
 
-        <Link className="button" href="/orders/new">
-          Neue Bestellung
-        </Link>
+        <p className="small">
+  Benutzer: {currentUserEmail}
+</p>
       </div>
 
       <div className="card grid">
