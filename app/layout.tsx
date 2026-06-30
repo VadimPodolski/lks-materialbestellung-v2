@@ -1,6 +1,6 @@
 import './globals.css'
 import Link from 'next/link'
-import LoginLogoutLink from './components/LoginLogoutLink'
+import LoginLogoutLink from '@/components/LoginLogoutLink'
 
 export const metadata = {
   title: 'LKS Materialbestellung',
