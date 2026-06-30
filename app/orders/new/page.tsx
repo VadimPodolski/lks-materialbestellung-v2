@@ -21,7 +21,7 @@ export default function NewOrderPage() {
   const [showCrossModal, setShowCrossModal] = useState(false)
   const [showCustomerModal, setShowCustomerModal] = useState(false)
 
-  const [materialForm, setMaterialForm] = useState({ material_name: '', material_number: '' })
+  const [materialForm, setMaterialForm] = useState({ material_name: '' })
   const [crossForm, setCrossForm] = useState({ name: '' })
   const [customerForm, setCustomerForm] = useState({ name: '', contact_person: '', email: '', phone: '', notes: '' })
 
@@ -92,32 +92,31 @@ export default function NewOrderPage() {
   }
 
   function materialLabel(m: Material) {
-    if (m.material_number && m.material_name) return `${m.material_number} - ${m.material_name}`
-    return m.name
+    return m.material_name || m.name
   }
 
   async function saveMaterial() {
     const materialName = materialForm.material_name.trim()
-    const materialNumber = materialForm.material_number.trim()
 
-    if (!materialName) return setMsg('Bitte Materialbezeichnung eintragen.')
+    if (!materialName) return setMsg('Bitte Material eintragen.')
 
-    const name = materialNumber ? `${materialNumber} - ${materialName}` : materialName
     const supabase = createClient()
 
     const { error } = await supabase.from('materials').insert({
-      name,
+      name: materialName,
       material_name: materialName,
-      material_number: materialNumber || null
+      material_number: null
     })
 
     if (error && !error.message.includes('duplicate')) return setMsg(error.message)
 
-    setMaterialForm({ material_name: '', material_number: '' })
+    setMaterialForm({ material_name: '' })
     setShowMaterialModal(false)
     setMsg('')
+
     await loadMasterData()
-    setForm(prev => ({ ...prev, material: name }))
+
+    setForm(prev => ({ ...prev, material: materialName }))
   }
 
   async function saveCrossSection() {
@@ -276,10 +275,14 @@ export default function NewOrderPage() {
         <div className="modal-backdrop">
           <div className="modal">
             <h2>Material anlegen</h2>
-            <label>Werkstoffnummer</label>
-            <input value={materialForm.material_number} onChange={e => setMaterialForm({ ...materialForm, material_number: e.target.value })} placeholder="z.B. 1.4301 oder S235" />
-            <label>Materialbezeichnung</label>
-            <input value={materialForm.material_name} onChange={e => setMaterialForm({ ...materialForm, material_name: e.target.value })} placeholder="z.B. Edelstahl oder Baustahl" />
+
+            <label>Material</label>
+            <input
+              value={materialForm.material_name}
+              onChange={e => setMaterialForm({ material_name: e.target.value })}
+              placeholder="z.B. Edelstahl, Baustahl, Alu"
+            />
+
             <div className="actions">
               <button type="button" onClick={saveMaterial}>Speichern</button>
               <button type="button" className="secondary" onClick={() => setShowMaterialModal(false)}>Abbrechen</button>
