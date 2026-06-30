@@ -440,24 +440,38 @@ a.card:hover {
   margin-bottom: 16px;
 }
 
-.table-scroll {
-  width: 100%;
-  overflow-x: auto;
-  border-radius: 12px;
-}
-
 .position-entry-table {
-  min-width: 1320px;
+  table-layout: fixed;
 }
 
 .position-entry-table th,
 .position-entry-table td {
-  padding: 8px 9px;
+  padding: 8px 7px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.position-entry-table th:nth-child(1),
+.position-entry-table td:nth-child(1) {
+  width: 70px;
 }
 
 .position-entry-table th:nth-child(4),
 .position-entry-table td:nth-child(4) {
-  width: 76px;
+  width: 72px;
+}
+
+.position-entry-table th:nth-child(5),
+.position-entry-table td:nth-child(5),
+.position-entry-table th:nth-child(6),
+.position-entry-table td:nth-child(6),
+.position-entry-table th:nth-child(7),
+.position-entry-table td:nth-child(7),
+.position-entry-table th:nth-child(10),
+.position-entry-table td:nth-child(10),
+.position-entry-table th:nth-child(11),
+.position-entry-table td:nth-child(11) {
+  width: 82px;
 }
 
 .position-entry-table th:nth-child(8),
@@ -466,17 +480,17 @@ a.card:hover {
 .position-entry-table td:nth-child(9),
 .position-entry-table th:nth-child(12),
 .position-entry-table td:nth-child(12) {
-  width: 140px;
+  width: 130px;
 }
 
 .table-input {
-  min-width: 112px;
+  min-width: 0;
   padding: 7px 8px;
 }
 
 .table-input.small-number {
-  min-width: 76px;
-  max-width: 90px;
+  min-width: 0;
+  max-width: none;
 }
 
 .table-checkbox {

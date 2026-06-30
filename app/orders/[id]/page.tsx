@@ -770,14 +770,14 @@ LKS-Technik GmbH & Co. KG`
 
   if (!order) {
     return (
-      <main className="container">
+      <main className="container wide">
         <p>Lade Bestellung...</p>
       </main>
     )
   }
 
   return (
-    <main className="container">
+    <main className="container wide">
       <button className="secondary" onClick={() => router.push('/orders')}>
         Zurück
       </button>
@@ -805,7 +805,7 @@ LKS-Technik GmbH & Co. KG`
               </span>
             </p>
 
-            <div className="order-items-table table-scroll">
+            <div className="order-items-table">
               <table className="position-entry-table">
                 <thead>
                   <tr>
