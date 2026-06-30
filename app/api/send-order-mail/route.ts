@@ -57,9 +57,8 @@ Stückzahl: ${body.quantity}
 
 Gewünschter Liefertermin: ${body.desiredDeliveryDate || '-'}
 
-Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere Kommission (AB-Nummer) an:
+Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere (AB-Nummer) an.
 
-AB-Nummer: ${body.orderNumber}
 
 Mit freundlichen Grüßen
 
