@@ -394,3 +394,12 @@ a.card:hover {
   color: #2563eb;
   font-weight: 700;
 }
+
+.nav-link-button {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
