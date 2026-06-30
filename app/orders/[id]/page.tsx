@@ -81,6 +81,7 @@ export default function OrderDetailPage() {
   const [receiptNotes, setReceiptNotes] = useState('')
 
   const [scrapDrafts, setScrapDrafts] = useState<Record<string, ScrapDraft>>({})
+  const [selectedScrapIds, setSelectedScrapIds] = useState<string[]>([])
 
   const [editingReceiptId, setEditingReceiptId] = useState('')
   const [editReceiptQty, setEditReceiptQty] = useState('')
@@ -257,6 +258,14 @@ export default function OrderDetailPage() {
         )
       })
       .reduce((sum, scrap) => sum + Number(scrap.quantity || 0), 0)
+  }
+
+  function toggleScrapSelection(scrapId: string) {
+    setSelectedScrapIds(prev =>
+      prev.includes(scrapId)
+        ? prev.filter(id => id !== scrapId)
+        : [...prev, scrapId]
+    )
   }
 
   function mailto() {
@@ -443,57 +452,86 @@ LKS-Technik GmbH & Co. KG`
     setMsg('Wareneingang wurde gebucht.')
   }
 
-  async function bookScrapForItem(item: OrderItem, index: number) {
+  async function bookScraps() {
     if (!order) return
+
+    const entries = orderItems
+      .map((item, index) => {
+        const draftKey = orderItemOptionValue(item, index)
+        const draft = scrapDrafts[draftKey] || { quantity: '', reason: '' }
+        const qty = Number(draft.quantity)
+
+        return { item, draftKey, draft, qty }
+      })
+      .filter(entry => entry.draft.quantity.trim() !== '')
+
+    if (entries.length === 0) {
+      return setMsg('Bitte mindestens eine Ausschussmenge eingeben.')
+    }
+
+    if (entries.some(entry => !entry.qty || entry.qty < 1)) {
+      return setMsg('Bitte nur gültige Ausschussmengen größer 0 eingeben.')
+    }
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
-    const draftKey = orderItemOptionValue(item, index)
-    const draft = scrapDrafts[draftKey] || { quantity: '', reason: '' }
-    const qty = Number(draft.quantity)
 
-    if (!qty || qty < 1) {
-      return setMsg('Bitte Ausschussmenge eingeben.')
-    }
-
-    const { error } = await supabase.from('scrap_items').insert({
-      material_order_id: order.id,
-      order_item_id: item.id || null,
-      material: item.material,
-      cross_section: item.cross_section,
-      length_mm: item.length_mm,
-      quantity: qty,
-      reason: draft.reason || null,
-      created_by: userData.user?.id || null,
-      reordered: false
-    })
+    const { error } = await supabase.from('scrap_items').insert(
+      entries.map(({ item, draft, qty }) => ({
+        material_order_id: order.id,
+        order_item_id: item.id || null,
+        material: item.material,
+        cross_section: item.cross_section,
+        length_mm: item.length_mm,
+        quantity: qty,
+        reason: draft.reason || null,
+        created_by: userData.user?.id || null,
+        reordered: false
+      }))
+    )
 
     if (error) {
       setMsg(error.message)
       return
     }
 
-    setScrapDrafts(prev => ({
-      ...prev,
-      [draftKey]: { quantity: '', reason: '' }
-    }))
+    setScrapDrafts(prev => {
+      const next = { ...prev }
+
+      for (const entry of entries) {
+        next[entry.draftKey] = { quantity: '', reason: '' }
+      }
+
+      return next
+    })
 
     await load()
-    setMsg(`Ausschuss wurde für ${item.material} - ${item.cross_section} gebucht.`)
+    setMsg('Ausschuss wurde gebucht.')
   }
 
-  async function reorderScrap(scrap: Scrap) {
+  async function reorderSelectedScraps() {
     if (!order) return
 
-    const scrapItem = scrap.material && scrap.cross_section
-      ? {
-        material: scrap.material,
-        cross_section: scrap.cross_section,
-        length_mm: scrap.length_mm
-      }
-      : primaryOrderItem(orderItems)
+    const selectedScraps = scraps.filter(scrap => selectedScrapIds.includes(scrap.id) && !scrap.reordered)
 
-    if (!confirm(`${scrap.quantity} Stück aus Ausschuss nachbestellen?`)) {
+    if (selectedScraps.length === 0) {
+      return setMsg('Bitte mindestens einen offenen Ausschuss anhaken.')
+    }
+
+    const reorderItems = mergeOrderItems(selectedScraps.map(scrap => {
+      const fallbackItem = primaryOrderItem(orderItems)
+
+      return {
+        material: scrap.material || fallbackItem.material,
+        cross_section: scrap.cross_section || fallbackItem.cross_section,
+        length_mm: scrap.length_mm ?? fallbackItem.length_mm,
+        quantity: scrap.quantity
+      }
+    }))
+    const firstItem = primaryOrderItem(reorderItems)
+    const totalQuantity = orderItemsTotal(reorderItems)
+
+    if (!confirm(`${totalQuantity} Stück aus Ausschuss nachbestellen?`)) {
       return
     }
 
@@ -505,14 +543,21 @@ LKS-Technik GmbH & Co. KG`
       .insert({
         order_number: `${order.order_number}-NB`,
         customer: order.customer,
-        material: scrapItem.material,
-        cross_section: scrapItem.cross_section,
-        length_mm: scrapItem.length_mm,
-        quantity: scrap.quantity,
+        material: firstItem.material,
+        cross_section: firstItem.cross_section,
+        length_mm: firstItem.length_mm,
+        quantity: totalQuantity,
         supplier_id: order.supplier_id,
         desired_delivery_date: order.desired_delivery_date,
         status: 'offen',
-        notes: `Nachbestellung aus Ausschuss (${scrap.quantity} Stück)\nGrund: ${scrap.reason || '-'}`,
+        notes: `Nachbestellung aus Ausschuss (${totalQuantity} Stück)\n${selectedScraps.map(scrap => {
+          const fallbackItem = primaryOrderItem(orderItems)
+          const material = scrap.material || fallbackItem.material
+          const crossSection = scrap.cross_section || fallbackItem.cross_section
+          const lengthMm = scrap.length_mm ?? fallbackItem.length_mm
+
+          return `- ${material} - ${crossSection}, ${lengthMm || '-'} mm: ${scrap.quantity} Stück, Grund: ${scrap.reason || '-'}`
+        }).join('\n')}`,
         created_by: userData.user?.id || null
       })
       .select('id')
@@ -523,21 +568,24 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    await supabase.from('order_items').insert({
-      material_order_id: data.id,
-      material: scrapItem.material,
-      cross_section: scrapItem.cross_section,
-      length_mm: scrapItem.length_mm,
-      quantity: scrap.quantity,
-      position: 1
-    })
+    await supabase.from('order_items').insert(
+      reorderItems.map((item, index) => ({
+        material_order_id: data.id,
+        material: item.material,
+        cross_section: item.cross_section,
+        length_mm: item.length_mm,
+        quantity: item.quantity,
+        position: index + 1
+      }))
+    )
 
     await supabase
       .from('scrap_items')
       .update({ reordered: true })
-      .eq('id', scrap.id)
+      .in('id', selectedScraps.map(scrap => scrap.id))
 
     await load()
+    setSelectedScrapIds([])
     setMsg('Nachbestellung wurde erzeugt.')
     router.push(`/orders/${data.id}`)
   }
@@ -690,7 +738,6 @@ LKS-Technik GmbH & Co. KG`
                     <th>Ausschuss</th>
                     <th>Ausschussmenge</th>
                     <th>Grund</th>
-                    <th>Aktion</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -722,16 +769,17 @@ LKS-Technik GmbH & Co. KG`
                             className="table-input"
                           />
                         </td>
-                        <td>
-                          <button type="button" onClick={() => bookScrapForItem(item, index)}>
-                            Buchen
-                          </button>
-                        </td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
+            </div>
+
+            <div className="actions" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" onClick={bookScraps}>
+                Ausschuss buchen
+              </button>
             </div>
 
             <div className="grid">
@@ -950,23 +998,37 @@ LKS-Technik GmbH & Co. KG`
       </div>
 
       <div className="card">
-        <h2>Ausschuss</h2>
+        <div className="actions" style={{ justifyContent: 'space-between' }}>
+          <h2>Ausschuss</h2>
+          <button type="button" onClick={reorderSelectedScraps}>
+            Ausgewählte nachbestellen
+          </button>
+        </div>
 
         <table>
           <thead>
             <tr>
+              <th></th>
               <th>Datum</th>
               <th>Position</th>
               <th>Stückzahl</th>
               <th>Grund</th>
               <th>Status</th>
-              <th>Aktion</th>
             </tr>
           </thead>
 
           <tbody>
             {scraps.map(s => (
               <tr key={s.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedScrapIds.includes(s.id)}
+                    disabled={Boolean(s.reordered)}
+                    onChange={() => toggleScrapSelection(s.id)}
+                    className="table-checkbox"
+                  />
+                </td>
                 <td>{new Date(s.created_at).toLocaleString('de-DE')}</td>
                 <td>
                   {s.material && s.cross_section
@@ -976,16 +1038,6 @@ LKS-Technik GmbH & Co. KG`
                 <td>{s.quantity}</td>
                 <td>{s.reason || '-'}</td>
                 <td>{s.reordered ? 'Nachbestellt' : 'Offen'}</td>
-                <td>
-                  {!s.reordered && (
-                    <button
-                      type="button"
-                      onClick={() => reorderScrap(s)}
-                    >
-                      Nachbestellen
-                    </button>
-                  )}
-                </td>
               </tr>
             ))}
           </tbody>

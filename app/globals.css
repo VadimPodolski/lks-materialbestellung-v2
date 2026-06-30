@@ -450,6 +450,11 @@ a.card:hover {
   max-width: 110px;
 }
 
+.table-checkbox {
+  width: auto;
+  min-width: 18px;
+}
+
 .nav-link-button {
   background: none;
   border: none;
