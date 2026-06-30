@@ -28,6 +28,14 @@ type Receipt = {
   received_at: string
 }
 
+type Scrap = {
+  id: string
+  quantity: number
+  reason: string | null
+  reordered: boolean | null
+  created_at: string
+}
+
 type Supplier = { id: string; name: string; email: string }
 type MasterData = { id: string; name: string }
 
@@ -37,6 +45,7 @@ export default function OrderDetailPage() {
 
   const [order, setOrder] = useState<Order | null>(null)
   const [receipts, setReceipts] = useState<Receipt[]>([])
+  const [scraps, setScraps] = useState<Scrap[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [materials, setMaterials] = useState<MasterData[]>([])
   const [crossSections, setCrossSections] = useState<MasterData[]>([])
@@ -58,6 +67,9 @@ export default function OrderDetailPage() {
   const [deliveryNote, setDeliveryNote] = useState('')
   const [receiptNotes, setReceiptNotes] = useState('')
 
+  const [scrapQuantity, setScrapQuantity] = useState('')
+  const [scrapReason, setScrapReason] = useState('')
+
   const [editingReceiptId, setEditingReceiptId] = useState('')
   const [editReceiptQty, setEditReceiptQty] = useState('')
   const [editReceiptNote, setEditReceiptNote] = useState('')
@@ -72,19 +84,42 @@ export default function OrderDetailPage() {
   async function load() {
     const supabase = createClient()
 
-    const [{ data: orderData }, { data: receiptData }, { data: supplierData }, { data: materialData }, { data: crossData }] =
-      await Promise.all([
-        supabase.from('material_orders').select('*,suppliers(name,email)').eq('id', params.id).single(),
-        supabase.from('goods_receipts').select('*').eq('material_order_id', params.id).order('received_at', { ascending: false }),
-        supabase.from('suppliers').select('id,name,email').order('name'),
-        supabase.from('materials').select('id,name').order('name'),
-        supabase.from('cross_sections').select('id,name').order('name')
-      ])
+    const [
+      { data: orderData },
+      { data: receiptData },
+      { data: scrapData },
+      { data: supplierData },
+      { data: materialData },
+      { data: crossData }
+    ] = await Promise.all([
+      supabase
+        .from('material_orders')
+        .select('*,suppliers(name,email)')
+        .eq('id', params.id)
+        .single(),
+
+      supabase
+        .from('goods_receipts')
+        .select('*')
+        .eq('material_order_id', params.id)
+        .order('received_at', { ascending: false }),
+
+      supabase
+        .from('scrap_items')
+        .select('*')
+        .eq('material_order_id', params.id)
+        .order('created_at', { ascending: false }),
+
+      supabase.from('suppliers').select('id,name,email').order('name'),
+      supabase.from('materials').select('id,name').order('name'),
+      supabase.from('cross_sections').select('id,name').order('name')
+    ])
 
     const loadedOrder = orderData as any
 
     setOrder(loadedOrder)
     setReceipts(receiptData || [])
+    setScraps((scrapData as any) || [])
     setSuppliers(supplierData || [])
     setMaterials(materialData || [])
     setCrossSections(crossData || [])
@@ -130,6 +165,11 @@ export default function OrderDetailPage() {
   const receivedSum = useMemo(
     () => receipts.reduce((sum, r) => sum + r.received_quantity, 0),
     [receipts]
+  )
+
+  const scrapSum = useMemo(
+    () => scraps.reduce((sum, s) => sum + Number(s.quantity || 0), 0),
+    [scraps]
   )
 
   function setEdit(k: string, v: string) {
@@ -262,6 +302,76 @@ LKS-Technik GmbH & Co. KG`
     setMsg('Wareneingang wurde gebucht.')
   }
 
+  async function bookScrap(e: React.FormEvent) {
+    e.preventDefault()
+    if (!order) return
+
+    const qty = Number(scrapQuantity)
+
+    if (!qty || qty < 1) {
+      return setMsg('Bitte Ausschussmenge eingeben.')
+    }
+
+    const supabase = createClient()
+    const { data: userData } = await supabase.auth.getUser()
+
+    await supabase.from('scrap_items').insert({
+      material_order_id: order.id,
+      quantity: qty,
+      reason: scrapReason || null,
+      created_by: userData.user?.id || null
+    })
+
+    setScrapQuantity('')
+    setScrapReason('')
+
+    await load()
+    setMsg('Ausschuss wurde gebucht.')
+  }
+
+  async function reorderScrap(scrap: Scrap) {
+    if (!order) return
+
+    if (!confirm(`${scrap.quantity} Stück aus Ausschuss nachbestellen?`)) {
+      return
+    }
+
+    const supabase = createClient()
+    const { data: userData } = await supabase.auth.getUser()
+
+    const { data, error } = await supabase
+      .from('material_orders')
+      .insert({
+        order_number: `${order.order_number}-NB`,
+        customer: order.customer,
+        material: order.material,
+        cross_section: order.cross_section,
+        length_mm: order.length_mm,
+        quantity: scrap.quantity,
+        supplier_id: order.supplier_id,
+        desired_delivery_date: order.desired_delivery_date,
+        status: 'offen',
+        notes: `Nachbestellung aus Ausschuss (${scrap.quantity} Stück)\nGrund: ${scrap.reason || '-'}`,
+        created_by: userData.user?.id || null
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      setMsg(error.message)
+      return
+    }
+
+    await supabase
+      .from('scrap_items')
+      .update({ reordered: true })
+      .eq('id', scrap.id)
+
+    await load()
+    setMsg('Nachbestellung wurde erzeugt.')
+    router.push(`/orders/${data.id}`)
+  }
+
   function startEditReceipt(r: Receipt) {
     setEditingReceiptId(r.id)
     setEditReceiptQty(String(r.received_quantity))
@@ -332,18 +442,19 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    const check = prompt(
-      `Zum Löschen bitte die Auftragsnummer eingeben:\n${order.order_number}`
-    )
-
     if (!confirm(`Bestellung ${order.order_number} wirklich löschen?`)) {
-  return
-}
+      return
+    }
 
     const supabase = createClient()
 
     await supabase
       .from('goods_receipts')
+      .delete()
+      .eq('material_order_id', order.id)
+
+    await supabase
+      .from('scrap_items')
       .delete()
       .eq('material_order_id', order.id)
 
@@ -404,6 +515,7 @@ LKS-Technik GmbH & Co. KG`
               <p><b>Stückzahl:</b><br />{order.quantity}</p>
               <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
               <p><b>Geliefert:</b><br />{receivedSum} / {order.quantity}</p>
+              <p><b>Ausschuss:</b><br />{scrapSum}</p>
               <p>
                 <b>Lieferant:</b>
                 <br />
@@ -583,6 +695,71 @@ LKS-Technik GmbH & Co. KG`
 
           <button>Wareneingang buchen</button>
         </form>
+      </div>
+
+      <div className="card">
+        <h2>Ausschuss melden</h2>
+
+        <form className="grid" onSubmit={bookScrap}>
+          <div>
+            <label>Ausschuss Stückzahl</label>
+            <input
+              type="number"
+              min="1"
+              value={scrapQuantity}
+              onChange={e => setScrapQuantity(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label>Grund</label>
+            <input
+              value={scrapReason}
+              onChange={e => setScrapReason(e.target.value)}
+              placeholder="Rohr verbogen, falsch geschnitten ..."
+            />
+          </div>
+
+          <button>Ausschuss buchen</button>
+        </form>
+      </div>
+
+      <div className="card">
+        <h2>Ausschuss</h2>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Stückzahl</th>
+              <th>Grund</th>
+              <th>Status</th>
+              <th>Aktion</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {scraps.map(s => (
+              <tr key={s.id}>
+                <td>{new Date(s.created_at).toLocaleString('de-DE')}</td>
+                <td>{s.quantity}</td>
+                <td>{s.reason || '-'}</td>
+                <td>{s.reordered ? 'Nachbestellt' : 'Offen'}</td>
+                <td>
+                  {!s.reordered && (
+                    <button
+                      type="button"
+                      onClick={() => reorderScrap(s)}
+                    >
+                      Nachbestellen
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="card">
