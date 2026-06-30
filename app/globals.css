@@ -125,7 +125,27 @@ label {
   display: block;
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 5px;
+  margin-bottom: 7px;
+  margin-top: 12px;
+}
+
+.modal label:first-of-type {
+  margin-top: 0;
+}
+
+.modal input,
+.modal select,
+.modal textarea {
+  margin-bottom: 6px;
+}
+
+.modal h2 {
+  margin-top: 0;
+  margin-bottom: 22px;
+}
+
+.modal .actions {
+  margin-top: 10px;
 }
 
 input,
