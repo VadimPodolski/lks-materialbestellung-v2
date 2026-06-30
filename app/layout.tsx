@@ -20,13 +20,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="dropdown">
               <Link href="/masterdata">Stammdaten ▾</Link>
               <div className="dropdown-menu">
-                <Link href="/orders/new">Neue Bestellung</Link>
-                <Link href="/orders">Wareneingang</Link>
-                <Link href="/masterdata?type=customers">Kunde</Link>
-                <Link href="/masterdata?type=suppliers">Lieferant</Link>
-                <Link href="/masterdata?type=materials">Material</Link>
-                <Link href="/masterdata?type=cross_sections">Querschnitt</Link>
-              </div>
+  <Link href="/masterdata?type=customers">Kunden</Link>
+  <Link href="/masterdata?type=suppliers">Lieferanten</Link>
+  <Link href="/masterdata?type=materials">Materialien</Link>
+  <Link href="/masterdata?type=cross_sections">Querschnitte</Link>
+</div>
             </div>
 
             <Link href="/login">Login</Link>
