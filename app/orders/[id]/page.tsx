@@ -33,6 +33,10 @@ type Order = {
 
 type Receipt = {
   id: string
+  order_item_id: string | null
+  material: string | null
+  cross_section: string | null
+  length_mm: number | null
   received_quantity: number
   delivery_note_number: string | null
   notes: string | null
@@ -53,6 +57,7 @@ type Scrap = {
 
 type Supplier = { id: string; name: string; email: string }
 type MasterData = { id: string; name: string }
+type ReceiptDraft = { quantity: string; deliveryNote: string; notes: string }
 type ScrapDraft = { quantity: string; reason: string }
 
 export default function OrderDetailPage() {
@@ -76,10 +81,7 @@ export default function OrderDetailPage() {
   })
   const [editItems, setEditItems] = useState<OrderItem[]>([emptyOrderItem()])
 
-  const [receivedQuantity, setReceivedQuantity] = useState('')
-  const [deliveryNote, setDeliveryNote] = useState('')
-  const [receiptNotes, setReceiptNotes] = useState('')
-
+  const [receiptDrafts, setReceiptDrafts] = useState<Record<string, ReceiptDraft>>({})
   const [scrapDrafts, setScrapDrafts] = useState<Record<string, ScrapDraft>>({})
   const [selectedScrapIds, setSelectedScrapIds] = useState<string[]>([])
 
@@ -229,6 +231,35 @@ export default function OrderDetailPage() {
 
   function orderItemOptionValue(item: OrderItem, index: number) {
     return item.id || `index:${index}`
+  }
+
+  function receiptDraftFor(item: OrderItem, index: number) {
+    return receiptDrafts[orderItemOptionValue(item, index)] || { quantity: '', deliveryNote: '', notes: '' }
+  }
+
+  function setReceiptDraft(item: OrderItem, index: number, key: keyof ReceiptDraft, value: string) {
+    const draftKey = orderItemOptionValue(item, index)
+    setReceiptDrafts(prev => ({
+      ...prev,
+      [draftKey]: {
+        ...(prev[draftKey] || { quantity: '', deliveryNote: '', notes: '' }),
+        [key]: value
+      }
+    }))
+  }
+
+  function receivedQtyForItem(item: OrderItem) {
+    return receipts
+      .filter(receipt => {
+        if (receipt.order_item_id && item.id) return receipt.order_item_id === item.id
+
+        return (
+          receipt.material === item.material &&
+          receipt.cross_section === item.cross_section &&
+          Number(receipt.length_mm || 0) === Number(item.length_mm || 0)
+        )
+      })
+      .reduce((sum, receipt) => sum + Number(receipt.received_quantity || 0), 0)
   }
 
   function scrapDraftFor(item: OrderItem, index: number) {
@@ -421,32 +452,60 @@ LKS-Technik GmbH & Co. KG`
     setMsg('Status wurde auf Bestellt gesetzt.')
   }
 
-  async function receiveGoods(e: React.FormEvent) {
-    e.preventDefault()
+  async function receiveGoods() {
     if (!order) return
 
-    const supabase = createClient()
-    const qty = Number(receivedQuantity)
+    const entries = orderItems
+      .map((item, index) => {
+        const draftKey = orderItemOptionValue(item, index)
+        const draft = receiptDrafts[draftKey] || { quantity: '', deliveryNote: '', notes: '' }
+        const qty = Number(draft.quantity)
 
-    if (!qty || qty < 1) {
-      return setMsg('Bitte gelieferte Stückzahl eingeben.')
+        return { item, draftKey, draft, qty }
+      })
+      .filter(entry => entry.draft.quantity.trim() !== '')
+
+    if (entries.length === 0) {
+      return setMsg('Bitte mindestens eine gelieferte Menge eingeben.')
     }
 
+    if (entries.some(entry => !entry.qty || entry.qty < 1)) {
+      return setMsg('Bitte nur gültige Wareneingangsmengen größer 0 eingeben.')
+    }
+
+    const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
 
-    await supabase.from('goods_receipts').insert({
-      material_order_id: order.id,
-      received_quantity: qty,
-      delivery_note_number: deliveryNote || null,
-      notes: receiptNotes || null,
-      received_by: userData.user?.id || null
-    })
+    const { error } = await supabase.from('goods_receipts').insert(
+      entries.map(({ item, draft, qty }) => ({
+        material_order_id: order.id,
+        order_item_id: item.id || null,
+        material: item.material,
+        cross_section: item.cross_section,
+        length_mm: item.length_mm,
+        received_quantity: qty,
+        delivery_note_number: draft.deliveryNote || null,
+        notes: draft.notes || null,
+        received_by: userData.user?.id || null
+      }))
+    )
+
+    if (error) {
+      setMsg(error.message)
+      return
+    }
 
     await recalculateStatus(order.id, orderItemsTotal(orderItems))
 
-    setReceivedQuantity('')
-    setDeliveryNote('')
-    setReceiptNotes('')
+    setReceiptDrafts(prev => {
+      const next = { ...prev }
+
+      for (const entry of entries) {
+        next[entry.draftKey] = { quantity: '', deliveryNote: '', notes: '' }
+      }
+
+      return next
+    })
 
     await load()
     setMsg('Wareneingang wurde gebucht.')
@@ -735,6 +794,10 @@ LKS-Technik GmbH & Co. KG`
                     <th>Querschnitt</th>
                     <th>Länge</th>
                     <th>Stückzahl</th>
+                    <th>Geliefert</th>
+                    <th>WE-Menge</th>
+                    <th>Lieferschein</th>
+                    <th>WE-Bemerkung</th>
                     <th>Ausschuss</th>
                     <th>Ausschussmenge</th>
                     <th>Grund</th>
@@ -742,6 +805,7 @@ LKS-Technik GmbH & Co. KG`
                 </thead>
                 <tbody>
                   {orderItems.map((item, index) => {
+                    const receiptDraft = receiptDraftFor(item, index)
                     const draft = scrapDraftFor(item, index)
 
                     return (
@@ -751,6 +815,34 @@ LKS-Technik GmbH & Co. KG`
                         <td>{item.cross_section}</td>
                         <td>{item.length_mm || '-'} mm</td>
                         <td>{item.quantity}</td>
+                        <td className={receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}>
+                          {receivedQtyForItem(item)}
+                        </td>
+                        <td>
+                          <input
+                            type="number"
+                            min="1"
+                            value={receiptDraft.quantity}
+                            onChange={e => setReceiptDraft(item, index, 'quantity', e.target.value)}
+                            className="table-input small-number"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={receiptDraft.deliveryNote}
+                            onChange={e => setReceiptDraft(item, index, 'deliveryNote', e.target.value)}
+                            placeholder="LS-Nr."
+                            className="table-input"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={receiptDraft.notes}
+                            onChange={e => setReceiptDraft(item, index, 'notes', e.target.value)}
+                            placeholder="Bemerkung"
+                            className="table-input"
+                          />
+                        </td>
                         <td className="qty-scrap">{scrapQtyForItem(item)}</td>
                         <td>
                           <input
@@ -777,6 +869,9 @@ LKS-Technik GmbH & Co. KG`
             </div>
 
             <div className="actions" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" className="secondary" onClick={receiveGoods}>
+                Wareneingang buchen
+              </button>
               <button type="button" onClick={bookScraps}>
                 Ausschuss buchen
               </button>
@@ -963,41 +1058,6 @@ LKS-Technik GmbH & Co. KG`
       </div>
 
       <div className="card">
-        <h2>Wareneingang buchen</h2>
-
-        <form className="grid" onSubmit={receiveGoods}>
-          <div>
-            <label>Gelieferte Stückzahl</label>
-            <input
-              type="number"
-              min="1"
-              value={receivedQuantity}
-              onChange={e => setReceivedQuantity(e.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <label>Lieferscheinnummer</label>
-            <input
-              value={deliveryNote}
-              onChange={e => setDeliveryNote(e.target.value)}
-            />
-          </div>
-
-          <div style={{ gridColumn: '1/-1' }}>
-            <label>Bemerkung</label>
-            <textarea
-              value={receiptNotes}
-              onChange={e => setReceiptNotes(e.target.value)}
-            />
-          </div>
-
-          <button>Wareneingang buchen</button>
-        </form>
-      </div>
-
-      <div className="card">
         <div className="actions" style={{ justifyContent: 'space-between' }}>
           <h2>Ausschuss</h2>
           <button type="button" onClick={reorderSelectedScraps}>
@@ -1051,6 +1111,7 @@ LKS-Technik GmbH & Co. KG`
           <thead>
             <tr>
               <th>Datum</th>
+              <th>Position</th>
               <th>Stückzahl</th>
               <th>Lieferschein</th>
               <th>Bemerkung</th>
@@ -1065,6 +1126,12 @@ LKS-Technik GmbH & Co. KG`
 
                 {editingReceiptId === r.id ? (
                   <>
+                    <td>
+                      {r.material && r.cross_section
+                        ? `${r.material} - ${r.cross_section}, ${r.length_mm || '-'} mm`
+                        : '-'}
+                    </td>
+
                     <td>
                       <input
                         type="number"
@@ -1107,6 +1174,11 @@ LKS-Technik GmbH & Co. KG`
                   </>
                 ) : (
                   <>
+                    <td>
+                      {r.material && r.cross_section
+                        ? `${r.material} - ${r.cross_section}, ${r.length_mm || '-'} mm`
+                        : '-'}
+                    </td>
                     <td>{r.received_quantity}</td>
                     <td>{r.delivery_note_number || '-'}</td>
                     <td>{r.notes || '-'}</td>

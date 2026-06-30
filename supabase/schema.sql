@@ -45,6 +45,10 @@ create table if not exists order_items (
 create table if not exists goods_receipts (
   id uuid primary key default gen_random_uuid(),
   material_order_id uuid not null references material_orders(id) on delete cascade,
+  order_item_id uuid references order_items(id) on delete set null,
+  material text,
+  cross_section text,
+  length_mm integer,
   received_quantity integer not null check (received_quantity > 0),
   delivery_note_number text,
   notes text,
