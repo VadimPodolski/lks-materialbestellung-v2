@@ -724,7 +724,7 @@ if (error) {
             />
           </div>
 
-          <button>Ausschuss buchen</button>
+          <button style={{ alignSelf: 'end' }}>Ausschuss buchen</button>
         </form>
       </div>
 
