@@ -6,15 +6,15 @@ import { createClient } from '@/lib/supabase'
 
 export default function LoginPage() {
   const router = useRouter()
-  const [email, setEmail] = useState('v.podolski@lks-technik.de')
+  const supabase = createClient()
+
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [msg, setMsg] = useState('')
 
   async function login(e: React.FormEvent) {
     e.preventDefault()
     setMsg('')
-
-    const supabase = createClient()
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -26,49 +26,41 @@ export default function LoginPage() {
       return
     }
 
-    router.push('/orders')
-  }
-
-  async function logout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    setMsg('Abgemeldet.')
+    router.push('/')
+    router.refresh()
   }
 
   return (
     <main className="container">
-      <h1>Login</h1>
+      <div className="card" style={{ maxWidth: 420, margin: '80px auto' }}>
+        <h1>Anmelden</h1>
 
-      <form className="card grid" onSubmit={login}>
-        <div>
-          <label>E-Mail</label>
-          <input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-          />
-        </div>
+        <form className="grid" onSubmit={login}>
+          <div>
+            <label>E-Mail</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+            />
+          </div>
 
-        <div>
-          <label>Passwort</label>
-          <input
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-          />
-        </div>
+          <div>
+            <label>Passwort</label>
+            <input
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+            />
+          </div>
 
-        <div className="actions">
-          <button type="submit">Einloggen</button>
-          <button type="button" className="secondary" onClick={logout}>
-            Ausloggen
-          </button>
-        </div>
+          <button>Anmelden</button>
 
-        {msg && <p className="error">{msg}</p>}
-      </form>
+          {msg && <p className="error">{msg}</p>}
+        </form>
+      </div>
     </main>
   )
 }
