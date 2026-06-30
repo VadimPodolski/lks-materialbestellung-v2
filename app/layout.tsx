@@ -17,15 +17,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Link href="/dashboard">Dashboard</Link>
             <Link href="/orders">Bestellungen</Link>
 
-            <div className="dropdown">
-              <Link href="/masterdata">Stammdaten ▾</Link>
-              <div className="dropdown-menu">
-  <Link href="/masterdata?type=customers">Kunden</Link>
-  <Link href="/masterdata?type=suppliers">Lieferanten</Link>
-  <Link href="/masterdata?type=materials">Materialien</Link>
-  <Link href="/masterdata?type=cross_sections">Querschnitte</Link>
+      <div className="dropdown">
+  <span>Stammdaten ▾</span>
+
+  <div className="dropdown-menu">
+    <Link href="/masterdata?type=customers">Kunden</Link>
+    <Link href="/masterdata?type=suppliers">Lieferanten</Link>
+    <Link href="/masterdata?type=materials">Materialien</Link>
+    <Link href="/masterdata?type=cross_sections">Querschnitte</Link>
+  </div>
 </div>
-            </div>
 
             <Link href="/login">Login</Link>
           </nav>
