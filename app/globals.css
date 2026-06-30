@@ -355,3 +355,42 @@ a.card:hover {
     white-space: nowrap;
   }
 }
+
+.container.wide {
+  max-width: 1800px;
+}
+
+.orders-table {
+  table-layout: auto;
+  width: 100%;
+}
+
+.orders-table th,
+.orders-table td {
+  white-space: nowrap;
+}
+
+.qty-delivered.partial {
+  color: #d97706;
+  font-weight: 700;
+}
+
+.qty-delivered.complete {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.qty-open.open {
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.qty-open.complete {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.qty-scrap {
+  color: #2563eb;
+  font-weight: 700;
+}
