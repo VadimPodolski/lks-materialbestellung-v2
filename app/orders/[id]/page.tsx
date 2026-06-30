@@ -199,6 +199,41 @@ LKS-Technik GmbH & Co. KG`
     return `mailto:${order.suppliers.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 
+  async function sendOrderEmail() {
+    if (!order || !order.suppliers?.email) {
+      setMsg('Keine Lieferanten-E-Mail vorhanden.')
+      return
+    }
+
+    setMsg('Bestellung wird per E-Mail versendet...')
+
+    const res = await fetch('/api/send-order-mail', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        supplierEmail: order.suppliers.email,
+        orderNumber: order.order_number,
+        customer: order.customer,
+        material: order.material,
+        crossSection: order.cross_section,
+        lengthMm: order.length_mm,
+        quantity: order.quantity,
+        desiredDeliveryDate: order.desired_delivery_date,
+        supplierName: order.suppliers.name
+      })
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      setMsg(data.error || 'E-Mail konnte nicht gesendet werden.')
+      return
+    }
+
+    await markOrdered()
+    setMsg(`Bestellung wurde an ${order.suppliers.email} versendet.`)
+  }
+
   async function recalculateStatus(orderId: string, quantity: number) {
     const supabase = createClient()
 
@@ -535,9 +570,9 @@ LKS-Technik GmbH & Co. KG`
             )}
 
             <div className="actions">
-              <a className="button" href={mailto()} onClick={markOrdered}>
+              <button type="button" onClick={sendOrderEmail}>
                 Bestellung senden
-              </a>
+              </button>
 
               <button className="danger" onClick={cancelOrder}>
                 Stornieren
