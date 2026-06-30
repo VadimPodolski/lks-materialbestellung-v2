@@ -5,22 +5,38 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 
 export default function LoginLogoutLink() {
-  const [loggedIn, setLoggedIn] = useState(false)
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null)
 
   useEffect(() => {
-    async function checkLogin() {
-      const supabase = createClient()
-      const { data } = await supabase.auth.getUser()
-      setLoggedIn(!!data.user)
+    const supabase = createClient()
+
+    async function init() {
+      const {
+        data: { session }
+      } = await supabase.auth.getSession()
+
+      setLoggedIn(!!session)
     }
 
-    checkLogin()
+    init()
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setLoggedIn(!!session)
+    })
+
+    return () => subscription.unsubscribe()
   }, [])
 
   async function logout() {
     const supabase = createClient()
     await supabase.auth.signOut()
     window.location.href = '/login'
+  }
+
+  if (loggedIn === null) {
+    return null
   }
 
   if (!loggedIn) {
