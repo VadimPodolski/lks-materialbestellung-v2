@@ -310,16 +310,11 @@ export default function NewOrderPage() {
           <div className="order-items">
             {items.map((item, index) => (
               <div className="order-item" key={index}>
-                <div className="order-item-header">
-                  <b>Position {index + 1}</b>
-                  {items.length > 1 && (
-                    <button type="button" className="danger" onClick={() => removeItem(index)}>
-                      Entfernen
-                    </button>
-                  )}
-                </div>
+                <div className="order-item-row">
+                  <div className="order-item-title">
+                    <b>Position {index + 1}</b>
+                  </div>
 
-                <div className="grid">
                   <div>
                     <label>Material</label>
                     <select value={item.material} onChange={e => setItem(index, 'material', e.target.value)} required>
@@ -352,6 +347,14 @@ export default function NewOrderPage() {
                       onChange={e => setItem(index, 'quantity', e.target.value)}
                       required
                     />
+                  </div>
+
+                  <div className="order-item-remove">
+                    {items.length > 1 && (
+                      <button type="button" className="danger" onClick={() => removeItem(index)}>
+                        Entfernen
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

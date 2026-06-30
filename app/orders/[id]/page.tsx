@@ -724,16 +724,11 @@ LKS-Technik GmbH & Co. KG`
               <div className="order-items">
                 {editItems.map((item, index) => (
                   <div className="order-item" key={index}>
-                    <div className="order-item-header">
-                      <b>Position {index + 1}</b>
-                      {editItems.length > 1 && (
-                        <button type="button" className="danger" onClick={() => removeEditItem(index)}>
-                          Entfernen
-                        </button>
-                      )}
-                    </div>
+                    <div className="order-item-row">
+                      <div className="order-item-title">
+                        <b>Position {index + 1}</b>
+                      </div>
 
-                    <div className="grid">
                       <div>
                         <label>Material</label>
                         <select
@@ -782,6 +777,14 @@ LKS-Technik GmbH & Co. KG`
                           onChange={e => setEditItem(index, 'quantity', e.target.value)}
                           required
                         />
+                      </div>
+
+                      <div className="order-item-remove">
+                        {editItems.length > 1 && (
+                          <button type="button" className="danger" onClick={() => removeEditItem(index)}>
+                            Entfernen
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
