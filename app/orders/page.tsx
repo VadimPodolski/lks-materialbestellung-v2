@@ -278,7 +278,15 @@ function OrdersContent() {
                   </Link>
                 </td>
                 <td>{o.customer}</td>
-                <td>{o.material}</td>
+                <td className="order-positions-cell">
+                  <div className="order-position-lines">
+                    {orderItems.map((item, index) => (
+                      <div key={`${item.material}-${item.cross_section}-${item.length_mm}-${index}`}>
+                        {item.material}
+                      </div>
+                    ))}
+                  </div>
+                </td>
                 <td className="order-positions-cell">
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (

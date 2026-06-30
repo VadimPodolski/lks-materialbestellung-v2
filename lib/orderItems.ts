@@ -82,7 +82,7 @@ export function orderItemsTotal(items: OrderItem[]) {
 
 export function orderItemsSummary(items: OrderItem[]) {
   return items
-    .map(item => `${item.cross_section} (${item.quantity} Stk.)`)
+    .map(item => `${item.material} - ${item.cross_section} (${item.quantity} Stk.)`)
     .join(', ')
 }
 
