@@ -52,6 +52,20 @@ create table if not exists goods_receipts (
   received_at timestamptz default now()
 );
 
+create table if not exists scrap_items (
+  id uuid primary key default gen_random_uuid(),
+  material_order_id uuid not null references material_orders(id) on delete cascade,
+  order_item_id uuid references order_items(id) on delete set null,
+  material text,
+  cross_section text,
+  length_mm integer,
+  quantity integer not null check (quantity > 0),
+  reason text,
+  reordered boolean default false,
+  created_by uuid references auth.users(id),
+  created_at timestamptz default now()
+);
+
 create table if not exists order_history (
   id uuid primary key default gen_random_uuid(),
   material_order_id uuid not null references material_orders(id) on delete cascade,
@@ -66,6 +80,7 @@ alter table suppliers enable row level security;
 alter table material_orders enable row level security;
 alter table order_items enable row level security;
 alter table goods_receipts enable row level security;
+alter table scrap_items enable row level security;
 alter table order_history enable row level security;
 
 -- Einfache interne Lösung: eingeloggte Nutzer dürfen alles lesen/schreiben.
@@ -88,6 +103,11 @@ create policy "receipts_select" on goods_receipts for select to authenticated us
 create policy "receipts_insert" on goods_receipts for insert to authenticated with check (auth.uid() = received_by or received_by is null);
 create policy "receipts_update" on goods_receipts for update to authenticated using (true);
 create policy "receipts_delete" on goods_receipts for delete to authenticated using (true);
+
+create policy "scrap_select" on scrap_items for select to authenticated using (true);
+create policy "scrap_insert" on scrap_items for insert to authenticated with check (auth.uid() = created_by or created_by is null);
+create policy "scrap_update" on scrap_items for update to authenticated using (true);
+create policy "scrap_delete" on scrap_items for delete to authenticated using (true);
 
 create policy "history_select" on order_history for select to authenticated using (true);
 create policy "history_insert" on order_history for insert to authenticated with check (auth.uid() = user_id or user_id is null);

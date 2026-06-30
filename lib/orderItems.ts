@@ -63,6 +63,7 @@ export function mergeOrderItems(items: OrderItem[]) {
     }
 
     merged.set(key, {
+      id: item.id,
       material,
       cross_section: crossSection,
       length_mm: lengthMm,

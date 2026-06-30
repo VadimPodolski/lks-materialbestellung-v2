@@ -41,6 +41,10 @@ type Receipt = {
 
 type Scrap = {
   id: string
+  order_item_id: string | null
+  material: string | null
+  cross_section: string | null
+  length_mm: number | null
   quantity: number
   reason: string | null
   reordered: boolean | null
@@ -77,6 +81,7 @@ export default function OrderDetailPage() {
 
   const [scrapQuantity, setScrapQuantity] = useState('')
   const [scrapReason, setScrapReason] = useState('')
+  const [scrapOrderItemId, setScrapOrderItemId] = useState('')
 
   const [editingReceiptId, setEditingReceiptId] = useState('')
   const [editReceiptQty, setEditReceiptQty] = useState('')
@@ -157,13 +162,16 @@ export default function OrderDetailPage() {
     }
 
     if (loadedOrder) {
+      const loadedItems = normalizeOrderItems(loadedOrder)
+
       setEditForm({
         customer: loadedOrder.customer || '',
         supplier_id: loadedOrder.supplier_id || '',
         desired_delivery_date: loadedOrder.desired_delivery_date || '',
         notes: loadedOrder.notes || ''
       })
-      setEditItems(normalizeOrderItems(loadedOrder))
+      setEditItems(loadedItems)
+      setScrapOrderItemId(prev => prev || loadedItems[0]?.id || 'index:0')
     }
   }
 
@@ -218,6 +226,15 @@ export default function OrderDetailPage() {
 
   function removeEditItem(index: number) {
     setEditItems(prev => prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index))
+  }
+
+  function orderItemOptionValue(item: OrderItem, index: number) {
+    return item.id || `index:${index}`
+  }
+
+  function orderItemLabel(item: Pick<OrderItem, 'material' | 'cross_section' | 'length_mm' | 'quantity'>, index?: number) {
+    const prefix = typeof index === 'number' ? `Position ${index + 1}: ` : ''
+    return `${prefix}${item.material} - ${item.cross_section}, ${item.length_mm || '-'} mm (${item.quantity} Stk.)`
   }
 
   function mailto() {
@@ -411,6 +428,13 @@ LKS-Technik GmbH & Co. KG`
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
     const qty = Number(scrapQuantity)
+    const selectedIndex = scrapOrderItemId.startsWith('index:')
+      ? Number(scrapOrderItemId.replace('index:', ''))
+      : -1
+    const selectedItem =
+      orderItems.find(item => item.id === scrapOrderItemId) ||
+      orderItems[selectedIndex] ||
+      primaryOrderItem(orderItems)
 
     if (!qty || qty < 1) {
       return setMsg('Bitte Ausschussmenge eingeben.')
@@ -418,6 +442,10 @@ LKS-Technik GmbH & Co. KG`
 
     const { error } = await supabase.from('scrap_items').insert({
       material_order_id: order.id,
+      order_item_id: selectedItem.id || null,
+      material: selectedItem.material,
+      cross_section: selectedItem.cross_section,
+      length_mm: selectedItem.length_mm,
       quantity: qty,
       reason: scrapReason || null,
       created_by: userData.user?.id || null,
@@ -431,6 +459,7 @@ LKS-Technik GmbH & Co. KG`
 
     setScrapQuantity('')
     setScrapReason('')
+    setScrapOrderItemId(selectedItem.id || scrapOrderItemId || 'index:0')
 
     await load()
     setMsg('Ausschuss wurde gebucht.')
@@ -438,6 +467,14 @@ LKS-Technik GmbH & Co. KG`
 
   async function reorderScrap(scrap: Scrap) {
     if (!order) return
+
+    const scrapItem = scrap.material && scrap.cross_section
+      ? {
+        material: scrap.material,
+        cross_section: scrap.cross_section,
+        length_mm: scrap.length_mm
+      }
+      : primaryOrderItem(orderItems)
 
     if (!confirm(`${scrap.quantity} Stück aus Ausschuss nachbestellen?`)) {
       return
@@ -451,9 +488,9 @@ LKS-Technik GmbH & Co. KG`
       .insert({
         order_number: `${order.order_number}-NB`,
         customer: order.customer,
-        material: primaryOrderItem(orderItems).material,
-        cross_section: primaryOrderItem(orderItems).cross_section,
-        length_mm: primaryOrderItem(orderItems).length_mm,
+        material: scrapItem.material,
+        cross_section: scrapItem.cross_section,
+        length_mm: scrapItem.length_mm,
         quantity: scrap.quantity,
         supplier_id: order.supplier_id,
         desired_delivery_date: order.desired_delivery_date,
@@ -469,13 +506,11 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    const item = primaryOrderItem(orderItems)
-
     await supabase.from('order_items').insert({
       material_order_id: data.id,
-      material: item.material,
-      cross_section: item.cross_section,
-      length_mm: item.length_mm,
+      material: scrapItem.material,
+      cross_section: scrapItem.cross_section,
+      length_mm: scrapItem.length_mm,
       quantity: scrap.quantity,
       position: 1
     })
@@ -871,6 +906,21 @@ LKS-Technik GmbH & Co. KG`
 
         <form className="grid" onSubmit={bookScrap}>
           <div>
+            <label>Position</label>
+            <select
+              value={scrapOrderItemId}
+              onChange={e => setScrapOrderItemId(e.target.value)}
+              required
+            >
+              {orderItems.map((item, index) => (
+                <option key={orderItemOptionValue(item, index)} value={orderItemOptionValue(item, index)}>
+                  {orderItemLabel(item, index)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label>Ausschuss Stückzahl</label>
             <input
               type="number"
@@ -901,6 +951,7 @@ LKS-Technik GmbH & Co. KG`
           <thead>
             <tr>
               <th>Datum</th>
+              <th>Position</th>
               <th>Stückzahl</th>
               <th>Grund</th>
               <th>Status</th>
@@ -912,6 +963,11 @@ LKS-Technik GmbH & Co. KG`
             {scraps.map(s => (
               <tr key={s.id}>
                 <td>{new Date(s.created_at).toLocaleString('de-DE')}</td>
+                <td>
+                  {s.material && s.cross_section
+                    ? `${s.material} - ${s.cross_section}, ${s.length_mm || '-'} mm`
+                    : '-'}
+                </td>
                 <td>{s.quantity}</td>
                 <td>{s.reason || '-'}</td>
                 <td>{s.reordered ? 'Nachbestellt' : 'Offen'}</td>
