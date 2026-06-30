@@ -1,7 +1,16 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { LOGIN_DISABLED } from '@/lib/authMode'
 
 export async function middleware(request: NextRequest) {
+  if (LOGIN_DISABLED) {
+    return NextResponse.next({
+      request: {
+        headers: request.headers
+      }
+    })
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers

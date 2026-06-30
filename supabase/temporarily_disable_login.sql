@@ -1,0 +1,27 @@
+do $$
+declare
+  table_name text;
+  tables text[] := array[
+    'customers',
+    'suppliers',
+    'materials',
+    'cross_sections',
+    'profiles',
+    'material_orders',
+    'order_items',
+    'goods_receipts',
+    'scrap_items',
+    'order_history'
+  ];
+begin
+  foreach table_name in array tables loop
+    if to_regclass('public.' || table_name) is not null then
+      execute format('grant select, insert, update, delete on table public.%I to anon', table_name);
+      execute format('drop policy if exists temp_login_disabled_anon_all on public.%I', table_name);
+      execute format(
+        'create policy temp_login_disabled_anon_all on public.%I for all to anon using (true) with check (true)',
+        table_name
+      );
+    end if;
+  end loop;
+end $$;

@@ -3,11 +3,17 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
+import { LOGIN_DISABLED } from '@/lib/authMode'
 
 export default function LoginLogoutLink() {
   const [loggedIn, setLoggedIn] = useState<boolean | null>(null)
 
   useEffect(() => {
+    if (LOGIN_DISABLED) {
+      setLoggedIn(false)
+      return
+    }
+
     const supabase = createClient()
 
     async function init() {
@@ -33,6 +39,10 @@ export default function LoginLogoutLink() {
     const supabase = createClient()
     await supabase.auth.signOut()
     window.location.href = '/login'
+  }
+
+  if (LOGIN_DISABLED) {
+    return null
   }
 
   if (loggedIn === null) {

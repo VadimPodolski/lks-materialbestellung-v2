@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import { OrderItem, normalizeOrderItems, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
+import { LOGIN_DISABLED } from '@/lib/authMode'
 
 type Order = {
   id: string
@@ -49,6 +50,7 @@ function OrdersContent() {
   }, [searchParams])
 
   async function logout() {
+  if (LOGIN_DISABLED) return
   const supabase = createClient()
   await supabase.auth.signOut()
   window.location.href = '/login'
@@ -63,11 +65,11 @@ function OrdersContent() {
     const user = userData.user || sessionData.session?.user || null
     const email = user?.email?.toLowerCase() || ''
 
-    setCurrentUserEmail(email)
+    setCurrentUserEmail(LOGIN_DISABLED ? 'Login deaktiviert' : email)
 
-    let admin = email === 'v.podolski@lks-technik.de'
+    let admin = !LOGIN_DISABLED && email === 'v.podolski@lks-technik.de'
 
-    if (user) {
+    if (!LOGIN_DISABLED && user) {
       const { data: profileById } = await supabase
         .from('profiles')
         .select('role')
@@ -186,7 +188,7 @@ function OrdersContent() {
         <div>
           <h1>Bestellungen</h1>
           <p className="small">Admin: {isAdmin ? 'JA' : 'NEIN'}</p>
-          <p className="small">Eingeloggt als: {currentUserEmail || 'nicht erkannt'}</p>
+          <p className="small">{LOGIN_DISABLED ? currentUserEmail : `Eingeloggt als: ${currentUserEmail || 'nicht erkannt'}`}</p>
         </div>
 
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -194,13 +196,15 @@ function OrdersContent() {
     Neue Bestellung
   </Link>
 
-  <button
-    type="button"
-    className="secondary"
-    onClick={logout}
-  >
-    Abmelden
-  </button>
+  {!LOGIN_DISABLED && (
+    <button
+      type="button"
+      className="secondary"
+      onClick={logout}
+    >
+      Abmelden
+    </button>
+  )}
 </div>
       </div>
 
