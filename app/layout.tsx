@@ -5,7 +5,7 @@ import LoginLogoutLink from '@/components/LoginLogoutLink'
 export const metadata = {
   title: 'LKS Materialbestellung',
   description: 'Interne Materialbestellung für LKS-Technik'
-}
+} 
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
