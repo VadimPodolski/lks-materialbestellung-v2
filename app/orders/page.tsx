@@ -178,7 +178,7 @@ function OrdersContent() {
   }, [orders, q, status, overdueOnly, today])
 
   return (
-    <main className="container">
+    <main className="container wide">
       <div className="actions" style={{ justifyContent: 'space-between' }}>
         <div>
           <h1>Bestellungen</h1>
