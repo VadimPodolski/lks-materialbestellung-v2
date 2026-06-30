@@ -2,8 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { statusClass, statusLabels } from '@/lib/supabase'
-import { createClient } from '@/lib/supabase/client'
+import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 
 type Order = {
   id: string
