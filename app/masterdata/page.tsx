@@ -107,11 +107,9 @@ function MasterDataContent() {
     const supabase = createClient()
 
     const row = {
-      name: material.material_number
-        ? `${material.material_number} - ${material.material_name}`
-        : material.material_name,
+      name: material.material_name,
       material_name: material.material_name,
-      material_number: material.material_number || null
+      material_number: null
     }
 
     if (material.id) {
@@ -162,7 +160,7 @@ function MasterDataContent() {
   const filteredMaterials = useMemo(() => {
     const x = q.toLowerCase()
     return materials.filter(m =>
-      `${m.material_number || ''} ${m.material_name || ''} ${m.name}`.toLowerCase().includes(x)
+      `${m.material_name || ''} ${m.name}`.toLowerCase().includes(x)
     )
   }, [materials, q])
 
@@ -296,8 +294,12 @@ function MasterDataContent() {
           <h2>Materialien</h2>
 
           <form className="card grid" onSubmit={saveMaterial}>
-            <input placeholder="Werkstoffnummer z.B. 1.4301" value={material.material_number} onChange={e=>setMaterial({...material,material_number:e.target.value})} />
-            <input placeholder="Material z.B. Edelstahl" value={material.material_name} onChange={e=>setMaterial({...material,material_name:e.target.value})} required />
+            <input
+              placeholder="Material z.B. Edelstahl"
+              value={material.material_name}
+              onChange={e=>setMaterial({...material,material_name:e.target.value})}
+              required
+            />
             <button>{material.id ? 'Material ändern' : 'Material speichern'}</button>
             {material.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
@@ -305,23 +307,19 @@ function MasterDataContent() {
           <table>
             <thead>
               <tr>
-                <th>Werkstoffnummer</th>
                 <th>Material</th>
-                <th>Anzeige</th>
                 <th>Aktionen</th>
               </tr>
             </thead>
             <tbody>
               {filteredMaterials.map(m=>(
                 <tr key={m.id}>
-                  <td><b>{m.material_number || '-'}</b></td>
-                  <td>{m.material_name || '-'}</td>
-                  <td>{m.name}</td>
+                  <td><b>{m.material_name || m.name}</b></td>
                   <td className="actions">
                     <button onClick={()=>setMaterial({
                       id:m.id,
                       material_name:m.material_name || m.name,
-                      material_number:m.material_number || ''
+                      material_number:''
                     })}>Bearbeiten</button>
                     <button className="danger" onClick={()=>remove('materials', m.id)}>Löschen</button>
                   </td>
@@ -366,6 +364,7 @@ function MasterDataContent() {
     </main>
   )
 }
+
 export default function MasterDataPage() {
   return (
     <Suspense fallback={<main className="container">Lade Stammdaten...</main>}>
