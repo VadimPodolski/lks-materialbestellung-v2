@@ -17,6 +17,8 @@ type Order = {
   created_by: string | null
   ordered_by: string | null
   suppliers: { name: string } | null
+  goods_receipts?: { received_quantity: number | null }[]
+  scrap_items?: { quantity: number | null }[]
 }
 
 type Profile = {
@@ -80,7 +82,21 @@ function OrdersContent() {
     const [{ data: orderData }, { data: profileData }] = await Promise.all([
       supabase
         .from('material_orders')
-        .select('id,order_number,customer,material,cross_section,quantity,status,desired_delivery_date,created_by,ordered_by,suppliers(name)')
+        .select(`
+          id,
+          order_number,
+          customer,
+          material,
+          cross_section,
+          quantity,
+          status,
+          desired_delivery_date,
+          created_by,
+          ordered_by,
+          suppliers(name),
+          goods_receipts(received_quantity),
+          scrap_items(quantity)
+        `)
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id,name,email,role')
     ])
@@ -95,6 +111,24 @@ function OrdersContent() {
     return p?.name || p?.email || '-'
   }
 
+  function deliveredQty(order: Order) {
+    return (order.goods_receipts || []).reduce(
+      (sum, r) => sum + Number(r.received_quantity || 0),
+      0
+    )
+  }
+
+  function scrapQty(order: Order) {
+    return (order.scrap_items || []).reduce(
+      (sum, s) => sum + Number(s.quantity || 0),
+      0
+    )
+  }
+
+  function openQty(order: Order) {
+    return Math.max(order.quantity - deliveredQty(order), 0)
+  }
+
   async function deleteOrder(order: Order) {
     if (!isAdmin) {
       alert('Nur Administratoren dürfen Bestellungen löschen.')
@@ -105,9 +139,14 @@ function OrdersContent() {
       `Zum Löschen bitte die Auftragsnummer eingeben:\n${order.order_number}`
     )
 
+    if (check !== order.order_number) {
+      alert('Auftragsnummer stimmt nicht. Löschen abgebrochen.')
+      return
+    }
+
     if (!confirm(`Bestellung ${order.order_number} wirklich löschen?`)) {
-  return
-}
+      return
+    }
 
     const supabase = createClient()
 
@@ -195,6 +234,9 @@ function OrdersContent() {
             <th>Material</th>
             <th>Querschnitt</th>
             <th>Menge</th>
+            <th>Geliefert</th>
+            <th>Offen</th>
+            <th>Ausschuss</th>
             <th>Lieferant</th>
             <th>Liefertermin</th>
             <th>Erstellt von</th>
@@ -204,39 +246,48 @@ function OrdersContent() {
         </thead>
 
         <tbody>
-          {filtered.map(o => (
-            <tr key={o.id}>
-              <td>
-                <span className={statusClass(o.status)}>
-                  {statusLabels[o.status]}
-                </span>
-              </td>
-              <td>
-                <Link href={`/orders/${o.id}`}>
-                  <b>{o.order_number}</b>
-                </Link>
-              </td>
-              <td>{o.customer}</td>
-              <td>{o.material}</td>
-              <td>{o.cross_section}</td>
-              <td>{o.quantity}</td>
-              <td>{o.suppliers?.name || '-'}</td>
-              <td>{o.desired_delivery_date || '-'}</td>
-              <td>{profileName(o.created_by)}</td>
-              <td>{profileName(o.ordered_by)}</td>
-              {isAdmin && (
+          {filtered.map(o => {
+            const delivered = deliveredQty(o)
+            const scrap = scrapQty(o)
+            const open = openQty(o)
+
+            return (
+              <tr key={o.id}>
                 <td>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={() => deleteOrder(o)}
-                  >
-                    🗑
-                  </button>
+                  <span className={statusClass(o.status)}>
+                    {statusLabels[o.status]}
+                  </span>
                 </td>
-              )}
-            </tr>
-          ))}
+                <td>
+                  <Link href={`/orders/${o.id}`}>
+                    <b>{o.order_number}</b>
+                  </Link>
+                </td>
+                <td>{o.customer}</td>
+                <td>{o.material}</td>
+                <td>{o.cross_section}</td>
+                <td>{o.quantity}</td>
+                <td>{delivered}</td>
+                <td>{open}</td>
+                <td>{scrap}</td>
+                <td>{o.suppliers?.name || '-'}</td>
+                <td>{o.desired_delivery_date || '-'}</td>
+                <td>{profileName(o.created_by)}</td>
+                <td>{profileName(o.ordered_by)}</td>
+                {isAdmin && (
+                  <td>
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={() => deleteOrder(o)}
+                    >
+                      🗑
+                    </button>
+                  </td>
+                )}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </main>
