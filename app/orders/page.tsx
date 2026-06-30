@@ -188,13 +188,6 @@ function OrdersContent() {
     Neue Bestellung
   </Link>
 
-  <button
-    type="button"
-    className="secondary"
-    onClick={logout}
-  >
-    Abmelden
-  </button>
 </div>
       </div>
 
