@@ -225,7 +225,7 @@ function OrdersContent() {
         </div>
       </div>
 
-      <table>
+      <table className="orders-table">
         <thead>
           <tr>
             <th>Status</th>
@@ -267,9 +267,25 @@ function OrdersContent() {
                 <td>{o.material}</td>
                 <td>{o.cross_section}</td>
                 <td>{o.quantity}</td>
-                <td>{delivered}</td>
-                <td>{open}</td>
-                <td>{scrap}</td>
+               <td
+  className={
+    delivered >= o.quantity
+      ? 'qty-delivered complete'
+      : delivered > 0
+        ? 'qty-delivered partial'
+        : ''
+  }
+>
+  {delivered}
+</td>
+
+<td className={open === 0 ? 'qty-open complete' : 'qty-open open'}>
+  {open}
+</td>
+
+<td className="qty-scrap">
+  {scrap}
+</td>
                 <td>{o.suppliers?.name || '-'}</td>
                 <td>{o.desired_delivery_date || '-'}</td>
                 <td>{profileName(o.created_by)}</td>
