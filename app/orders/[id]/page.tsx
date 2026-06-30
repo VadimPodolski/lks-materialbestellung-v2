@@ -312,15 +312,18 @@ LKS-Technik GmbH & Co. KG`
       return setMsg('Bitte Ausschussmenge eingeben.')
     }
 
-    const supabase = createClient()
-    const { data: userData } = await supabase.auth.getUser()
+ const { error } = await supabase.from('scrap_items').insert({
+  material_order_id: order.id,
+  quantity: qty,
+  reason: scrapReason || null,
+  created_by: userData.user?.id || null,
+  reordered: false
+})
 
-    await supabase.from('scrap_items').insert({
-      material_order_id: order.id,
-      quantity: qty,
-      reason: scrapReason || null,
-      created_by: userData.user?.id || null
-    })
+if (error) {
+  setMsg(error.message)
+  return
+}
 
     setScrapQuantity('')
     setScrapReason('')
