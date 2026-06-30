@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { OrderItem, emptyOrderItem, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
+import { OrderItem, emptyOrderItem, mergeOrderItems, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
 
 type Supplier = { id: string; name: string }
 type Customer = { id: string; name: string }
@@ -202,12 +202,12 @@ export default function NewOrderPage() {
     e.preventDefault()
     setMsg('')
 
-    const cleanItems = items.map(item => ({
+    const cleanItems = mergeOrderItems(items.map(item => ({
       material: item.material.trim(),
       cross_section: item.cross_section.trim(),
       length_mm: item.length_mm ? Number(item.length_mm) : null,
       quantity: Number(item.quantity)
-    }))
+    })))
 
     if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
       return setMsg('Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')

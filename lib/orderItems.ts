@@ -32,10 +32,10 @@ export function normalizeOrderItems(order: LegacyOrderFields | null | undefined)
   const items = order.order_items || []
 
   if (items.length > 0) {
-    return [...items].sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+    return mergeOrderItems([...items].sort((a, b) => Number(a.position || 0) - Number(b.position || 0)))
   }
 
-  return [
+  return mergeOrderItems([
     {
       material: order.material,
       cross_section: order.cross_section,
@@ -43,7 +43,37 @@ export function normalizeOrderItems(order: LegacyOrderFields | null | undefined)
       quantity: order.quantity,
       position: 1
     }
-  ]
+  ])
+}
+
+export function mergeOrderItems(items: OrderItem[]) {
+  const merged = new Map<string, OrderItem>()
+
+  for (const item of items) {
+    const material = item.material.trim()
+    const crossSection = item.cross_section.trim()
+    const lengthMm = item.length_mm ? Number(item.length_mm) : null
+    const quantity = Number(item.quantity || 0)
+    const key = `${material.toLowerCase()}|${crossSection.toLowerCase()}|${lengthMm ?? ''}`
+    const existing = merged.get(key)
+
+    if (existing) {
+      existing.quantity += quantity
+      continue
+    }
+
+    merged.set(key, {
+      material,
+      cross_section: crossSection,
+      length_mm: lengthMm,
+      quantity
+    })
+  }
+
+  return Array.from(merged.values()).map((item, index) => ({
+    ...item,
+    position: index + 1
+  }))
 }
 
 export function orderItemsTotal(items: OrderItem[]) {

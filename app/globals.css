@@ -370,6 +370,16 @@ a.card:hover {
   white-space: nowrap;
 }
 
+.orders-table td.order-positions-cell {
+  white-space: normal;
+}
+
+.order-position-lines {
+  display: grid;
+  gap: 3px;
+  min-width: 120px;
+}
+
 .qty-delivered.partial {
   color: #d97706;
   font-weight: 700;

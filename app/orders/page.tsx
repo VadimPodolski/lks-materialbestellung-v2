@@ -260,6 +260,7 @@ function OrdersContent() {
 
         <tbody>
           {filtered.map(o => {
+            const orderItems = normalizeOrderItems(o)
             const delivered = deliveredQty(o)
             const scrap = scrapQty(o)
             const open = openQty(o)
@@ -278,7 +279,15 @@ function OrdersContent() {
                 </td>
                 <td>{o.customer}</td>
                 <td>{o.material}</td>
-                <td>{orderItemsSummary(normalizeOrderItems(o))}</td>
+                <td className="order-positions-cell">
+                  <div className="order-position-lines">
+                    {orderItems.map((item, index) => (
+                      <div key={`${item.cross_section}-${item.length_mm}-${index}`}>
+                        {item.cross_section} ({item.quantity} Stk.)
+                      </div>
+                    ))}
+                  </div>
+                </td>
                 <td>{o.quantity}</td>
                <td
   className={

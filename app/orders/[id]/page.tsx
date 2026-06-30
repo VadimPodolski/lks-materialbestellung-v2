@@ -6,6 +6,7 @@ import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import {
   OrderItem,
   emptyOrderItem,
+  mergeOrderItems,
   normalizeOrderItems,
   orderItemsMailText,
   orderItemsSelect,
@@ -302,12 +303,12 @@ LKS-Technik GmbH & Co. KG`
     if (!order) return
 
     const supabase = createClient()
-    const cleanItems = editItems.map(item => ({
+    const cleanItems = mergeOrderItems(editItems.map(item => ({
       material: item.material.trim(),
       cross_section: item.cross_section.trim(),
       length_mm: item.length_mm ? Number(item.length_mm) : null,
       quantity: Number(item.quantity)
-    }))
+    })))
 
     if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
       return setMsg('Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
