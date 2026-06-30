@@ -1,23 +1,64 @@
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import PDFDocument from 'pdfkit'
+
+function createOrderPdf(body: any): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: 'A4', margin: 50 })
+    const chunks: Buffer[] = []
+
+    doc.on('data', chunk => chunks.push(chunk))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+
+    doc.fontSize(20).text('LKS-Technik GmbH & Co. KG', { align: 'center' })
+    doc.moveDown(0.5)
+    doc.fontSize(16).text('Materialbestellung', { align: 'center' })
+
+    doc.moveDown(2)
+
+    doc.fontSize(11)
+    doc.text(`Auftrag / AB-Nummer: ${body.orderNumber}`)
+    doc.text(`Lieferant: ${body.supplierName || '-'}`)
+    doc.text(`Liefertermin: ${body.desiredDeliveryDate || '-'}`)
+
+    doc.moveDown(1.5)
+
+    doc.fontSize(13).text('Bestelldaten', { underline: true })
+    doc.moveDown(0.5)
+
+    doc.fontSize(11)
+    doc.text(`Material: ${body.material}`)
+    doc.text(`Querschnitt: ${body.crossSection}`)
+    doc.text(`Laenge: ${body.lengthMm || '-'} mm`)
+    doc.text(`Stueckzahl: ${body.quantity}`)
+
+    doc.moveDown(1.5)
+
+    doc.fontSize(11).text(
+      'Bitte geben Sie auf Ihrer Auftragsbestaetigung sowie auf allen Lieferpapieren unsere AB-Nummer / Kommission an.'
+    )
+
+    doc.moveDown(0.5)
+    doc.fontSize(13).text(`AB-Nummer / Kommission: ${body.orderNumber}`, {
+      underline: true
+    })
+
+    doc.moveDown(3)
+
+    doc.fontSize(11).text('Mit freundlichen Gruessen')
+    doc.moveDown(1)
+    doc.text('LKS-Technik GmbH & Co. KG')
+
+    doc.end()
+  })
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json()
 
-    const {
-      supplierEmail,
-      orderNumber,
-      customer,
-      material,
-      crossSection,
-      lengthMm,
-      quantity,
-      desiredDeliveryDate,
-      supplierName
-    } = body
-
-    if (!supplierEmail) {
+    if (!body.supplierEmail) {
       return NextResponse.json(
         { error: 'Keine Lieferanten-E-Mail vorhanden.' },
         { status: 400 }
@@ -31,6 +72,8 @@ export async function POST(req: Request) {
       )
     }
 
+    const pdfBuffer = await createOrderPdf(body)
+
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT || 587),
@@ -43,31 +86,31 @@ export async function POST(req: Request) {
 
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
-      to: supplierEmail,
-      subject: `Materialbestellung LKS - Auftrag ${orderNumber}`,
+      to: body.supplierEmail,
+      subject: `Materialbestellung LKS - Auftrag ${body.orderNumber}`,
       text: `Sehr geehrte Damen und Herren,
 
-bitte liefern Sie uns folgendes Material:
+anbei erhalten Sie unsere Materialbestellung als PDF.
 
-Auftrag: ${body.orderNumber}
-Material: ${body.material}
-Querschnitt: ${body.crossSection}
-Länge: ${body.lengthMm || '-'} mm
-Stückzahl: ${body.quantity}
+Bitte geben Sie auf Ihrer Auftragsbestaetigung sowie auf allen Lieferpapieren unsere AB-Nummer / Kommission an.
 
-Gewünschter Liefertermin: ${body.desiredDeliveryDate || '-'}
+AB-Nummer / Kommission: ${body.orderNumber}
 
-Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere (AB-Nummer) an.
+Mit freundlichen Gruessen
 
-
-Mit freundlichen Grüßen
-
-LKS-Technik GmbH & Co. KG`
+LKS-Technik GmbH & Co. KG`,
+      attachments: [
+        {
+          filename: `Materialbestellung-${body.orderNumber}.pdf`,
+          content: pdfBuffer,
+          contentType: 'application/pdf'
+        }
+      ]
     })
 
     return NextResponse.json({
       success: true,
-      message: `Bestellung wurde an ${supplierName || supplierEmail} versendet.`
+      message: `Bestellung wurde an ${body.supplierName || body.supplierEmail} versendet.`
     })
   } catch (error: any) {
     return NextResponse.json(
