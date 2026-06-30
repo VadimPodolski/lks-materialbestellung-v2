@@ -1,5 +1,6 @@
 import './globals.css'
 import Link from 'next/link'
+import LoginLogoutLink from '@/components/LoginLogoutLink'
 
 export const metadata = {
   title: 'LKS Materialbestellung',
@@ -30,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </div>
 
-            <Link href="/login">Login</Link>
+           <LoginLogoutLink />
           </nav>
         </div>
 
