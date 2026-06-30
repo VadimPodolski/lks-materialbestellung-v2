@@ -141,10 +141,6 @@ function OrdersContent() {
       return
     }
 
-    const check = prompt(
-      `Zum Löschen bitte die Auftragsnummer eingeben:\n${order.order_number}`
-    )
-
     if (!confirm(`Bestellung ${order.order_number} wirklich löschen?`)) {
       return
     }
@@ -187,9 +183,19 @@ function OrdersContent() {
           <p className="small">Eingeloggt als: {currentUserEmail || 'nicht erkannt'}</p>
         </div>
 
-        <p className="small">
-  Benutzer: {currentUserEmail}
-</p>
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+  <Link className="button" href="/orders/new">
+    Neue Bestellung
+  </Link>
+
+  <button
+    type="button"
+    className="secondary"
+    onClick={logout}
+  >
+    Abmelden
+  </button>
+</div>
       </div>
 
       <div className="card grid">
