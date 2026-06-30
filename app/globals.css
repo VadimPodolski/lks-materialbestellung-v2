@@ -440,14 +440,43 @@ a.card:hover {
   margin-bottom: 16px;
 }
 
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 12px;
+}
+
+.position-entry-table {
+  min-width: 1320px;
+}
+
+.position-entry-table th,
+.position-entry-table td {
+  padding: 8px 9px;
+}
+
+.position-entry-table th:nth-child(4),
+.position-entry-table td:nth-child(4) {
+  width: 76px;
+}
+
+.position-entry-table th:nth-child(8),
+.position-entry-table td:nth-child(8),
+.position-entry-table th:nth-child(9),
+.position-entry-table td:nth-child(9),
+.position-entry-table th:nth-child(12),
+.position-entry-table td:nth-child(12) {
+  width: 140px;
+}
+
 .table-input {
-  min-width: 150px;
+  min-width: 112px;
   padding: 7px 8px;
 }
 
 .table-input.small-number {
-  min-width: 84px;
-  max-width: 110px;
+  min-width: 76px;
+  max-width: 90px;
 }
 
 .table-checkbox {

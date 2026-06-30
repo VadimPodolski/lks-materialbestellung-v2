@@ -698,6 +698,26 @@ LKS-Technik GmbH & Co. KG`
     setMsg('Wareneingang wurde gelöscht.')
   }
 
+  async function deleteScrap(scrap: Scrap) {
+    if (scrap.reordered) {
+      setMsg('Nachbestellter Ausschuss kann nicht gelöscht werden.')
+      return
+    }
+
+    if (!confirm('Ausschuss wirklich löschen?')) return
+
+    const supabase = createClient()
+
+    await supabase
+      .from('scrap_items')
+      .delete()
+      .eq('id', scrap.id)
+
+    setSelectedScrapIds(prev => prev.filter(id => id !== scrap.id))
+    await load()
+    setMsg('Ausschuss wurde gelöscht.')
+  }
+
   async function cancelOrder() {
     const supabase = createClient()
 
@@ -785,8 +805,8 @@ LKS-Technik GmbH & Co. KG`
               </span>
             </p>
 
-            <div className="order-items-table">
-              <table>
+            <div className="order-items-table table-scroll">
+              <table className="position-entry-table">
                 <thead>
                   <tr>
                     <th>Position</th>
@@ -1074,6 +1094,7 @@ LKS-Technik GmbH & Co. KG`
               <th>Stückzahl</th>
               <th>Grund</th>
               <th>Status</th>
+              <th>Aktion</th>
             </tr>
           </thead>
 
@@ -1098,6 +1119,13 @@ LKS-Technik GmbH & Co. KG`
                 <td>{s.quantity}</td>
                 <td>{s.reason || '-'}</td>
                 <td>{s.reordered ? 'Nachbestellt' : 'Offen'}</td>
+                <td>
+                  {!s.reordered && (
+                    <button type="button" className="danger" onClick={() => deleteScrap(s)}>
+                      Löschen
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
