@@ -5,6 +5,32 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
 
+    const {
+      supplierEmail,
+      orderNumber,
+      customer,
+      material,
+      crossSection,
+      lengthMm,
+      quantity,
+      desiredDeliveryDate,
+      supplierName
+    } = body
+
+    if (!supplierEmail) {
+      return NextResponse.json(
+        { error: 'Keine Lieferanten-E-Mail vorhanden.' },
+        { status: 400 }
+      )
+    }
+
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS || !process.env.SMTP_FROM) {
+      return NextResponse.json(
+        { error: 'SMTP-Umgebungsvariablen fehlen in Vercel.' },
+        { status: 500 }
+      )
+    }
+
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT || 587),
@@ -17,26 +43,29 @@ export async function POST(req: Request) {
 
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
-      to: body.supplierEmail,
-      subject: `Materialbestellung LKS - Auftrag ${body.orderNumber}`,
+      to: supplierEmail,
+      subject: `Materialbestellung LKS - Auftrag ${orderNumber}`,
       text: `Sehr geehrte Damen und Herren,
 
 bitte liefern Sie uns folgendes Material:
 
-Auftrag: ${body.orderNumber}
-Kunde: ${body.customer}
-Material: ${body.material}
-Querschnitt: ${body.crossSection}
-Länge: ${body.lengthMm || '-'} mm
-Stückzahl: ${body.quantity}
+Auftrag: ${orderNumber}
+Kunde: ${customer}
+Material: ${material}
+Querschnitt: ${crossSection}
+Länge: ${lengthMm || '-'} mm
+Stückzahl: ${quantity}
 
-Gewünschter Liefertermin: ${body.desiredDeliveryDate || '-'}
+Gewünschter Liefertermin: ${desiredDeliveryDate || '-'}
 
 Mit freundlichen Grüßen
 LKS-Technik GmbH & Co. KG`
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({
+      success: true,
+      message: `Bestellung wurde an ${supplierName || supplierEmail} versendet.`
+    })
   } catch (error: any) {
     return NextResponse.json(
       { error: error.message || 'E-Mail konnte nicht gesendet werden.' },
