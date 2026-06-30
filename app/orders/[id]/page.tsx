@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { createClient, statusClass, statusLabels } from '@/lib/supabase'
+import { statusClass, statusLabels } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 
 type Order = {
   id: string
@@ -306,24 +307,26 @@ LKS-Technik GmbH & Co. KG`
     e.preventDefault()
     if (!order) return
 
+    const supabase = createClient()
+    const { data: userData } = await supabase.auth.getUser()
     const qty = Number(scrapQuantity)
 
     if (!qty || qty < 1) {
       return setMsg('Bitte Ausschussmenge eingeben.')
     }
 
- const { error } = await supabase.from('scrap_items').insert({
-  material_order_id: order.id,
-  quantity: qty,
-  reason: scrapReason || null,
-  created_by: userData.user?.id || null,
-  reordered: false
-})
+    const { error } = await supabase.from('scrap_items').insert({
+      material_order_id: order.id,
+      quantity: qty,
+      reason: scrapReason || null,
+      created_by: userData.user?.id || null,
+      reordered: false
+    })
 
-if (error) {
-  setMsg(error.message)
-  return
-}
+    if (error) {
+      setMsg(error.message)
+      return
+    }
 
     setScrapQuantity('')
     setScrapReason('')
