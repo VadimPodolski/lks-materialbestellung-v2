@@ -23,7 +23,7 @@ type Order = {
 
 type Profile = {
   id: string
-  name: string | null
+  full_name: string | null
   email: string | null
   role: string | null
 }
@@ -98,7 +98,7 @@ function OrdersContent() {
           scrap_items(quantity)
         `)
         .order('created_at', { ascending: false }),
-      supabase.from('profiles').select('id,name,email,role')
+      supabase.from('profiles').select('id,full_name,email,role')
     ])
 
     setOrders((orderData as any) || [])
@@ -108,7 +108,7 @@ function OrdersContent() {
   function profileName(id: string | null) {
     if (!id) return '-'
     const p = profiles.find(x => x.id === id)
-    return p?.name || p?.email || '-'
+    return p?.full_name || p?.email || '-'
   }
 
   function deliveredQty(order: Order) {
