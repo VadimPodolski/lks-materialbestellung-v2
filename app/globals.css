@@ -440,6 +440,16 @@ a.card:hover {
   margin-bottom: 16px;
 }
 
+.table-input {
+  min-width: 150px;
+  padding: 7px 8px;
+}
+
+.table-input.small-number {
+  min-width: 84px;
+  max-width: 110px;
+}
+
 .nav-link-button {
   background: none;
   border: none;

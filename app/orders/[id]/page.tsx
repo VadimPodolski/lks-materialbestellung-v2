@@ -53,6 +53,7 @@ type Scrap = {
 
 type Supplier = { id: string; name: string; email: string }
 type MasterData = { id: string; name: string }
+type ScrapDraft = { quantity: string; reason: string }
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>()
@@ -79,9 +80,7 @@ export default function OrderDetailPage() {
   const [deliveryNote, setDeliveryNote] = useState('')
   const [receiptNotes, setReceiptNotes] = useState('')
 
-  const [scrapQuantity, setScrapQuantity] = useState('')
-  const [scrapReason, setScrapReason] = useState('')
-  const [scrapOrderItemId, setScrapOrderItemId] = useState('')
+  const [scrapDrafts, setScrapDrafts] = useState<Record<string, ScrapDraft>>({})
 
   const [editingReceiptId, setEditingReceiptId] = useState('')
   const [editReceiptQty, setEditReceiptQty] = useState('')
@@ -171,7 +170,6 @@ export default function OrderDetailPage() {
         notes: loadedOrder.notes || ''
       })
       setEditItems(loadedItems)
-      setScrapOrderItemId(prev => prev || loadedItems[0]?.id || 'index:0')
     }
   }
 
@@ -232,9 +230,33 @@ export default function OrderDetailPage() {
     return item.id || `index:${index}`
   }
 
-  function orderItemLabel(item: Pick<OrderItem, 'material' | 'cross_section' | 'length_mm' | 'quantity'>, index?: number) {
-    const prefix = typeof index === 'number' ? `Position ${index + 1}: ` : ''
-    return `${prefix}${item.material} - ${item.cross_section}, ${item.length_mm || '-'} mm (${item.quantity} Stk.)`
+  function scrapDraftFor(item: OrderItem, index: number) {
+    return scrapDrafts[orderItemOptionValue(item, index)] || { quantity: '', reason: '' }
+  }
+
+  function setScrapDraft(item: OrderItem, index: number, key: keyof ScrapDraft, value: string) {
+    const draftKey = orderItemOptionValue(item, index)
+    setScrapDrafts(prev => ({
+      ...prev,
+      [draftKey]: {
+        ...(prev[draftKey] || { quantity: '', reason: '' }),
+        [key]: value
+      }
+    }))
+  }
+
+  function scrapQtyForItem(item: OrderItem) {
+    return scraps
+      .filter(scrap => {
+        if (scrap.order_item_id && item.id) return scrap.order_item_id === item.id
+
+        return (
+          scrap.material === item.material &&
+          scrap.cross_section === item.cross_section &&
+          Number(scrap.length_mm || 0) === Number(item.length_mm || 0)
+        )
+      })
+      .reduce((sum, scrap) => sum + Number(scrap.quantity || 0), 0)
   }
 
   function mailto() {
@@ -421,20 +443,14 @@ LKS-Technik GmbH & Co. KG`
     setMsg('Wareneingang wurde gebucht.')
   }
 
-  async function bookScrap(e: React.FormEvent) {
-    e.preventDefault()
+  async function bookScrapForItem(item: OrderItem, index: number) {
     if (!order) return
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
-    const qty = Number(scrapQuantity)
-    const selectedIndex = scrapOrderItemId.startsWith('index:')
-      ? Number(scrapOrderItemId.replace('index:', ''))
-      : -1
-    const selectedItem =
-      orderItems.find(item => item.id === scrapOrderItemId) ||
-      orderItems[selectedIndex] ||
-      primaryOrderItem(orderItems)
+    const draftKey = orderItemOptionValue(item, index)
+    const draft = scrapDrafts[draftKey] || { quantity: '', reason: '' }
+    const qty = Number(draft.quantity)
 
     if (!qty || qty < 1) {
       return setMsg('Bitte Ausschussmenge eingeben.')
@@ -442,12 +458,12 @@ LKS-Technik GmbH & Co. KG`
 
     const { error } = await supabase.from('scrap_items').insert({
       material_order_id: order.id,
-      order_item_id: selectedItem.id || null,
-      material: selectedItem.material,
-      cross_section: selectedItem.cross_section,
-      length_mm: selectedItem.length_mm,
+      order_item_id: item.id || null,
+      material: item.material,
+      cross_section: item.cross_section,
+      length_mm: item.length_mm,
       quantity: qty,
-      reason: scrapReason || null,
+      reason: draft.reason || null,
       created_by: userData.user?.id || null,
       reordered: false
     })
@@ -457,12 +473,13 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    setScrapQuantity('')
-    setScrapReason('')
-    setScrapOrderItemId(selectedItem.id || scrapOrderItemId || 'index:0')
+    setScrapDrafts(prev => ({
+      ...prev,
+      [draftKey]: { quantity: '', reason: '' }
+    }))
 
     await load()
-    setMsg('Ausschuss wurde gebucht.')
+    setMsg(`Ausschuss wurde für ${item.material} - ${item.cross_section} gebucht.`)
   }
 
   async function reorderScrap(scrap: Scrap) {
@@ -670,18 +687,49 @@ LKS-Technik GmbH & Co. KG`
                     <th>Querschnitt</th>
                     <th>Länge</th>
                     <th>Stückzahl</th>
+                    <th>Ausschuss</th>
+                    <th>Ausschussmenge</th>
+                    <th>Grund</th>
+                    <th>Aktion</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {orderItems.map((item, index) => (
-                    <tr key={`${item.cross_section}-${index}`}>
-                      <td>{index + 1}</td>
-                      <td>{item.material}</td>
-                      <td>{item.cross_section}</td>
-                      <td>{item.length_mm || '-'} mm</td>
-                      <td>{item.quantity}</td>
-                    </tr>
-                  ))}
+                  {orderItems.map((item, index) => {
+                    const draft = scrapDraftFor(item, index)
+
+                    return (
+                      <tr key={`${item.cross_section}-${index}`}>
+                        <td>{index + 1}</td>
+                        <td>{item.material}</td>
+                        <td>{item.cross_section}</td>
+                        <td>{item.length_mm || '-'} mm</td>
+                        <td>{item.quantity}</td>
+                        <td className="qty-scrap">{scrapQtyForItem(item)}</td>
+                        <td>
+                          <input
+                            type="number"
+                            min="1"
+                            value={draft.quantity}
+                            onChange={e => setScrapDraft(item, index, 'quantity', e.target.value)}
+                            className="table-input small-number"
+                          />
+                        </td>
+                        <td>
+                          <input
+                            value={draft.reason}
+                            onChange={e => setScrapDraft(item, index, 'reason', e.target.value)}
+                            placeholder="Grund"
+                            className="table-input"
+                          />
+                        </td>
+                        <td>
+                          <button type="button" onClick={() => bookScrapForItem(item, index)}>
+                            Buchen
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -898,49 +946,6 @@ LKS-Technik GmbH & Co. KG`
           </div>
 
           <button>Wareneingang buchen</button>
-        </form>
-      </div>
-
-      <div className="card">
-        <h2>Ausschuss melden</h2>
-
-        <form className="grid" onSubmit={bookScrap}>
-          <div>
-            <label>Position</label>
-            <select
-              value={scrapOrderItemId}
-              onChange={e => setScrapOrderItemId(e.target.value)}
-              required
-            >
-              {orderItems.map((item, index) => (
-                <option key={orderItemOptionValue(item, index)} value={orderItemOptionValue(item, index)}>
-                  {orderItemLabel(item, index)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label>Ausschuss Stückzahl</label>
-            <input
-              type="number"
-              min="1"
-              value={scrapQuantity}
-              onChange={e => setScrapQuantity(e.target.value)}
-              required
-            />
-          </div>
-
-          <div>
-            <label>Grund</label>
-            <input
-              value={scrapReason}
-              onChange={e => setScrapReason(e.target.value)}
-              placeholder="Rohr verbogen, falsch geschnitten ..."
-            />
-          </div>
-
-          <button style={{ alignSelf: 'end' }}>Ausschuss buchen</button>
         </form>
       </div>
 
