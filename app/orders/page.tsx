@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
+import { OrderItem, normalizeOrderItems, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 
 type Order = {
   id: string
@@ -11,12 +12,14 @@ type Order = {
   customer: string
   material: string
   cross_section: string
+  length_mm: number | null
   quantity: number
   status: string
   desired_delivery_date: string | null
   created_by: string | null
   ordered_by: string | null
   suppliers: { name: string } | null
+  order_items?: OrderItem[] | null
   goods_receipts?: { received_quantity: number | null }[]
   scrap_items?: { quantity: number | null }[]
 }
@@ -94,12 +97,14 @@ function OrdersContent() {
           customer,
           material,
           cross_section,
+          length_mm,
           quantity,
           status,
           desired_delivery_date,
           created_by,
           ordered_by,
           suppliers(name),
+          order_items(${orderItemsSelect}),
           goods_receipts(received_quantity),
           scrap_items(quantity)
         `)
@@ -159,7 +164,8 @@ function OrdersContent() {
 
   const filtered = useMemo(() => {
     return orders.filter(o => {
-      const text = `${o.order_number} ${o.customer} ${o.material} ${o.cross_section} ${o.suppliers?.name || ''}`.toLowerCase()
+      const items = normalizeOrderItems(o)
+      const text = `${o.order_number} ${o.customer} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${o.suppliers?.name || ''}`.toLowerCase()
       const matchesSearch = text.includes(q.toLowerCase())
       const matchesStatus = !status || o.status === status
       const matchesOverdue =
@@ -239,7 +245,7 @@ function OrdersContent() {
             <th>Auftrag</th>
             <th>Kunde</th>
             <th>Material</th>
-            <th>Querschnitt</th>
+            <th>Positionen</th>
             <th>Menge</th>
             <th>Geliefert</th>
             <th>Offen</th>
@@ -272,7 +278,7 @@ function OrdersContent() {
                 </td>
                 <td>{o.customer}</td>
                 <td>{o.material}</td>
-                <td>{o.cross_section}</td>
+                <td>{orderItemsSummary(normalizeOrderItems(o))}</td>
                 <td>{o.quantity}</td>
                <td
   className={

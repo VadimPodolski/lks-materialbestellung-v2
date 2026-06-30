@@ -3,6 +3,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
+import {
+  OrderItem,
+  emptyOrderItem,
+  normalizeOrderItems,
+  orderItemsMailText,
+  orderItemsSelect,
+  orderItemsTotal,
+  primaryOrderItem
+} from '@/lib/orderItems'
 
 type Order = {
   id: string
@@ -17,6 +26,7 @@ type Order = {
   notes: string | null
   supplier_id: string | null
   suppliers: { name: string; email: string } | null
+  order_items?: OrderItem[] | null
   ordered_at: string | null
 }
 
@@ -55,13 +65,10 @@ export default function OrderDetailPage() {
   const [editForm, setEditForm] = useState({
     customer: '',
     supplier_id: '',
-    material: '',
-    cross_section: '',
-    length_mm: '',
-    quantity: '',
     desired_delivery_date: '',
     notes: ''
   })
+  const [editItems, setEditItems] = useState<OrderItem[]>([emptyOrderItem()])
 
   const [receivedQuantity, setReceivedQuantity] = useState('')
   const [deliveryNote, setDeliveryNote] = useState('')
@@ -94,7 +101,7 @@ export default function OrderDetailPage() {
     ] = await Promise.all([
       supabase
         .from('material_orders')
-        .select('*,suppliers(name,email)')
+        .select(`*,suppliers(name,email),order_items(${orderItemsSelect})`)
         .eq('id', params.id)
         .single(),
 
@@ -152,13 +159,10 @@ export default function OrderDetailPage() {
       setEditForm({
         customer: loadedOrder.customer || '',
         supplier_id: loadedOrder.supplier_id || '',
-        material: loadedOrder.material || '',
-        cross_section: loadedOrder.cross_section || '',
-        length_mm: loadedOrder.length_mm ? String(loadedOrder.length_mm) : '',
-        quantity: loadedOrder.quantity ? String(loadedOrder.quantity) : '1',
         desired_delivery_date: loadedOrder.desired_delivery_date || '',
         notes: loadedOrder.notes || ''
       })
+      setEditItems(normalizeOrderItems(loadedOrder))
     }
   }
 
@@ -172,8 +176,47 @@ export default function OrderDetailPage() {
     [scraps]
   )
 
+  const orderItems = useMemo(
+    () => normalizeOrderItems(order),
+    [order]
+  )
+
   function setEdit(k: string, v: string) {
     setEditForm(prev => ({ ...prev, [k]: v }))
+  }
+
+  function setEditItem(index: number, key: 'material' | 'cross_section' | 'length_mm' | 'quantity', value: string) {
+    setEditItems(prev => prev.map((item, itemIndex) => {
+      if (itemIndex !== index) return item
+
+      if (key === 'length_mm') {
+        return { ...item, length_mm: value ? Number(value) : null }
+      }
+
+      if (key === 'quantity') {
+        return { ...item, quantity: Number(value || 0) }
+      }
+
+      return { ...item, [key]: value }
+    }))
+  }
+
+  function addEditItem() {
+    const last = editItems[editItems.length - 1] || emptyOrderItem()
+
+    setEditItems(prev => [
+      ...prev,
+      {
+        ...emptyOrderItem(),
+        material: last.material,
+        cross_section: last.cross_section,
+        length_mm: last.length_mm
+      }
+    ])
+  }
+
+  function removeEditItem(index: number) {
+    setEditItems(prev => prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index))
   }
 
   function mailto() {
@@ -186,10 +229,8 @@ bitte liefern Sie uns folgendes Material:
 
 Auftrag: ${order.order_number}
 Kunde: ${order.customer}
-Material: ${order.material}
-Querschnitt: ${order.cross_section}
-Länge: ${order.length_mm || '-'} mm
-Stückzahl: ${order.quantity}
+
+${orderItemsMailText(orderItems)}
 
 Gewünschter Liefertermin: ${order.desired_delivery_date || '-'}
 
@@ -214,10 +255,7 @@ LKS-Technik GmbH & Co. KG`
         supplierEmail: order.suppliers.email,
         orderNumber: order.order_number,
         customer: order.customer,
-        material: order.material,
-        crossSection: order.cross_section,
-        lengthMm: order.length_mm,
-        quantity: order.quantity,
+        items: orderItems,
         desiredDeliveryDate: order.desired_delivery_date,
         supplierName: order.suppliers.name
       })
@@ -264,16 +302,29 @@ LKS-Technik GmbH & Co. KG`
     if (!order) return
 
     const supabase = createClient()
+    const cleanItems = editItems.map(item => ({
+      material: item.material.trim(),
+      cross_section: item.cross_section.trim(),
+      length_mm: item.length_mm ? Number(item.length_mm) : null,
+      quantity: Number(item.quantity)
+    }))
+
+    if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
+      return setMsg('Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+    }
+
+    const firstItem = primaryOrderItem(cleanItems)
+    const totalQuantity = orderItemsTotal(cleanItems)
 
     const { error } = await supabase
       .from('material_orders')
       .update({
         customer: editForm.customer,
         supplier_id: editForm.supplier_id || null,
-        material: editForm.material,
-        cross_section: editForm.cross_section,
-        length_mm: editForm.length_mm ? Number(editForm.length_mm) : null,
-        quantity: Number(editForm.quantity),
+        material: firstItem.material,
+        cross_section: firstItem.cross_section,
+        length_mm: firstItem.length_mm,
+        quantity: totalQuantity,
         desired_delivery_date: editForm.desired_delivery_date || null,
         notes: editForm.notes || null
       })
@@ -281,7 +332,22 @@ LKS-Technik GmbH & Co. KG`
 
     if (error) return setMsg(error.message)
 
-    await recalculateStatus(order.id, Number(editForm.quantity))
+    await supabase.from('order_items').delete().eq('material_order_id', order.id)
+
+    const { error: itemError } = await supabase.from('order_items').insert(
+      cleanItems.map((item, index) => ({
+        material_order_id: order.id,
+        material: item.material,
+        cross_section: item.cross_section,
+        length_mm: item.length_mm,
+        quantity: item.quantity,
+        position: index + 1
+      }))
+    )
+
+    if (itemError) return setMsg(itemError.message)
+
+    await recalculateStatus(order.id, totalQuantity)
     setEditing(false)
     await load()
     setMsg('Änderungen wurden gespeichert.')
@@ -327,7 +393,7 @@ LKS-Technik GmbH & Co. KG`
       received_by: userData.user?.id || null
     })
 
-    await recalculateStatus(order.id, order.quantity)
+    await recalculateStatus(order.id, orderItemsTotal(orderItems))
 
     setReceivedQuantity('')
     setDeliveryNote('')
@@ -384,9 +450,9 @@ LKS-Technik GmbH & Co. KG`
       .insert({
         order_number: `${order.order_number}-NB`,
         customer: order.customer,
-        material: order.material,
-        cross_section: order.cross_section,
-        length_mm: order.length_mm,
+        material: primaryOrderItem(orderItems).material,
+        cross_section: primaryOrderItem(orderItems).cross_section,
+        length_mm: primaryOrderItem(orderItems).length_mm,
         quantity: scrap.quantity,
         supplier_id: order.supplier_id,
         desired_delivery_date: order.desired_delivery_date,
@@ -401,6 +467,17 @@ LKS-Technik GmbH & Co. KG`
       setMsg(error.message)
       return
     }
+
+    const item = primaryOrderItem(orderItems)
+
+    await supabase.from('order_items').insert({
+      material_order_id: data.id,
+      material: item.material,
+      cross_section: item.cross_section,
+      length_mm: item.length_mm,
+      quantity: scrap.quantity,
+      position: 1
+    })
 
     await supabase
       .from('scrap_items')
@@ -440,7 +517,7 @@ LKS-Technik GmbH & Co. KG`
       .eq('id', receipt.id)
 
     setEditingReceiptId('')
-    await recalculateStatus(order.id, order.quantity)
+    await recalculateStatus(order.id, orderItemsTotal(orderItems))
     await load()
     setMsg('Wareneingang wurde geändert.')
   }
@@ -456,7 +533,7 @@ LKS-Technik GmbH & Co. KG`
       .delete()
       .eq('id', receipt.id)
 
-    await recalculateStatus(order.id, order.quantity)
+    await recalculateStatus(order.id, orderItemsTotal(orderItems))
     await load()
     setMsg('Wareneingang wurde gelöscht.')
   }
@@ -548,13 +625,35 @@ LKS-Technik GmbH & Co. KG`
               </span>
             </p>
 
+            <div className="order-items-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Position</th>
+                    <th>Material</th>
+                    <th>Querschnitt</th>
+                    <th>Länge</th>
+                    <th>Stückzahl</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {orderItems.map((item, index) => (
+                    <tr key={`${item.cross_section}-${index}`}>
+                      <td>{index + 1}</td>
+                      <td>{item.material}</td>
+                      <td>{item.cross_section}</td>
+                      <td>{item.length_mm || '-'} mm</td>
+                      <td>{item.quantity}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
             <div className="grid">
-              <p><b>Material:</b><br />{order.material}</p>
-              <p><b>Querschnitt:</b><br />{order.cross_section}</p>
-              <p><b>Länge:</b><br />{order.length_mm || '-'} mm</p>
-              <p><b>Stückzahl:</b><br />{order.quantity}</p>
+              <p><b>Gesamtstückzahl:</b><br />{orderItemsTotal(orderItems)}</p>
               <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
-              <p><b>Geliefert:</b><br />{receivedSum} / {order.quantity}</p>
+              <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
               <p>
                 <b>Lieferant:</b>
@@ -615,54 +714,80 @@ LKS-Technik GmbH & Co. KG`
               </select>
             </div>
 
-            <div>
-              <label>Material</label>
-              <select
-                value={editForm.material}
-                onChange={e => setEdit('material', e.target.value)}
-                required
-              >
-                {materials.map(m => (
-                  <option key={m.id} value={m.name}>
-                    {m.name}
-                  </option>
+            <div style={{ gridColumn: '1/-1' }}>
+              <div className="actions" style={{ justifyContent: 'space-between' }}>
+                <h2>Positionen</h2>
+                <button type="button" onClick={addEditItem}>+ Position</button>
+              </div>
+
+              <div className="order-items">
+                {editItems.map((item, index) => (
+                  <div className="order-item" key={index}>
+                    <div className="order-item-header">
+                      <b>Position {index + 1}</b>
+                      {editItems.length > 1 && (
+                        <button type="button" className="danger" onClick={() => removeEditItem(index)}>
+                          Entfernen
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid">
+                      <div>
+                        <label>Material</label>
+                        <select
+                          value={item.material}
+                          onChange={e => setEditItem(index, 'material', e.target.value)}
+                          required
+                        >
+                          {materials.map(m => (
+                            <option key={m.id} value={m.name}>
+                              {m.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label>Querschnitt</label>
+                        <select
+                          value={item.cross_section}
+                          onChange={e => setEditItem(index, 'cross_section', e.target.value)}
+                          required
+                        >
+                          {crossSections.map(q => (
+                            <option key={q.id} value={q.name}>
+                              {q.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label>Länge mm</label>
+                        <input
+                          type="number"
+                          value={item.length_mm || ''}
+                          onChange={e => setEditItem(index, 'length_mm', e.target.value)}
+                        />
+                      </div>
+
+                      <div>
+                        <label>Stückzahl</label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={item.quantity || ''}
+                          onChange={e => setEditItem(index, 'quantity', e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </select>
-            </div>
+              </div>
 
-            <div>
-              <label>Querschnitt</label>
-              <select
-                value={editForm.cross_section}
-                onChange={e => setEdit('cross_section', e.target.value)}
-                required
-              >
-                {crossSections.map(q => (
-                  <option key={q.id} value={q.name}>
-                    {q.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label>Länge mm</label>
-              <input
-                type="number"
-                value={editForm.length_mm}
-                onChange={e => setEdit('length_mm', e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label>Stückzahl</label>
-              <input
-                type="number"
-                min="1"
-                value={editForm.quantity}
-                onChange={e => setEdit('quantity', e.target.value)}
-                required
-              />
+              <p className="small">Gesamtstückzahl: {orderItemsTotal(editItems)}</p>
             </div>
 
             <div>

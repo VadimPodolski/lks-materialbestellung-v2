@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import { OrderItem, orderItemsMailText } from '@/lib/orderItems'
 
 export async function POST(req: Request) {
   try {
@@ -14,7 +15,8 @@ export async function POST(req: Request) {
       lengthMm,
       quantity,
       desiredDeliveryDate,
-      supplierName
+      supplierName,
+      items
     } = body
 
     if (!supplierEmail) {
@@ -41,6 +43,15 @@ export async function POST(req: Request) {
       }
     })
 
+    const orderItems: OrderItem[] = Array.isArray(items) && items.length > 0
+      ? items
+      : [{
+        material,
+        cross_section: crossSection,
+        length_mm: lengthMm,
+        quantity
+      }]
+
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: supplierEmail,
@@ -50,10 +61,8 @@ export async function POST(req: Request) {
 bitte liefern Sie uns folgendes Material:
 
 Auftrag: ${body.orderNumber}
-Material: ${body.material}
-Querschnitt: ${body.crossSection}
-Länge: ${body.lengthMm || '-'} mm
-Stückzahl: ${body.quantity}
+
+${orderItemsMailText(orderItems)}
 
 Gewünschter Liefertermin: ${body.desiredDeliveryDate || '-'}
 

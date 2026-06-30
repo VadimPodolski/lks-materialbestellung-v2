@@ -395,6 +395,29 @@ a.card:hover {
   font-weight: 700;
 }
 
+.order-items {
+  display: grid;
+  gap: 12px;
+}
+
+.order-item {
+  border: 1px solid #dbe1e7;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafbfc;
+}
+
+.order-item-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.order-items-table {
+  margin-bottom: 16px;
+}
+
 .nav-link-button {
   background: none;
   border: none;

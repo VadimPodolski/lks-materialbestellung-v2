@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { OrderItem, emptyOrderItem, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
 
 type Supplier = { id: string; name: string }
 type Customer = { id: string; name: string }
@@ -29,13 +30,10 @@ export default function NewOrderPage() {
     order_number: 'AB-',
     customer: '',
     supplier_id: '',
-    material: '',
-    cross_section: '',
-    length_mm: '6000',
-    quantity: '1',
     desired_delivery_date: '',
     notes: ''
   })
+  const [items, setItems] = useState<OrderItem[]>([emptyOrderItem()])
 
   const [msg, setMsg] = useState('')
 
@@ -69,10 +67,19 @@ export default function NewOrderPage() {
 
     setForm(prev => ({
       ...prev,
-      supplier_id: lastSupplier && supplierList.some(s => s.id === lastSupplier) ? lastSupplier : prev.supplier_id,
-      material: lastMaterial && materialList.some(m => m.name === lastMaterial) ? lastMaterial : materialList[0]?.name || prev.material,
-      cross_section: lastCrossSection && crossSectionList.some(q => q.name === lastCrossSection) ? lastCrossSection : crossSectionList[0]?.name || prev.cross_section
+      supplier_id: lastSupplier && supplierList.some(s => s.id === lastSupplier) ? lastSupplier : prev.supplier_id
     }))
+
+    setItems(prev => {
+      const material = lastMaterial && materialList.some(m => m.name === lastMaterial) ? lastMaterial : materialList[0]?.name || prev[0]?.material || ''
+      const crossSection = lastCrossSection && crossSectionList.some(q => q.name === lastCrossSection) ? lastCrossSection : crossSectionList[0]?.name || prev[0]?.cross_section || ''
+
+      return prev.map((item, index) => index === 0 ? {
+        ...item,
+        material: item.material || material,
+        cross_section: item.cross_section || crossSection
+      } : item)
+    })
   }
 
   const customerSuggestions = useMemo(() => {
@@ -93,6 +100,40 @@ export default function NewOrderPage() {
 
   function materialLabel(m: Material) {
     return m.material_name || m.name
+  }
+
+  function setItem(index: number, key: 'material' | 'cross_section' | 'length_mm' | 'quantity', value: string) {
+    setItems(prev => prev.map((item, itemIndex) => {
+      if (itemIndex !== index) return item
+
+      if (key === 'length_mm') {
+        return { ...item, length_mm: value ? Number(value) : null }
+      }
+
+      if (key === 'quantity') {
+        return { ...item, quantity: Number(value || 0) }
+      }
+
+      return { ...item, [key]: value }
+    }))
+  }
+
+  function addItem() {
+    const last = items[items.length - 1] || emptyOrderItem()
+
+    setItems(prev => [
+      ...prev,
+      {
+        ...emptyOrderItem(),
+        material: last.material,
+        cross_section: last.cross_section,
+        length_mm: last.length_mm
+      }
+    ])
+  }
+
+  function removeItem(index: number) {
+    setItems(prev => prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index))
   }
 
   async function saveMaterial() {
@@ -116,7 +157,7 @@ export default function NewOrderPage() {
 
     await loadMasterData()
 
-    setForm(prev => ({ ...prev, material: materialName }))
+    setItems(prev => prev.map((item, index) => index === 0 ? { ...item, material: materialName } : item))
   }
 
   async function saveCrossSection() {
@@ -132,7 +173,7 @@ export default function NewOrderPage() {
     setShowCrossModal(false)
     setMsg('')
     await loadMasterData()
-    setForm(prev => ({ ...prev, cross_section: name }))
+    setItems(prev => prev.map((item, index) => index === 0 ? { ...item, cross_section: name } : item))
   }
 
   async function saveCustomer() {
@@ -161,9 +202,23 @@ export default function NewOrderPage() {
     e.preventDefault()
     setMsg('')
 
+    const cleanItems = items.map(item => ({
+      material: item.material.trim(),
+      cross_section: item.cross_section.trim(),
+      length_mm: item.length_mm ? Number(item.length_mm) : null,
+      quantity: Number(item.quantity)
+    }))
+
+    if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
+      return setMsg('Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+    }
+
+    const firstItem = primaryOrderItem(cleanItems)
+    const totalQuantity = orderItemsTotal(cleanItems)
+
     if (form.supplier_id) localStorage.setItem('last_supplier_id', form.supplier_id)
-    if (form.material) localStorage.setItem('last_material', form.material)
-    if (form.cross_section) localStorage.setItem('last_cross_section', form.cross_section)
+    if (firstItem.material) localStorage.setItem('last_material', firstItem.material)
+    if (firstItem.cross_section) localStorage.setItem('last_cross_section', firstItem.cross_section)
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
@@ -173,8 +228,10 @@ export default function NewOrderPage() {
       .insert({
         ...form,
         supplier_id: form.supplier_id || null,
-        length_mm: form.length_mm ? Number(form.length_mm) : null,
-        quantity: Number(form.quantity),
+        material: firstItem.material,
+        cross_section: firstItem.cross_section,
+        length_mm: firstItem.length_mm,
+        quantity: totalQuantity,
         desired_delivery_date: form.desired_delivery_date || null,
         created_by: userData.user?.id || null
       })
@@ -182,6 +239,19 @@ export default function NewOrderPage() {
       .single()
 
     if (error) return setMsg(error.message)
+
+    const { error: itemError } = await supabase.from('order_items').insert(
+      cleanItems.map((item, index) => ({
+        material_order_id: data.id,
+        material: item.material,
+        cross_section: item.cross_section,
+        length_mm: item.length_mm,
+        quantity: item.quantity,
+        position: index + 1
+      }))
+    )
+
+    if (itemError) return setMsg(itemError.message)
 
     router.push(`/orders/${data.id}`)
   }
@@ -227,34 +297,68 @@ export default function NewOrderPage() {
           </select>
         </div>
 
-        <div>
-          <label>Material</label>
-          <div className="actions">
-            <select value={form.material} onChange={e => set('material', e.target.value)} required>
-              {materials.map(m => <option key={m.id} value={m.name}>{materialLabel(m)}</option>)}
-            </select>
-            <button type="button" onClick={() => setShowMaterialModal(true)}>+ Material</button>
+        <div style={{ gridColumn: '1/-1' }}>
+          <div className="actions" style={{ justifyContent: 'space-between' }}>
+            <h2>Positionen</h2>
+            <div className="actions">
+              <button type="button" className="secondary" onClick={() => setShowMaterialModal(true)}>+ Material</button>
+              <button type="button" className="secondary" onClick={() => setShowCrossModal(true)}>+ Querschnitt</button>
+              <button type="button" onClick={addItem}>+ Position</button>
+            </div>
           </div>
-        </div>
 
-        <div>
-          <label>Rohrquerschnitt</label>
-          <div className="actions">
-            <select value={form.cross_section} onChange={e => set('cross_section', e.target.value)} required>
-              {crossSections.map(q => <option key={q.id} value={q.name}>{q.name}</option>)}
-            </select>
-            <button type="button" onClick={() => setShowCrossModal(true)}>+ Querschnitt</button>
+          <div className="order-items">
+            {items.map((item, index) => (
+              <div className="order-item" key={index}>
+                <div className="order-item-header">
+                  <b>Position {index + 1}</b>
+                  {items.length > 1 && (
+                    <button type="button" className="danger" onClick={() => removeItem(index)}>
+                      Entfernen
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid">
+                  <div>
+                    <label>Material</label>
+                    <select value={item.material} onChange={e => setItem(index, 'material', e.target.value)} required>
+                      {materials.map(m => <option key={m.id} value={m.name}>{materialLabel(m)}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label>Rohrquerschnitt</label>
+                    <select value={item.cross_section} onChange={e => setItem(index, 'cross_section', e.target.value)} required>
+                      {crossSections.map(q => <option key={q.id} value={q.name}>{q.name}</option>)}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label>Länge mm</label>
+                    <input
+                      type="number"
+                      value={item.length_mm || ''}
+                      onChange={e => setItem(index, 'length_mm', e.target.value)}
+                    />
+                  </div>
+
+                  <div>
+                    <label>Stückzahl</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={item.quantity || ''}
+                      onChange={e => setItem(index, 'quantity', e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
 
-        <div>
-          <label>Länge mm</label>
-          <input type="number" value={form.length_mm} onChange={e => set('length_mm', e.target.value)} />
-        </div>
-
-        <div>
-          <label>Stückzahl</label>
-          <input type="number" min="1" value={form.quantity} onChange={e => set('quantity', e.target.value)} required />
+          <p className="small">Gesamtstückzahl: {orderItemsTotal(items)}</p>
         </div>
 
         <div>
