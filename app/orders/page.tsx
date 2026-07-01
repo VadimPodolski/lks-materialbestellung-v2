@@ -271,7 +271,6 @@ function OrdersContent() {
 
   return (
     <main className="container wide">
-      <div className="orders-sticky-tools">
       <div className="actions" style={{ justifyContent: 'space-between' }}>
         <div>
           <h1>Bestellungen</h1>
@@ -284,7 +283,7 @@ function OrdersContent() {
         </Link>
       </div>
 
-      <div className="card grid orders-filter-card">
+      <div className="card grid">
         <div>
           <label>Suche</label>
           <input
@@ -316,7 +315,6 @@ function OrdersContent() {
             <option value="overdue">Nur überfällig</option>
           </select>
         </div>
-      </div>
       </div>
 
       <table className="orders-table">

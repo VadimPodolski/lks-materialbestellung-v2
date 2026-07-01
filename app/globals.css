@@ -24,6 +24,9 @@ a {
   align-items: center;
   gap: 28px;
   min-height: 56px;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .brand {
@@ -361,19 +364,6 @@ a.card:hover {
 
 .container.wide {
   max-width: 1800px;
-}
-
-.orders-sticky-tools {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  background: #f5f6f8;
-  padding: 16px 0 12px;
-  margin: -16px 0 14px;
-}
-
-.orders-filter-card {
-  margin-bottom: 0;
 }
 
 .orders-table {
