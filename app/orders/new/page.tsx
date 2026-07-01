@@ -314,6 +314,10 @@ export default function NewOrderPage() {
 
   return (
     <main className="container">
+      <button type="button" className="secondary" onClick={() => router.push('/orders')}>
+        Zurück
+      </button>
+
       <h1>Neue Materialbestellung</h1>
 
       <form className="card grid" onSubmit={save}>
