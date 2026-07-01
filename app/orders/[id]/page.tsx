@@ -309,6 +309,7 @@ bitte liefern Sie uns folgendes Material:
 
 Auftrag: ${order.order_number}
 Kunde: ${order.customer}
+Bemerkung: ${order.notes || '-'}
 
 ${orderItemsMailText(orderItems)}
 
@@ -337,7 +338,8 @@ LKS-Technik GmbH & Co. KG`
         customer: order.customer,
         items: orderItems,
         desiredDeliveryDate: order.desired_delivery_date,
-        supplierName: order.suppliers.name
+        supplierName: order.suppliers.name,
+        notes: order.notes
       })
     })
 
@@ -589,6 +591,14 @@ LKS-Technik GmbH & Co. KG`
     }))
     const firstItem = primaryOrderItem(reorderItems)
     const totalQuantity = orderItemsTotal(reorderItems)
+    const reorderNotes = `Nachbestellung aus Ausschuss (${totalQuantity} Stück)\n${selectedScraps.map(scrap => {
+      const fallbackItem = primaryOrderItem(orderItems)
+      const material = scrap.material || fallbackItem.material
+      const crossSection = scrap.cross_section || fallbackItem.cross_section
+      const lengthMm = scrap.length_mm ?? fallbackItem.length_mm
+
+      return `- ${material} - ${crossSection}, ${lengthMm || '-'} mm: ${scrap.quantity} Stück, Grund: ${scrap.reason || '-'}`
+    }).join('\n')}`
 
     if (!confirm(`${totalQuantity} Stück aus Ausschuss nachbestellen?`)) {
       return
@@ -638,6 +648,39 @@ LKS-Technik GmbH & Co. KG`
       }))
     )
 
+    if (order.suppliers?.email) {
+      const res = await fetch('/api/send-order-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          supplierEmail: order.suppliers.email,
+          orderNumber: `${order.order_number}-NB`,
+          customer: order.customer,
+          items: reorderItems,
+          desiredDeliveryDate: order.desired_delivery_date,
+          supplierName: order.suppliers.name,
+          notes: reorderNotes
+        })
+      })
+
+      const mailData = await res.json()
+
+      if (!res.ok) {
+        setMsg(mailData.error || 'Nachbestellung wurde erzeugt, aber die E-Mail konnte nicht gesendet werden.')
+        router.push(`/orders/${data.id}`)
+        return
+      }
+
+      await supabase
+        .from('material_orders')
+        .update({
+          status: 'bestellt',
+          ordered_at: new Date().toISOString(),
+          ordered_by: userData.user?.id || null
+        })
+        .eq('id', data.id)
+    }
+
     await supabase
       .from('scrap_items')
       .update({ reordered: true })
@@ -645,7 +688,7 @@ LKS-Technik GmbH & Co. KG`
 
     await load()
     setSelectedScrapIds([])
-    setMsg('Nachbestellung wurde erzeugt.')
+    setMsg(order.suppliers?.email ? 'Nachbestellung wurde erzeugt und per E-Mail versendet.' : 'Nachbestellung wurde erzeugt. Keine Lieferanten-E-Mail vorhanden.')
     router.push(`/orders/${data.id}`)
   }
 

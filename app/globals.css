@@ -493,6 +493,16 @@ a.card:hover {
   width: 70px;
 }
 
+.position-entry-table th:nth-child(2),
+.position-entry-table td:nth-child(2) {
+  width: 150px;
+}
+
+.position-entry-table th:nth-child(3),
+.position-entry-table td:nth-child(3) {
+  width: 130px;
+}
+
 .position-entry-table th:nth-child(4),
 .position-entry-table td:nth-child(4) {
   width: 72px;

@@ -9,13 +9,13 @@ export async function POST(req: Request) {
     const {
       supplierEmail,
       orderNumber,
-      customer,
       material,
       crossSection,
       lengthMm,
       quantity,
       desiredDeliveryDate,
       supplierName,
+      notes,
       items
     } = body
 
@@ -60,11 +60,12 @@ export async function POST(req: Request) {
 
 bitte liefern Sie uns folgendes Material:
 
-Auftrag: ${body.orderNumber}
+Auftrag: ${orderNumber}
 
 ${orderItemsMailText(orderItems)}
 
-Gewünschter Liefertermin: ${body.desiredDeliveryDate || '-'}
+Gewünschter Liefertermin: ${desiredDeliveryDate || '-'}
+Bemerkung: ${notes || '-'}
 
 Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere (AB-Nummer) an.
 
