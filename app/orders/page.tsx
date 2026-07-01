@@ -278,21 +278,9 @@ function OrdersContent() {
           <p className="small">{LOGIN_DISABLED ? currentUserEmail : `Eingeloggt als: ${currentUserEmail || 'nicht erkannt'}`}</p>
         </div>
 
-      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-  <Link className="button" href="/orders/new">
-    Neue Bestellung
-  </Link>
-
-  {!LOGIN_DISABLED && (
-    <button
-      type="button"
-      className="secondary"
-      onClick={logout}
-    >
-      Abmelden
-    </button>
-  )}
-</div>
+        <Link className="button" href="/orders/new">
+          Neue Bestellung
+        </Link>
       </div>
 
       <div className="card grid">
