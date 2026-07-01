@@ -328,6 +328,15 @@ function OrdersContent() {
     return orderLevel(orderNumber) > 0
   }
 
+  function formatDateShort(value: string | null) {
+    if (!value) return '-'
+
+    const [year, month, day] = value.split('-')
+    if (!year || !month || !day) return value
+
+    return `${day}/${month}/${year.slice(-2)}`
+  }
+
   function openPdf(url: string | null, e: React.MouseEvent<HTMLAnchorElement>) {
     e.stopPropagation()
 
@@ -506,7 +515,7 @@ function OrdersContent() {
   {scrap}
 </td>
                 <td>{o.suppliers?.name || '-'}</td>
-                <td>{o.desired_delivery_date || '-'}</td>
+                <td>{formatDateShort(o.desired_delivery_date)}</td>
                 <td>{profileName(o.created_by)}</td>
                 <td>{profileName(o.ordered_by)}</td>
                 <td>
