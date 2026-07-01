@@ -29,6 +29,9 @@ type Order = {
   suppliers: { name: string; email: string } | null
   order_items?: OrderItem[] | null
   ordered_at: string | null
+  supplier_order_pdf_name: string | null
+  supplier_order_pdf_url: string | null
+  supplier_order_pdf_path: string | null
 }
 
 type Receipt = {
@@ -90,6 +93,8 @@ export default function OrderDetailPage() {
   const [editReceiptNote, setEditReceiptNote] = useState('')
   const [editReceiptComment, setEditReceiptComment] = useState('')
 
+  const [isPdfDragging, setIsPdfDragging] = useState(false)
+  const [isPdfUploading, setIsPdfUploading] = useState(false)
   const [msg, setMsg] = useState('')
 
   useEffect(() => {
@@ -168,7 +173,7 @@ export default function OrderDetailPage() {
 
       setEditForm({
         customer: loadedOrder.customer || '',
-        supplier_id: loadedOrder.supplier_id || '',
+        supplier_id: loadedOrder.supplier_id || supplierData?.[0]?.id || '',
         desired_delivery_date: loadedOrder.desired_delivery_date || '',
         notes: loadedOrder.notes || ''
       })
@@ -741,6 +746,69 @@ LKS-Technik GmbH & Co. KG`
     setMsg('Wareneingang wurde gelöscht.')
   }
 
+  async function uploadSupplierOrderPdf(file: File) {
+    if (!order) return
+
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      setMsg('Bitte eine PDF-Datei hochladen.')
+      return
+    }
+
+    setIsPdfUploading(true)
+    setMsg('')
+
+    const supabase = createClient()
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${order.id}/${Date.now()}-${safeName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('order-pdfs')
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: 'application/pdf'
+      })
+
+    if (uploadError) {
+      setIsPdfUploading(false)
+      setMsg(uploadError.message)
+      return
+    }
+
+    const { data: publicData } = supabase.storage
+      .from('order-pdfs')
+      .getPublicUrl(path)
+
+    const { error: updateError } = await supabase
+      .from('material_orders')
+      .update({
+        supplier_order_pdf_name: file.name,
+        supplier_order_pdf_path: path,
+        supplier_order_pdf_url: publicData.publicUrl
+      })
+      .eq('id', order.id)
+
+    setIsPdfUploading(false)
+
+    if (updateError) {
+      setMsg(updateError.message)
+      return
+    }
+
+    await load()
+    setMsg('AB-PDF wurde hochgeladen.')
+  }
+
+  function handlePdfDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    setIsPdfDragging(false)
+
+    const file = e.dataTransfer.files?.[0]
+    if (file) {
+      uploadSupplierOrderPdf(file)
+    }
+  }
+
   async function deleteScrap(scrap: Scrap) {
     if (scrap.reordered) {
       setMsg('Nachbestellter Ausschuss kann nicht gelöscht werden.')
@@ -862,7 +930,7 @@ LKS-Technik GmbH & Co. KG`
                     <th>Lieferschein</th>
                     <th>WE-Bemerkung</th>
                     <th>Ausschuss</th>
-                    <th>Ausschussmenge</th>
+                    <th>AUS-Menge</th>
                     <th>Grund</th>
                   </tr>
                 </thead>
@@ -932,7 +1000,7 @@ LKS-Technik GmbH & Co. KG`
             </div>
 
             <div className="actions" style={{ justifyContent: 'flex-end' }}>
-              <button type="button" className="secondary" onClick={receiveGoods}>
+              <button type="button" onClick={receiveGoods}>
                 Wareneingang buchen
               </button>
               <button type="button" onClick={bookScraps}>
@@ -976,6 +1044,52 @@ LKS-Technik GmbH & Co. KG`
                   🗑 Bestellung löschen
                 </button>
               )}
+            </div>
+
+            <div
+              className={`pdf-dropzone${isPdfDragging ? ' active' : ''}`}
+              onDragOver={e => {
+                e.preventDefault()
+                setIsPdfDragging(true)
+              }}
+              onDragLeave={() => setIsPdfDragging(false)}
+              onDrop={handlePdfDrop}
+            >
+              <div>
+                <b>AB vom Lieferanten</b>
+                <p className="small">
+                  {order.supplier_order_pdf_name || 'PDF hier ablegen oder auswählen'}
+                </p>
+              </div>
+
+              <div className="actions">
+                {order.supplier_order_pdf_url && (
+                  <a
+                    className="button secondary"
+                    href={order.supplier_order_pdf_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    PDF öffnen
+                  </a>
+                )}
+                <label className="button">
+                  {isPdfUploading ? 'Lädt...' : 'PDF wählen'}
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    hidden
+                    disabled={isPdfUploading}
+                    onChange={e => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        uploadSupplierOrderPdf(file)
+                      }
+                      e.currentTarget.value = ''
+                    }}
+                  />
+                </label>
+              </div>
             </div>
           </>
         ) : (

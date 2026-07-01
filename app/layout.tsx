@@ -15,7 +15,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <strong className="brand">LKS-Materialbestellung</strong>
 
           <nav className="main-nav">
-            <Link href="/dashboard">Dashboard</Link>
             <Link href="/orders">Bestellungen</Link>
 
             <div className="dropdown">

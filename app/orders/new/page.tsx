@@ -67,7 +67,9 @@ export default function NewOrderPage() {
 
     setForm(prev => ({
       ...prev,
-      supplier_id: lastSupplier && supplierList.some(s => s.id === lastSupplier) ? lastSupplier : prev.supplier_id
+      supplier_id: lastSupplier && supplierList.some(s => s.id === lastSupplier)
+        ? lastSupplier
+        : prev.supplier_id || supplierList[0]?.id || ''
     }))
 
     setItems(prev => {
@@ -371,6 +373,17 @@ export default function NewOrderPage() {
 
                   <div>
                     <label>Material</label>
+                    <select
+                      value={materials.some(m => m.name === item.material) ? item.material : ''}
+                      onChange={e => setItem(index, 'material', e.target.value)}
+                    >
+                      <option value="">Material auswählen</option>
+                      {materials.map(m => (
+                        <option key={m.id} value={m.name}>
+                          {materialLabel(m)}
+                        </option>
+                      ))}
+                    </select>
                     <input
                       list="material-options"
                       value={item.material}
@@ -382,6 +395,17 @@ export default function NewOrderPage() {
 
                   <div>
                     <label>Rohrquerschnitt</label>
+                    <select
+                      value={crossSections.some(q => q.name === item.cross_section) ? item.cross_section : ''}
+                      onChange={e => setItem(index, 'cross_section', e.target.value)}
+                    >
+                      <option value="">Querschnitt auswählen</option>
+                      {crossSections.map(q => (
+                        <option key={q.id} value={q.name}>
+                          {q.name}
+                        </option>
+                      ))}
+                    </select>
                     <input
                       list="cross-section-options"
                       value={item.cross_section}

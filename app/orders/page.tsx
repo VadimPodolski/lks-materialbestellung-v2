@@ -19,6 +19,7 @@ type Order = {
   desired_delivery_date: string | null
   created_by: string | null
   ordered_by: string | null
+  created_at: string | null
   suppliers: { name: string } | null
   order_items?: OrderItem[] | null
   goods_receipts?: { received_quantity: number | null }[]
@@ -48,6 +49,7 @@ type SortKey =
   | 'ordered_by'
 
 type SortDirection = 'asc' | 'desc'
+type SortMode = 'latest_order' | SortKey
 
 function OrdersContent() {
   const router = useRouter()
@@ -61,7 +63,8 @@ function OrdersContent() {
   const [status, setStatus] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
   const [sortKey, setSortKey] = useState<SortKey>('order_number')
-  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [sortMode, setSortMode] = useState<SortMode>('latest_order')
 
   useEffect(() => {
     setStatus(searchParams.get('status') || '')
@@ -125,6 +128,7 @@ function OrdersContent() {
           desired_delivery_date,
           created_by,
           ordered_by,
+          created_at,
           suppliers(name),
           order_items(${orderItemsSelect}),
           goods_receipts(received_quantity),
@@ -210,7 +214,28 @@ function OrdersContent() {
     }) * direction
   }
 
+  function latestOrderSort(a: Order, b: Order) {
+    const aBase = orderBaseNumber(a.order_number)
+    const bBase = orderBaseNumber(b.order_number)
+    const aGroupTime = latestGroupTime.get(aBase) || a.created_at || ''
+    const bGroupTime = latestGroupTime.get(bBase) || b.created_at || ''
+    const timeCompare = bGroupTime.localeCompare(aGroupTime)
+
+    if (timeCompare !== 0) return timeCompare
+
+    const baseCompare = bBase.localeCompare(aBase, 'de', {
+      numeric: true,
+      sensitivity: 'base'
+    })
+
+    if (baseCompare !== 0) return baseCompare
+
+    return orderLevel(a.order_number) - orderLevel(b.order_number)
+  }
+
   function toggleSort(key: SortKey) {
+    setSortMode(key)
+
     if (sortKey === key) {
       setSortDirection(current => (current === 'asc' ? 'desc' : 'asc'))
       return
@@ -251,6 +276,22 @@ function OrdersContent() {
 
   const today = new Date().toISOString().slice(0, 10)
 
+  const latestGroupTime = useMemo(() => {
+    const groups = new Map<string, string>()
+
+    for (const order of orders) {
+      const base = orderBaseNumber(order.order_number)
+      const createdAt = order.created_at || ''
+      const current = groups.get(base) || ''
+
+      if (createdAt > current) {
+        groups.set(base, createdAt)
+      }
+    }
+
+    return groups
+  }, [orders])
+
   const filtered = useMemo(() => {
     return orders.filter(o => {
       const items = normalizeOrderItems(o)
@@ -266,8 +307,32 @@ function OrdersContent() {
         )
 
       return matchesSearch && matchesStatus && matchesOverdue
-    }).sort(sortOrders)
-  }, [orders, q, status, overdueOnly, today, sortKey, sortDirection, profiles])
+    }).sort(sortMode === 'latest_order' ? latestOrderSort : sortOrders)
+  }, [orders, q, status, overdueOnly, today, sortKey, sortDirection, sortMode, profiles, latestGroupTime])
+
+  function orderBaseNumber(orderNumber: string) {
+    return orderNumber.replace(/(?:-NB)+$/, '')
+  }
+
+  function orderLevel(orderNumber: string) {
+    return (orderNumber.match(/-NB/g) || []).length
+  }
+
+  function isReorder(orderNumber: string) {
+    return orderLevel(orderNumber) > 0
+  }
+
+  function openOrderFromRow(target: EventTarget | null) {
+    if (!(target instanceof HTMLElement)) return
+    if (target.closest('button, a, input, select, textarea')) return
+
+    const row = target.closest<HTMLTableRowElement>('tr[data-order-id]')
+    const orderId = row?.dataset.orderId
+
+    if (orderId) {
+      router.push(`/orders/${orderId}`)
+    }
+  }
 
   return (
     <main className="container wide">
@@ -315,6 +380,30 @@ function OrdersContent() {
             <option value="overdue">Nur überfällig</option>
           </select>
         </div>
+
+        <div>
+          <label>Sortieren nach</label>
+          <select
+            value={sortMode}
+            onChange={e => {
+              const value = e.target.value as SortMode
+              setSortMode(value)
+
+              if (value !== 'latest_order') {
+                setSortKey(value)
+                setSortDirection(value === 'order_number' ? 'desc' : 'asc')
+              }
+            }}
+          >
+            <option value="latest_order">Letzter Auftrag</option>
+            <option value="order_number">Auftragsnummer</option>
+            <option value="status">Status</option>
+            <option value="customer">Kunde</option>
+            <option value="material">Material</option>
+            <option value="supplier">Lieferant</option>
+            <option value="desired_delivery_date">Liefertermin</option>
+          </select>
+        </div>
       </div>
 
       <table className="orders-table">
@@ -337,7 +426,7 @@ function OrdersContent() {
           </tr>
         </thead>
 
-        <tbody>
+        <tbody onClick={e => openOrderFromRow(e.target)}>
           {filtered.map(o => {
             const orderItems = normalizeOrderItems(o)
             const delivered = deliveredQty(o)
@@ -347,18 +436,8 @@ function OrdersContent() {
             return (
               <tr
                 key={o.id}
-                className="clickable-order-row"
-                role="link"
-                tabIndex={0}
-                aria-label={`Bestellung ${o.order_number} öffnen`}
-                title={`Bestellung ${o.order_number} öffnen`}
-                onClick={() => router.push(`/orders/${o.id}`)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    router.push(`/orders/${o.id}`)
-                  }
-                }}
+                data-order-id={o.id}
+                className={`clickable-order-row ${isReorder(o.order_number) ? 'reorder-row' : ''}`}
               >
                 <td>
                   <span className={statusClass(o.status)}>
@@ -366,7 +445,17 @@ function OrdersContent() {
                   </span>
                 </td>
                 <td>
-                  <b>{o.order_number}</b>
+                  <b>
+                    {isReorder(o.order_number) && (
+                      <span
+                        className="reorder-indent"
+                        style={{ width: `${orderLevel(o.order_number) * 28}px` }}
+                      >
+                        ↳
+                      </span>
+                    )}
+                    {o.order_number}
+                  </b>
                 </td>
                 <td>{o.customer}</td>
                 <td className="order-positions-cell">

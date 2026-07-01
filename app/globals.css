@@ -236,6 +236,27 @@ tr:hover td {
   background: #fafbfc;
 }
 
+tr.clickable-row {
+  cursor: pointer;
+}
+
+.orders-table tr.reorder-row td,
+tr.reorder-row td {
+  background: #fbfcfd;
+}
+
+.orders-table tr.reorder-row:hover td,
+tr.reorder-row:hover td {
+  background: #f2f6fa;
+}
+
+.reorder-indent {
+  display: inline-block;
+  width: 28px;
+  color: #617080;
+  font-weight: 700;
+}
+
 /* Badges */
 .badge {
   display: inline-block;
@@ -479,6 +500,10 @@ a.card:hover {
   width: 100%;
 }
 
+.order-item select + input {
+  margin-top: 8px;
+}
+
 .order-items-table {
   margin-bottom: 16px;
 }
@@ -549,6 +574,27 @@ a.card:hover {
 .table-checkbox {
   width: auto;
   min-width: 18px;
+}
+
+.pdf-dropzone {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 16px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.pdf-dropzone.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.pdf-dropzone p {
+  margin-bottom: 0;
 }
 
 .nav-link-button {
