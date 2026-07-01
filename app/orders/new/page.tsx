@@ -107,19 +107,11 @@ export default function NewOrderPage() {
   }
 
   function materialOptions(value: string) {
-    const q = value.trim().toLowerCase()
-    if (!q) return materials
-    return materials.filter(m =>
-      m.name.toLowerCase().includes(q) ||
-      materialLabel(m).toLowerCase().includes(q) ||
-      (m.material_number || '').toLowerCase().includes(q)
-    )
+    return materials
   }
 
   function crossSectionOptions(value: string) {
-    const q = value.trim().toLowerCase()
-    if (!q) return crossSections
-    return crossSections.filter(c => c.name.toLowerCase().includes(q))
+    return crossSections
   }
 
   async function ensureMasterData(cleanItems: OrderItem[]) {

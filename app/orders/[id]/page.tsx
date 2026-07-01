@@ -34,6 +34,14 @@ type Order = {
   supplier_order_pdf_path: string | null
 }
 
+type OrderPdf = {
+  id: string
+  file_name: string
+  file_url: string
+  file_path: string
+  created_at: string
+}
+
 type Receipt = {
   id: string
   order_item_id: string | null
@@ -68,6 +76,7 @@ export default function OrderDetailPage() {
   const router = useRouter()
 
   const [order, setOrder] = useState<Order | null>(null)
+  const [orderPdfs, setOrderPdfs] = useState<OrderPdf[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [scraps, setScraps] = useState<Scrap[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -108,6 +117,7 @@ export default function OrderDetailPage() {
       { data: orderData },
       { data: receiptData },
       { data: scrapData },
+      { data: pdfData },
       { data: supplierData },
       { data: materialData },
       { data: crossData }
@@ -130,6 +140,12 @@ export default function OrderDetailPage() {
         .eq('material_order_id', params.id)
         .order('created_at', { ascending: false }),
 
+      supabase
+        .from('order_pdfs')
+        .select('*')
+        .eq('material_order_id', params.id)
+        .order('created_at', { ascending: false }),
+
       supabase.from('suppliers').select('id,name,email').order('name'),
       supabase.from('materials').select('id,name').order('name'),
       supabase.from('cross_sections').select('id,name').order('name')
@@ -138,6 +154,7 @@ export default function OrderDetailPage() {
     const loadedOrder = orderData as any
 
     setOrder(loadedOrder)
+    setOrderPdfs((pdfData as any) || [])
     setReceipts(receiptData || [])
     setScraps((scrapData as any) || [])
     setSuppliers(supplierData || [])
@@ -746,10 +763,14 @@ LKS-Technik GmbH & Co. KG`
     setMsg('Wareneingang wurde gelöscht.')
   }
 
-  async function uploadSupplierOrderPdf(file: File) {
+  async function uploadSupplierOrderPdfs(files: FileList | File[]) {
     if (!order) return
 
-    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+    const pdfFiles = Array.from(files).filter(file =>
+      file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    )
+
+    if (pdfFiles.length === 0) {
       setMsg('Bitte eine PDF-Datei hochladen.')
       return
     }
@@ -758,65 +779,67 @@ LKS-Technik GmbH & Co. KG`
     setMsg('')
 
     const supabase = createClient()
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const path = `${order.id}/${Date.now()}-${safeName}`
+    const rows = []
 
-    const { error: uploadError } = await supabase.storage
-      .from('order-pdfs')
-      .upload(path, file, {
-        cacheControl: '3600',
-        upsert: true,
-        contentType: 'application/pdf'
+    for (const file of pdfFiles) {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${order.id}/${Date.now()}-${crypto.randomUUID()}-${safeName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('order-pdfs')
+        .upload(path, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'application/pdf'
+        })
+
+      if (uploadError) {
+        setIsPdfUploading(false)
+        setMsg(uploadError.message)
+        return
+      }
+
+      const { data: publicData } = supabase.storage
+        .from('order-pdfs')
+        .getPublicUrl(path)
+
+      rows.push({
+        material_order_id: order.id,
+        file_name: file.name,
+        file_path: path,
+        file_url: publicData.publicUrl
       })
-
-    if (uploadError) {
-      setIsPdfUploading(false)
-      setMsg(uploadError.message)
-      return
     }
 
-    const { data: publicData } = supabase.storage
-      .from('order-pdfs')
-      .getPublicUrl(path)
-
-    const { error: updateError } = await supabase
-      .from('material_orders')
-      .update({
-        supplier_order_pdf_name: file.name,
-        supplier_order_pdf_path: path,
-        supplier_order_pdf_url: publicData.publicUrl
-      })
-      .eq('id', order.id)
+    const { error: insertError } = await supabase
+      .from('order_pdfs')
+      .insert(rows)
 
     setIsPdfUploading(false)
 
-    if (updateError) {
-      setMsg(updateError.message)
+    if (insertError) {
+      setMsg(insertError.message)
       return
     }
 
     await load()
-    setMsg('AB-PDF wurde hochgeladen.')
+    setMsg(`${rows.length} PDF${rows.length === 1 ? '' : 's'} wurden hochgeladen.`)
   }
 
-  async function deleteSupplierOrderPdf() {
-    if (!order || !order.supplier_order_pdf_path) return
+  async function deleteSupplierOrderPdf(pdf: OrderPdf) {
+    if (!order) return
     if (!confirm('AB-PDF wirklich löschen?')) return
 
     const supabase = createClient()
 
     await supabase.storage
       .from('order-pdfs')
-      .remove([order.supplier_order_pdf_path])
+      .remove([pdf.file_path])
 
     const { error } = await supabase
-      .from('material_orders')
-      .update({
-        supplier_order_pdf_name: null,
-        supplier_order_pdf_path: null,
-        supplier_order_pdf_url: null
-      })
-      .eq('id', order.id)
+      .from('order_pdfs')
+      .delete()
+      .eq('id', pdf.id)
 
     if (error) {
       setMsg(error.message)
@@ -831,9 +854,9 @@ LKS-Technik GmbH & Co. KG`
     e.preventDefault()
     setIsPdfDragging(false)
 
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      uploadSupplierOrderPdf(file)
+    const files = e.dataTransfer.files
+    if (files?.length) {
+      uploadSupplierOrderPdfs(files)
     }
   }
 
@@ -1084,49 +1107,48 @@ LKS-Technik GmbH & Co. KG`
               onDragLeave={() => setIsPdfDragging(false)}
               onDrop={handlePdfDrop}
             >
-              <div className="pdf-dropzone-content">
-                {order.supplier_order_pdf_url ? (
-                  <a
-                    className="pdf-preview"
-                    href={order.supplier_order_pdf_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={order.supplier_order_pdf_name || 'AB-PDF öffnen'}
-                  >
-                    <span className="pdf-preview-page">PDF</span>
-                    <span>{order.supplier_order_pdf_name || 'AB-PDF'}</span>
-                  </a>
-                ) : (
-                  <div>
-                    <b>AB vom Lieferanten</b>
-                    <p className="small">PDF hier ablegen oder auswählen</p>
-                  </div>
-                )}
-              </div>
+              <label className="pdf-upload-target">
+                <b>AB vom Lieferanten</b>
+                <span className="small">
+                  {isPdfUploading ? 'PDFs werden hochgeladen...' : 'PDFs hier ablegen oder klicken'}
+                </span>
+                <input
+                  type="file"
+                  accept="application/pdf,.pdf"
+                  multiple
+                  hidden
+                  disabled={isPdfUploading}
+                  onChange={e => {
+                    const files = e.target.files
+                    if (files?.length) {
+                      uploadSupplierOrderPdfs(files)
+                    }
+                    e.currentTarget.value = ''
+                  }}
+                />
+              </label>
 
-              <div className="actions">
-                <label className="button">
-                  {isPdfUploading ? 'Lädt...' : 'PDF wählen'}
-                  <input
-                    type="file"
-                    accept="application/pdf,.pdf"
-                    hidden
-                    disabled={isPdfUploading}
-                    onChange={e => {
-                      const file = e.target.files?.[0]
-                      if (file) {
-                        uploadSupplierOrderPdf(file)
-                      }
-                      e.currentTarget.value = ''
-                    }}
-                  />
-                </label>
-                {order.supplier_order_pdf_url && (
-                  <button type="button" className="danger" onClick={deleteSupplierOrderPdf}>
-                    PDF löschen
-                  </button>
-                )}
-              </div>
+              {orderPdfs.length > 0 && (
+                <div className="pdf-preview-grid">
+                  {orderPdfs.map(pdf => (
+                    <div className="pdf-preview-card" key={pdf.id}>
+                      <a
+                        className="pdf-preview"
+                        href={pdf.file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={pdf.file_name}
+                      >
+                        <span className="pdf-preview-page">PDF</span>
+                        <span>{pdf.file_name}</span>
+                      </a>
+                      <button type="button" className="danger" onClick={() => deleteSupplierOrderPdf(pdf)}>
+                        PDF löschen
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </>
         ) : (

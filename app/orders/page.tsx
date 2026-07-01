@@ -22,6 +22,7 @@ type Order = {
   created_at: string | null
   supplier_order_pdf_name: string | null
   supplier_order_pdf_url: string | null
+  order_pdfs?: { file_name: string | null; file_url: string | null }[] | null
   suppliers: { name: string } | null
   order_items?: OrderItem[] | null
   goods_receipts?: { received_quantity: number | null }[]
@@ -133,6 +134,7 @@ function OrdersContent() {
           created_at,
           supplier_order_pdf_name,
           supplier_order_pdf_url,
+          order_pdfs(file_name,file_url),
           suppliers(name),
           order_items(${orderItemsSelect}),
           goods_receipts(received_quantity),
@@ -446,6 +448,9 @@ function OrdersContent() {
             const delivered = deliveredQty(o)
             const scrap = scrapQty(o)
             const open = openQty(o)
+            const pdf = o.order_pdfs?.[0]
+            const pdfUrl = pdf?.file_url || o.supplier_order_pdf_url
+            const pdfName = pdf?.file_name || o.supplier_order_pdf_name
 
             return (
               <tr
@@ -505,14 +510,14 @@ function OrdersContent() {
                 <td>{profileName(o.created_by)}</td>
                 <td>{profileName(o.ordered_by)}</td>
                 <td>
-                  {o.supplier_order_pdf_url && (
+                  {pdfUrl && (
                     <a
                       className="pdf-icon-link"
-                      href={o.supplier_order_pdf_url}
+                      href={pdfUrl}
                       target="_blank"
                       rel="noreferrer"
-                      title={o.supplier_order_pdf_name || 'AB-PDF öffnen'}
-                      onClick={e => openPdf(o.supplier_order_pdf_url, e)}
+                      title={pdfName || 'AB-PDF öffnen'}
+                      onClick={e => openPdf(pdfUrl, e)}
                     >
                       PDF
                     </a>

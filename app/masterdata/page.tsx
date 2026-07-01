@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
 type Customer = { id:string; name:string; contact_person:string|null; email:string|null; phone:string|null; notes:string|null }
@@ -12,6 +12,7 @@ type CrossSection = { id:string; name:string }
 type TypeKey = 'customers' | 'suppliers' | 'materials' | 'cross_sections'
 
 function MasterDataContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
 
   const [type, setType] = useState<TypeKey>('customers')
@@ -171,6 +172,10 @@ function MasterDataContent() {
 
   return (
     <main className="container">
+      <button type="button" className="secondary" onClick={() => router.push('/orders')}>
+        Zurück
+      </button>
+
       <h1>Stammdaten</h1>
 
       <div className="card grid">

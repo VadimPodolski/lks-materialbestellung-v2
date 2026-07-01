@@ -655,6 +655,10 @@ a.card:hover {
   background: #eef6ff;
 }
 
+.position-entry-table td.we-block input {
+  background: white;
+}
+
 .position-entry-table tbody tr:hover td.we-block {
   background: #e3f0ff;
 }
@@ -675,10 +679,8 @@ a.card:hover {
 }
 
 .pdf-dropzone {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
   gap: 16px;
-  align-items: center;
   margin-top: 18px;
   padding: 16px;
   border: 2px dashed #cbd5e1;
@@ -699,12 +701,42 @@ a.card:hover {
   min-width: 0;
 }
 
+.pdf-upload-target {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.pdf-upload-target:hover {
+  background: #eef6ff;
+}
+
+.pdf-preview-grid {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.pdf-preview-card {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  width: 240px;
+}
+
+.pdf-preview-card button {
+  width: 100%;
+}
+
 .pdf-preview {
   display: grid;
   gap: 10px;
   align-items: center;
   color: inherit;
-  max-width: 260px;
+  max-width: 240px;
 }
 
 .pdf-preview-page {
