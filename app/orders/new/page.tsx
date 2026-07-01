@@ -102,6 +102,54 @@ export default function NewOrderPage() {
     return m.material_name || m.name
   }
 
+  async function ensureMasterData(cleanItems: OrderItem[]) {
+    const supabase = createClient()
+    const knownMaterials = new Set(
+      materials.map(m => m.name.trim().toLowerCase()).filter(Boolean)
+    )
+    const knownCrossSections = new Set(
+      crossSections.map(c => c.name.trim().toLowerCase()).filter(Boolean)
+    )
+    const newMaterials = Array.from(
+      new Set(
+        cleanItems
+          .map(item => item.material.trim())
+          .filter(name => name && !knownMaterials.has(name.toLowerCase()))
+      )
+    )
+    const newCrossSections = Array.from(
+      new Set(
+        cleanItems
+          .map(item => item.cross_section.trim())
+          .filter(name => name && !knownCrossSections.has(name.toLowerCase()))
+      )
+    )
+
+    if (newMaterials.length > 0) {
+      const { error } = await supabase.from('materials').insert(
+        newMaterials.map(name => ({
+          name,
+          material_name: name,
+          material_number: null
+        }))
+      )
+
+      if (error && !error.message.includes('duplicate')) {
+        throw new Error(error.message)
+      }
+    }
+
+    if (newCrossSections.length > 0) {
+      const { error } = await supabase.from('cross_sections').insert(
+        newCrossSections.map(name => ({ name }))
+      )
+
+      if (error && !error.message.includes('duplicate')) {
+        throw new Error(error.message)
+      }
+    }
+  }
+
   function setItem(index: number, key: 'material' | 'cross_section' | 'length_mm' | 'quantity', value: string) {
     setItems(prev => prev.map((item, itemIndex) => {
       if (itemIndex !== index) return item
@@ -213,6 +261,12 @@ export default function NewOrderPage() {
       return setMsg('Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
     }
 
+    try {
+      await ensureMasterData(cleanItems)
+    } catch (error: any) {
+      return setMsg(error.message || 'Stammdaten konnten nicht gespeichert werden.')
+    }
+
     const firstItem = primaryOrderItem(cleanItems)
     const totalQuantity = orderItemsTotal(cleanItems)
 
@@ -317,16 +371,24 @@ export default function NewOrderPage() {
 
                   <div>
                     <label>Material</label>
-                    <select value={item.material} onChange={e => setItem(index, 'material', e.target.value)} required>
-                      {materials.map(m => <option key={m.id} value={m.name}>{materialLabel(m)}</option>)}
-                    </select>
+                    <input
+                      list="material-options"
+                      value={item.material}
+                      onChange={e => setItem(index, 'material', e.target.value)}
+                      placeholder="Material wählen oder eingeben"
+                      required
+                    />
                   </div>
 
                   <div>
                     <label>Rohrquerschnitt</label>
-                    <select value={item.cross_section} onChange={e => setItem(index, 'cross_section', e.target.value)} required>
-                      {crossSections.map(q => <option key={q.id} value={q.name}>{q.name}</option>)}
-                    </select>
+                    <input
+                      list="cross-section-options"
+                      value={item.cross_section}
+                      onChange={e => setItem(index, 'cross_section', e.target.value)}
+                      placeholder="Querschnitt wählen oder eingeben"
+                      required
+                    />
                   </div>
 
                   <div>
@@ -373,6 +435,18 @@ export default function NewOrderPage() {
           <label>Bemerkung</label>
           <textarea value={form.notes} onChange={e => set('notes', e.target.value)} />
         </div>
+
+        <datalist id="material-options">
+          {materials.map(m => (
+            <option key={m.id} value={m.name} label={materialLabel(m)} />
+          ))}
+        </datalist>
+
+        <datalist id="cross-section-options">
+          {crossSections.map(q => (
+            <option key={q.id} value={q.name} />
+          ))}
+        </datalist>
 
         <button>Speichern</button>
         {msg && <p className="error">{msg}</p>}
