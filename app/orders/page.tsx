@@ -235,11 +235,6 @@ function OrdersContent() {
   }
 
   async function deleteOrder(order: Order) {
-    if (!isAdmin) {
-      alert('Nur Administratoren dürfen Bestellungen löschen.')
-      return
-    }
-
     if (!confirm(`Bestellung ${order.order_number} wirklich löschen?`)) {
       return
     }
@@ -350,7 +345,7 @@ function OrdersContent() {
             <th>{sortButton('desired_delivery_date', 'Liefertermin')}</th>
             <th>{sortButton('created_by', 'Erstellt von')}</th>
             <th>{sortButton('ordered_by', 'Bestellt von')}</th>
-            {isAdmin && <th>Aktion</th>}
+            <th>Aktion</th>
           </tr>
         </thead>
 
@@ -428,20 +423,18 @@ function OrdersContent() {
                 <td>{o.desired_delivery_date || '-'}</td>
                 <td>{profileName(o.created_by)}</td>
                 <td>{profileName(o.ordered_by)}</td>
-                {isAdmin && (
-                  <td>
-                    <button
-                      type="button"
-                      className="danger"
-                      onClick={e => {
-                        e.stopPropagation()
-                        deleteOrder(o)
-                      }}
-                    >
-                      🗑
-                    </button>
-                  </td>
-                )}
+                <td>
+                  <button
+                    type="button"
+                    className="danger"
+                    onClick={e => {
+                      e.stopPropagation()
+                      deleteOrder(o)
+                    }}
+                  >
+                    🗑
+                  </button>
+                </td>
               </tr>
             )
           })}

@@ -1,1 +1,1 @@
-export const LOGIN_DISABLED = true
+export const LOGIN_DISABLED = false
