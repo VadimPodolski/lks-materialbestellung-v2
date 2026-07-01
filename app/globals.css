@@ -370,7 +370,7 @@ a.card:hover {
   white-space: nowrap;
 }
 
-.column-filter-button {
+.column-sort-button {
   width: 100%;
   display: inline-flex;
   align-items: center;
@@ -385,31 +385,17 @@ a.card:hover {
   text-align: left;
 }
 
-.column-filter-button:hover,
-.column-filter-button.active {
+.column-sort-button:hover,
+.column-sort-button.active {
   opacity: 1;
   color: #1d4ed8;
 }
 
-.column-filter-button.filtered {
-  color: #1d4ed8;
-}
-
-.column-filter-icon {
+.column-sort-icon {
   font-size: 11px;
   line-height: 1;
-}
-
-.column-filter-row th {
-  background: #f8fafc;
-  padding: 7px 8px;
-}
-
-.column-filter-control {
-  min-width: 120px;
-  padding: 6px 8px;
-  border-radius: 6px;
-  font-size: 13px;
+  min-width: 34px;
+  text-align: right;
 }
 
 .orders-table .clickable-order-row {

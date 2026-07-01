@@ -32,7 +32,7 @@ type Profile = {
   role: string | null
 }
 
-type FilterKey =
+type SortKey =
   | 'status'
   | 'order_number'
   | 'customer'
@@ -47,7 +47,7 @@ type FilterKey =
   | 'created_by'
   | 'ordered_by'
 
-type ColumnFilters = Partial<Record<FilterKey, string>>
+type SortDirection = 'asc' | 'desc'
 
 function OrdersContent() {
   const router = useRouter()
@@ -60,8 +60,8 @@ function OrdersContent() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
-  const [activeFilter, setActiveFilter] = useState<FilterKey | null>(null)
-  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({})
+  const [sortKey, setSortKey] = useState<SortKey>('order_number')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
 
   useEffect(() => {
     setStatus(searchParams.get('status') || '')
@@ -162,21 +162,7 @@ function OrdersContent() {
     return Math.max(order.quantity - deliveredQty(order), 0)
   }
 
-  function setColumnFilter(key: FilterKey, value: string) {
-    setColumnFilters(current => {
-      const next = { ...current }
-
-      if (value) {
-        next[key] = value
-      } else {
-        delete next[key]
-      }
-
-      return next
-    })
-  }
-
-  function orderFilterValue(order: Order, key: FilterKey) {
+  function orderSortValue(order: Order, key: SortKey) {
     const items = normalizeOrderItems(order)
 
     switch (key) {
@@ -191,13 +177,13 @@ function OrdersContent() {
       case 'positions':
         return orderItemsSummary(items)
       case 'quantity':
-        return String(order.quantity)
+        return order.quantity
       case 'delivered':
-        return String(deliveredQty(order))
+        return deliveredQty(order)
       case 'open':
-        return String(openQty(order))
+        return openQty(order)
       case 'scrap':
-        return String(scrapQty(order))
+        return scrapQty(order)
       case 'supplier':
         return order.suppliers?.name || ''
       case 'desired_delivery_date':
@@ -209,77 +195,45 @@ function OrdersContent() {
     }
   }
 
-  function matchesColumnFilters(order: Order) {
-    return (Object.entries(columnFilters) as [FilterKey, string][]).every(
-      ([key, value]) => {
-        if (!value) return true
+  function sortOrders(a: Order, b: Order) {
+    const aValue = orderSortValue(a, sortKey)
+    const bValue = orderSortValue(b, sortKey)
+    const direction = sortDirection === 'asc' ? 1 : -1
 
-        const filterValue = value.toLowerCase()
-        const orderValue = orderFilterValue(order, key).toLowerCase()
+    if (typeof aValue === 'number' && typeof bValue === 'number') {
+      return (aValue - bValue) * direction
+    }
 
-        if (key === 'status') return order.status === value
-        if (['quantity', 'delivered', 'open', 'scrap'].includes(key)) {
-          return orderValue === filterValue
-        }
-
-        return orderValue.includes(filterValue)
-      }
-    )
+    return String(aValue).localeCompare(String(bValue), 'de', {
+      numeric: true,
+      sensitivity: 'base'
+    }) * direction
   }
 
-  function toggleColumnFilter(key: FilterKey) {
-    setActiveFilter(current => (current === key ? null : key))
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDirection(current => (current === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+
+    setSortKey(key)
+    setSortDirection('asc')
   }
 
-  function headerButton(key: FilterKey, label: string) {
-    const isActive = activeFilter === key
-    const isFiltered = Boolean(columnFilters[key]) || (key === 'status' && Boolean(status))
+  function sortButton(key: SortKey, label: string) {
+    const isActive = sortKey === key
 
     return (
       <button
         type="button"
-        className={`column-filter-button${isActive ? ' active' : ''}${isFiltered ? ' filtered' : ''}`}
-        onClick={() => toggleColumnFilter(key)}
+        className={`column-sort-button${isActive ? ' active' : ''}`}
+        onClick={() => toggleSort(key)}
       >
         <span>{label}</span>
-        <span className="column-filter-icon">{isFiltered ? '*' : 'v'}</span>
+        <span className="column-sort-icon">
+          {isActive ? (sortDirection === 'asc' ? 'ASC' : 'DESC') : '-'}
+        </span>
       </button>
-    )
-  }
-
-  function renderColumnFilter(key: FilterKey) {
-    if (activeFilter !== key) return null
-
-    if (key === 'status') {
-      return (
-        <select
-          className="column-filter-control"
-          value={status}
-          onChange={e => setStatus(e.target.value)}
-          autoFocus
-        >
-          <option value="">Alle</option>
-          {Object.entries(statusLabels).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
-        </select>
-      )
-    }
-
-    const isNumber = ['quantity', 'delivered', 'open', 'scrap'].includes(key)
-    const isDate = key === 'desired_delivery_date'
-
-    return (
-      <input
-        className="column-filter-control"
-        type={isDate ? 'date' : isNumber ? 'number' : 'text'}
-        value={columnFilters[key] || ''}
-        onChange={e => setColumnFilter(key, e.target.value)}
-        placeholder="Filtern..."
-        autoFocus
-      />
     )
   }
 
@@ -319,9 +273,9 @@ function OrdersContent() {
           !['geliefert', 'storniert'].includes(o.status)
         )
 
-      return matchesSearch && matchesStatus && matchesOverdue && matchesColumnFilters(o)
-    })
-  }, [orders, q, status, overdueOnly, today, columnFilters, profiles])
+      return matchesSearch && matchesStatus && matchesOverdue
+    }).sort(sortOrders)
+  }, [orders, q, status, overdueOnly, today, sortKey, sortDirection, profiles])
 
   return (
     <main className="container wide">
@@ -386,39 +340,21 @@ function OrdersContent() {
       <table className="orders-table">
         <thead>
           <tr>
-            <th>{headerButton('status', 'Status')}</th>
-            <th>{headerButton('order_number', 'Auftrag')}</th>
-            <th>{headerButton('customer', 'Kunde')}</th>
-            <th>{headerButton('material', 'Material')}</th>
-            <th>{headerButton('positions', 'Positionen')}</th>
-            <th>{headerButton('quantity', 'Menge')}</th>
-            <th>{headerButton('delivered', 'Geliefert')}</th>
-            <th>{headerButton('open', 'Offen')}</th>
-            <th>{headerButton('scrap', 'Ausschuss')}</th>
-            <th>{headerButton('supplier', 'Lieferant')}</th>
-            <th>{headerButton('desired_delivery_date', 'Liefertermin')}</th>
-            <th>{headerButton('created_by', 'Erstellt von')}</th>
-            <th>{headerButton('ordered_by', 'Bestellt von')}</th>
+            <th>{sortButton('status', 'Status')}</th>
+            <th>{sortButton('order_number', 'Auftrag')}</th>
+            <th>{sortButton('customer', 'Kunde')}</th>
+            <th>{sortButton('material', 'Material')}</th>
+            <th>{sortButton('positions', 'Positionen')}</th>
+            <th>{sortButton('quantity', 'Menge')}</th>
+            <th>{sortButton('delivered', 'Geliefert')}</th>
+            <th>{sortButton('open', 'Offen')}</th>
+            <th>{sortButton('scrap', 'Ausschuss')}</th>
+            <th>{sortButton('supplier', 'Lieferant')}</th>
+            <th>{sortButton('desired_delivery_date', 'Liefertermin')}</th>
+            <th>{sortButton('created_by', 'Erstellt von')}</th>
+            <th>{sortButton('ordered_by', 'Bestellt von')}</th>
             {isAdmin && <th>Aktion</th>}
           </tr>
-          {activeFilter && (
-            <tr className="column-filter-row">
-              <th>{renderColumnFilter('status')}</th>
-              <th>{renderColumnFilter('order_number')}</th>
-              <th>{renderColumnFilter('customer')}</th>
-              <th>{renderColumnFilter('material')}</th>
-              <th>{renderColumnFilter('positions')}</th>
-              <th>{renderColumnFilter('quantity')}</th>
-              <th>{renderColumnFilter('delivered')}</th>
-              <th>{renderColumnFilter('open')}</th>
-              <th>{renderColumnFilter('scrap')}</th>
-              <th>{renderColumnFilter('supplier')}</th>
-              <th>{renderColumnFilter('desired_delivery_date')}</th>
-              <th>{renderColumnFilter('created_by')}</th>
-              <th>{renderColumnFilter('ordered_by')}</th>
-              {isAdmin && <th />}
-            </tr>
-          )}
         </thead>
 
         <tbody>
