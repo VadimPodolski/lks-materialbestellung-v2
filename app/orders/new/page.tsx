@@ -371,12 +371,12 @@ export default function NewOrderPage() {
           <div className="actions" style={{ justifyContent: 'space-between' }}>
             <h2>Positionen</h2>
             <div className="actions">
-              <button type="button" className="primary" onClick={() => {
+              <button type="button" className="button-customer" onClick={() => {
                 setCustomerForm(prev => ({ ...prev, name: form.customer }))
                 setShowCustomerModal(true)
               }}>+ Kunde</button>
-              <button type="button" className="primary" onClick={() => setShowMaterialModal(true)}>+ Material</button>
-              <button type="button" className="primary" onClick={() => setShowCrossModal(true)}>+ Querschnitt</button>
+              <button type="button" className="button-material" onClick={() => setShowMaterialModal(true)}>+ Material</button>
+              <button type="button" className="button-cross-section" onClick={() => setShowCrossModal(true)}>+ Querschnitt</button>
               <button type="button" className="primary" onClick={addItem}>+ Position</button>
             </div>
           </div>

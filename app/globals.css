@@ -208,6 +208,21 @@ button.primary,
   color: white;
 }
 
+button.button-customer {
+  background: #f97316;
+  color: white;
+}
+
+button.button-material {
+  background: #16a34a;
+  color: white;
+}
+
+button.button-cross-section {
+  background: #1e3a8a;
+  color: white;
+}
+
 button.danger,
 .button.danger {
   background: #a93226;
