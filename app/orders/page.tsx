@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import { OrderItem, normalizeOrderItems, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
@@ -32,7 +32,25 @@ type Profile = {
   role: string | null
 }
 
+type FilterKey =
+  | 'status'
+  | 'order_number'
+  | 'customer'
+  | 'material'
+  | 'positions'
+  | 'quantity'
+  | 'delivered'
+  | 'open'
+  | 'scrap'
+  | 'supplier'
+  | 'desired_delivery_date'
+  | 'created_by'
+  | 'ordered_by'
+
+type ColumnFilters = Partial<Record<FilterKey, string>>
+
 function OrdersContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
 
   const [orders, setOrders] = useState<Order[]>([])
@@ -42,6 +60,8 @@ function OrdersContent() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
+  const [activeFilter, setActiveFilter] = useState<FilterKey | null>(null)
+  const [columnFilters, setColumnFilters] = useState<ColumnFilters>({})
 
   useEffect(() => {
     setStatus(searchParams.get('status') || '')
@@ -142,6 +162,127 @@ function OrdersContent() {
     return Math.max(order.quantity - deliveredQty(order), 0)
   }
 
+  function setColumnFilter(key: FilterKey, value: string) {
+    setColumnFilters(current => {
+      const next = { ...current }
+
+      if (value) {
+        next[key] = value
+      } else {
+        delete next[key]
+      }
+
+      return next
+    })
+  }
+
+  function orderFilterValue(order: Order, key: FilterKey) {
+    const items = normalizeOrderItems(order)
+
+    switch (key) {
+      case 'status':
+        return statusLabels[order.status] || order.status
+      case 'order_number':
+        return order.order_number
+      case 'customer':
+        return order.customer
+      case 'material':
+        return items.map(item => item.material).join(' ')
+      case 'positions':
+        return orderItemsSummary(items)
+      case 'quantity':
+        return String(order.quantity)
+      case 'delivered':
+        return String(deliveredQty(order))
+      case 'open':
+        return String(openQty(order))
+      case 'scrap':
+        return String(scrapQty(order))
+      case 'supplier':
+        return order.suppliers?.name || ''
+      case 'desired_delivery_date':
+        return order.desired_delivery_date || ''
+      case 'created_by':
+        return profileName(order.created_by)
+      case 'ordered_by':
+        return profileName(order.ordered_by)
+    }
+  }
+
+  function matchesColumnFilters(order: Order) {
+    return (Object.entries(columnFilters) as [FilterKey, string][]).every(
+      ([key, value]) => {
+        if (!value) return true
+
+        const filterValue = value.toLowerCase()
+        const orderValue = orderFilterValue(order, key).toLowerCase()
+
+        if (key === 'status') return order.status === value
+        if (['quantity', 'delivered', 'open', 'scrap'].includes(key)) {
+          return orderValue === filterValue
+        }
+
+        return orderValue.includes(filterValue)
+      }
+    )
+  }
+
+  function toggleColumnFilter(key: FilterKey) {
+    setActiveFilter(current => (current === key ? null : key))
+  }
+
+  function headerButton(key: FilterKey, label: string) {
+    const isActive = activeFilter === key
+    const isFiltered = Boolean(columnFilters[key]) || (key === 'status' && Boolean(status))
+
+    return (
+      <button
+        type="button"
+        className={`column-filter-button${isActive ? ' active' : ''}${isFiltered ? ' filtered' : ''}`}
+        onClick={() => toggleColumnFilter(key)}
+      >
+        <span>{label}</span>
+        <span className="column-filter-icon">{isFiltered ? '*' : 'v'}</span>
+      </button>
+    )
+  }
+
+  function renderColumnFilter(key: FilterKey) {
+    if (activeFilter !== key) return null
+
+    if (key === 'status') {
+      return (
+        <select
+          className="column-filter-control"
+          value={status}
+          onChange={e => setStatus(e.target.value)}
+          autoFocus
+        >
+          <option value="">Alle</option>
+          {Object.entries(statusLabels).map(([k, v]) => (
+            <option key={k} value={k}>
+              {v}
+            </option>
+          ))}
+        </select>
+      )
+    }
+
+    const isNumber = ['quantity', 'delivered', 'open', 'scrap'].includes(key)
+    const isDate = key === 'desired_delivery_date'
+
+    return (
+      <input
+        className="column-filter-control"
+        type={isDate ? 'date' : isNumber ? 'number' : 'text'}
+        value={columnFilters[key] || ''}
+        onChange={e => setColumnFilter(key, e.target.value)}
+        placeholder="Filtern..."
+        autoFocus
+      />
+    )
+  }
+
   async function deleteOrder(order: Order) {
     if (!isAdmin) {
       alert('Nur Administratoren dürfen Bestellungen löschen.')
@@ -178,9 +319,9 @@ function OrdersContent() {
           !['geliefert', 'storniert'].includes(o.status)
         )
 
-      return matchesSearch && matchesStatus && matchesOverdue
+      return matchesSearch && matchesStatus && matchesOverdue && matchesColumnFilters(o)
     })
-  }, [orders, q, status, overdueOnly, today])
+  }, [orders, q, status, overdueOnly, today, columnFilters, profiles])
 
   return (
     <main className="container wide">
@@ -245,21 +386,39 @@ function OrdersContent() {
       <table className="orders-table">
         <thead>
           <tr>
-            <th>Status</th>
-            <th>Auftrag</th>
-            <th>Kunde</th>
-            <th>Material</th>
-            <th>Positionen</th>
-            <th>Menge</th>
-            <th>Geliefert</th>
-            <th>Offen</th>
-            <th>Ausschuss</th>
-            <th>Lieferant</th>
-            <th>Liefertermin</th>
-            <th>Erstellt von</th>
-            <th>Bestellt von</th>
+            <th>{headerButton('status', 'Status')}</th>
+            <th>{headerButton('order_number', 'Auftrag')}</th>
+            <th>{headerButton('customer', 'Kunde')}</th>
+            <th>{headerButton('material', 'Material')}</th>
+            <th>{headerButton('positions', 'Positionen')}</th>
+            <th>{headerButton('quantity', 'Menge')}</th>
+            <th>{headerButton('delivered', 'Geliefert')}</th>
+            <th>{headerButton('open', 'Offen')}</th>
+            <th>{headerButton('scrap', 'Ausschuss')}</th>
+            <th>{headerButton('supplier', 'Lieferant')}</th>
+            <th>{headerButton('desired_delivery_date', 'Liefertermin')}</th>
+            <th>{headerButton('created_by', 'Erstellt von')}</th>
+            <th>{headerButton('ordered_by', 'Bestellt von')}</th>
             {isAdmin && <th>Aktion</th>}
           </tr>
+          {activeFilter && (
+            <tr className="column-filter-row">
+              <th>{renderColumnFilter('status')}</th>
+              <th>{renderColumnFilter('order_number')}</th>
+              <th>{renderColumnFilter('customer')}</th>
+              <th>{renderColumnFilter('material')}</th>
+              <th>{renderColumnFilter('positions')}</th>
+              <th>{renderColumnFilter('quantity')}</th>
+              <th>{renderColumnFilter('delivered')}</th>
+              <th>{renderColumnFilter('open')}</th>
+              <th>{renderColumnFilter('scrap')}</th>
+              <th>{renderColumnFilter('supplier')}</th>
+              <th>{renderColumnFilter('desired_delivery_date')}</th>
+              <th>{renderColumnFilter('created_by')}</th>
+              <th>{renderColumnFilter('ordered_by')}</th>
+              {isAdmin && <th />}
+            </tr>
+          )}
         </thead>
 
         <tbody>
@@ -270,16 +429,26 @@ function OrdersContent() {
             const open = openQty(o)
 
             return (
-              <tr key={o.id}>
+              <tr
+                key={o.id}
+                className="clickable-order-row"
+                role="link"
+                tabIndex={0}
+                onClick={() => router.push(`/orders/${o.id}`)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    router.push(`/orders/${o.id}`)
+                  }
+                }}
+              >
                 <td>
                   <span className={statusClass(o.status)}>
                     {statusLabels[o.status]}
                   </span>
                 </td>
                 <td>
-                  <Link href={`/orders/${o.id}`}>
-                    <b>{o.order_number}</b>
-                  </Link>
+                  <b>{o.order_number}</b>
                 </td>
                 <td>{o.customer}</td>
                 <td className="order-positions-cell">
@@ -329,7 +498,10 @@ function OrdersContent() {
                     <button
                       type="button"
                       className="danger"
-                      onClick={() => deleteOrder(o)}
+                      onClick={e => {
+                        e.stopPropagation()
+                        deleteOrder(o)
+                      }}
                     >
                       🗑
                     </button>

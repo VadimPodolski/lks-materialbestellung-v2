@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase'
 
 export default function LoginPage() {
   const router = useRouter()
-  const supabase = createClient()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,6 +14,8 @@ export default function LoginPage() {
   async function login(e: React.FormEvent) {
     e.preventDefault()
     setMsg('')
+
+    const supabase = createClient()
 
     const { error } = await supabase.auth.signInWithPassword({
       email,
