@@ -926,9 +926,9 @@ LKS-Technik GmbH & Co. KG`
                     <th>Länge</th>
                     <th>Stückzahl</th>
                     <th>Geliefert</th>
-                    <th>WE-Menge</th>
-                    <th>Lieferschein</th>
-                    <th>WE-Bemerkung</th>
+                    <th className="we-block">WE-Menge</th>
+                    <th className="we-block">Lieferschein</th>
+                    <th className="we-block">WE-Bemerkung</th>
                     <th>Ausschuss</th>
                     <th>AUS-Menge</th>
                     <th>Grund</th>
@@ -949,7 +949,7 @@ LKS-Technik GmbH & Co. KG`
                         <td className={receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}>
                           {receivedQtyForItem(item)}
                         </td>
-                        <td>
+                        <td className="we-block">
                           <input
                             type="number"
                             min="1"
@@ -958,7 +958,7 @@ LKS-Technik GmbH & Co. KG`
                             className="table-input small-number"
                           />
                         </td>
-                        <td>
+                        <td className="we-block">
                           <input
                             value={receiptDraft.deliveryNote}
                             onChange={e => setReceiptDraft(item, index, 'deliveryNote', e.target.value)}
@@ -966,7 +966,7 @@ LKS-Technik GmbH & Co. KG`
                             className="table-input"
                           />
                         </td>
-                        <td>
+                        <td className="we-block">
                           <input
                             value={receiptDraft.notes}
                             onChange={e => setReceiptDraft(item, index, 'notes', e.target.value)}
@@ -1055,24 +1055,30 @@ LKS-Technik GmbH & Co. KG`
               onDragLeave={() => setIsPdfDragging(false)}
               onDrop={handlePdfDrop}
             >
-              <div>
-                <b>AB vom Lieferanten</b>
-                <p className="small">
-                  {order.supplier_order_pdf_name || 'PDF hier ablegen oder auswählen'}
-                </p>
-              </div>
-
-              <div className="actions">
-                {order.supplier_order_pdf_url && (
+              <div className="pdf-dropzone-content">
+                {order.supplier_order_pdf_url ? (
                   <a
-                    className="button secondary"
+                    className="pdf-preview"
                     href={order.supplier_order_pdf_url}
                     target="_blank"
                     rel="noreferrer"
+                    title={order.supplier_order_pdf_name || 'AB-PDF öffnen'}
                   >
-                    PDF öffnen
+                    <iframe
+                      src={`${order.supplier_order_pdf_url}#toolbar=0&navpanes=0&scrollbar=0`}
+                      title={order.supplier_order_pdf_name || 'AB-PDF'}
+                    />
+                    <span>{order.supplier_order_pdf_name || 'AB-PDF'}</span>
                   </a>
+                ) : (
+                  <div>
+                    <b>AB vom Lieferanten</b>
+                    <p className="small">PDF hier ablegen oder auswählen</p>
+                  </div>
                 )}
+              </div>
+
+              <div className="actions">
                 <label className="button">
                   {isPdfUploading ? 'Lädt...' : 'PDF wählen'}
                   <input

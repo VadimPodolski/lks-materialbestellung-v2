@@ -20,6 +20,8 @@ type Order = {
   created_by: string | null
   ordered_by: string | null
   created_at: string | null
+  supplier_order_pdf_name: string | null
+  supplier_order_pdf_url: string | null
   suppliers: { name: string } | null
   order_items?: OrderItem[] | null
   goods_receipts?: { received_quantity: number | null }[]
@@ -129,6 +131,8 @@ function OrdersContent() {
           created_by,
           ordered_by,
           created_at,
+          supplier_order_pdf_name,
+          supplier_order_pdf_url,
           suppliers(name),
           order_items(${orderItemsSelect}),
           goods_receipts(received_quantity),
@@ -322,6 +326,14 @@ function OrdersContent() {
     return orderLevel(orderNumber) > 0
   }
 
+  function openPdf(url: string | null, e: React.MouseEvent<HTMLAnchorElement>) {
+    e.stopPropagation()
+
+    if (!url) {
+      e.preventDefault()
+    }
+  }
+
   function openOrderFromRow(target: EventTarget | null) {
     if (!(target instanceof HTMLElement)) return
     if (target.closest('button, a, input, select, textarea')) return
@@ -406,6 +418,7 @@ function OrdersContent() {
         </div>
       </div>
 
+      <div className="orders-table-shell">
       <table className="orders-table">
         <thead>
           <tr>
@@ -449,9 +462,9 @@ function OrdersContent() {
                     {isReorder(o.order_number) && (
                       <span
                         className="reorder-indent"
-                        style={{ width: `${orderLevel(o.order_number) * 28}px` }}
+                        style={{ marginLeft: `${(orderLevel(o.order_number) - 1) * 22}px` }}
                       >
-                        ↳
+                        NB
                       </span>
                     )}
                     {o.order_number}
@@ -500,23 +513,38 @@ function OrdersContent() {
                 <td>{o.desired_delivery_date || '-'}</td>
                 <td>{profileName(o.created_by)}</td>
                 <td>{profileName(o.ordered_by)}</td>
-                <td>
-                  <button
-                    type="button"
-                    className="danger"
-                    onClick={e => {
-                      e.stopPropagation()
-                      deleteOrder(o)
-                    }}
-                  >
-                    🗑
-                  </button>
+                <td className="row-actions">
+                  {o.supplier_order_pdf_url && (
+                    <a
+                      className="pdf-icon-link"
+                      href={o.supplier_order_pdf_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      title={o.supplier_order_pdf_name || 'AB-PDF öffnen'}
+                      onClick={e => openPdf(o.supplier_order_pdf_url, e)}
+                    >
+                      PDF
+                    </a>
+                  )}
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      className="danger"
+                      onClick={e => {
+                        e.stopPropagation()
+                        deleteOrder(o)
+                      }}
+                    >
+                      🗑
+                    </button>
+                  )}
                 </td>
               </tr>
             )
           })}
         </tbody>
       </table>
+      </div>
     </main>
   )
 }

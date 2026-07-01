@@ -251,10 +251,19 @@ tr.reorder-row:hover td {
 }
 
 .reorder-indent {
-  display: inline-block;
-  width: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 20px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: #e8eef5;
   color: #617080;
+  font-size: 11px;
   font-weight: 700;
+  letter-spacing: 0;
+  vertical-align: middle;
 }
 
 /* Badges */
@@ -387,9 +396,17 @@ a.card:hover {
   max-width: 1800px;
 }
 
+.orders-table-shell {
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+  border-radius: 12px;
+  box-shadow: 0 1px 5px rgba(0,0,0,.05);
+}
+
 .orders-table {
   table-layout: auto;
   width: 100%;
+  box-shadow: none;
 }
 
 .orders-table th,
@@ -436,6 +453,35 @@ a.card:hover {
 
 .orders-table td.order-positions-cell {
   white-space: normal;
+}
+
+.orders-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pdf-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #e8eef5;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pdf-icon-link:hover {
+  background: #dbe4ee;
 }
 
 .order-position-lines {
@@ -561,6 +607,15 @@ a.card:hover {
   width: 130px;
 }
 
+.position-entry-table th.we-block,
+.position-entry-table td.we-block {
+  background: #eef6ff;
+}
+
+.position-entry-table tbody tr:hover td.we-block {
+  background: #e3f0ff;
+}
+
 .table-input {
   min-width: 0;
   padding: 7px 8px;
@@ -595,6 +650,32 @@ a.card:hover {
 
 .pdf-dropzone p {
   margin-bottom: 0;
+}
+
+.pdf-dropzone-content {
+  min-width: 0;
+}
+
+.pdf-preview {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  color: inherit;
+}
+
+.pdf-preview iframe {
+  width: 86px;
+  height: 112px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: white;
+  pointer-events: none;
+}
+
+.pdf-preview span {
+  overflow-wrap: anywhere;
+  font-weight: 700;
 }
 
 .nav-link-button {
