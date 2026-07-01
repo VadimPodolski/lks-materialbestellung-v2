@@ -374,8 +374,7 @@ a.card:hover {
   width: 100%;
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  justify-content: flex-start;
   padding: 0;
   background: transparent;
   color: inherit;
@@ -391,14 +390,11 @@ a.card:hover {
   color: #1d4ed8;
 }
 
-.column-sort-icon {
-  font-size: 11px;
-  line-height: 1;
-  min-width: 34px;
-  text-align: right;
+.orders-table .clickable-order-row {
+  cursor: pointer;
 }
 
-.orders-table .clickable-order-row {
+.orders-table .clickable-order-row td {
   cursor: pointer;
 }
 

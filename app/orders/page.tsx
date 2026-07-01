@@ -230,9 +230,6 @@ function OrdersContent() {
         onClick={() => toggleSort(key)}
       >
         <span>{label}</span>
-        <span className="column-sort-icon">
-          {isActive ? (sortDirection === 'asc' ? 'ASC' : 'DESC') : '-'}
-        </span>
       </button>
     )
   }
@@ -370,6 +367,8 @@ function OrdersContent() {
                 className="clickable-order-row"
                 role="link"
                 tabIndex={0}
+                aria-label={`Bestellung ${o.order_number} öffnen`}
+                title={`Bestellung ${o.order_number} öffnen`}
                 onClick={() => router.push(`/orders/${o.id}`)}
                 onKeyDown={e => {
                   if (e.key === 'Enter' || e.key === ' ') {
