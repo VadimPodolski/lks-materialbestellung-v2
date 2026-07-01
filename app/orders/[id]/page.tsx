@@ -900,10 +900,11 @@ LKS-Technik GmbH & Co. KG`
 
         <button
           type="button"
-          className="secondary"
+          className="primary icon-button"
           onClick={() => setEditing(true)}
         >
-          ✏️ Bearbeiten
+          <span aria-hidden="true">✎</span>
+          Bearbeiten
         </button>
       </div>
 
@@ -1008,7 +1009,7 @@ LKS-Technik GmbH & Co. KG`
               </button>
             </div>
 
-            <div className="grid">
+            <div className="grid order-summary-grid">
               <p><b>Gesamtstückzahl:</b><br />{orderItemsTotal(orderItems)}</p>
               <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
@@ -1067,6 +1068,7 @@ LKS-Technik GmbH & Co. KG`
                     <iframe
                       src={`${order.supplier_order_pdf_url}#toolbar=0&navpanes=0&scrollbar=0`}
                       title={order.supplier_order_pdf_name || 'AB-PDF'}
+                      scrolling="no"
                     />
                     <span>{order.supplier_order_pdf_name || 'AB-PDF'}</span>
                   </a>

@@ -324,15 +324,7 @@ export default function NewOrderPage() {
 
         <div style={{ position: 'relative' }}>
           <label>Kunde</label>
-          <div className="actions">
-            <input value={form.customer} onChange={e => set('customer', e.target.value)} required />
-            <button type="button" onClick={() => {
-              setCustomerForm(prev => ({ ...prev, name: form.customer }))
-              setShowCustomerModal(true)
-            }}>
-              + Kunde
-            </button>
-          </div>
+          <input value={form.customer} onChange={e => set('customer', e.target.value)} required />
 
           {customerSuggestions.length > 0 && (
             <div className="suggestions">
@@ -357,9 +349,13 @@ export default function NewOrderPage() {
           <div className="actions" style={{ justifyContent: 'space-between' }}>
             <h2>Positionen</h2>
             <div className="actions">
-              <button type="button" className="secondary" onClick={() => setShowMaterialModal(true)}>+ Material</button>
-              <button type="button" className="secondary" onClick={() => setShowCrossModal(true)}>+ Querschnitt</button>
-              <button type="button" onClick={addItem}>+ Position</button>
+              <button type="button" className="primary" onClick={() => {
+                setCustomerForm(prev => ({ ...prev, name: form.customer }))
+                setShowCustomerModal(true)
+              }}>+ Kunde</button>
+              <button type="button" className="primary" onClick={() => setShowMaterialModal(true)}>+ Material</button>
+              <button type="button" className="primary" onClick={() => setShowCrossModal(true)}>+ Querschnitt</button>
+              <button type="button" className="primary" onClick={addItem}>+ Position</button>
             </div>
           </div>
 
@@ -373,17 +369,6 @@ export default function NewOrderPage() {
 
                   <div>
                     <label>Material</label>
-                    <select
-                      value={materials.some(m => m.name === item.material) ? item.material : ''}
-                      onChange={e => setItem(index, 'material', e.target.value)}
-                    >
-                      <option value="">Material auswählen</option>
-                      {materials.map(m => (
-                        <option key={m.id} value={m.name}>
-                          {materialLabel(m)}
-                        </option>
-                      ))}
-                    </select>
                     <input
                       list="material-options"
                       value={item.material}
@@ -395,17 +380,6 @@ export default function NewOrderPage() {
 
                   <div>
                     <label>Rohrquerschnitt</label>
-                    <select
-                      value={crossSections.some(q => q.name === item.cross_section) ? item.cross_section : ''}
-                      onChange={e => setItem(index, 'cross_section', e.target.value)}
-                    >
-                      <option value="">Querschnitt auswählen</option>
-                      {crossSections.map(q => (
-                        <option key={q.id} value={q.name}>
-                          {q.name}
-                        </option>
-                      ))}
-                    </select>
                     <input
                       list="cross-section-options"
                       value={item.cross_section}

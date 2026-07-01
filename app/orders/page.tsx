@@ -435,6 +435,7 @@ function OrdersContent() {
             <th>{sortButton('desired_delivery_date', 'Liefertermin')}</th>
             <th>{sortButton('created_by', 'Erstellt von')}</th>
             <th>{sortButton('ordered_by', 'Bestellt von')}</th>
+            <th>PDF</th>
             <th>Aktion</th>
           </tr>
         </thead>
@@ -458,16 +459,14 @@ function OrdersContent() {
                   </span>
                 </td>
                 <td>
-                  <b>
+                  <b className="order-number-wrap">
                     {isReorder(o.order_number) && (
-                      <span
-                        className="reorder-indent"
-                        style={{ marginLeft: `${(orderLevel(o.order_number) - 1) * 22}px` }}
-                      >
+                      <span className="reorder-indent">
                         NB
                       </span>
                     )}
-                    {o.order_number}
+                    {!isReorder(o.order_number) && <span className="reorder-indent placeholder">NB</span>}
+                    <span>{o.order_number}</span>
                   </b>
                 </td>
                 <td>{o.customer}</td>
@@ -513,7 +512,7 @@ function OrdersContent() {
                 <td>{o.desired_delivery_date || '-'}</td>
                 <td>{profileName(o.created_by)}</td>
                 <td>{profileName(o.ordered_by)}</td>
-                <td className="row-actions">
+                <td>
                   {o.supplier_order_pdf_url && (
                     <a
                       className="pdf-icon-link"
@@ -526,6 +525,8 @@ function OrdersContent() {
                       PDF
                     </a>
                   )}
+                </td>
+                <td className="row-actions">
                   {isAdmin && (
                     <button
                       type="button"

@@ -202,9 +202,21 @@ button.secondary,
   background: #5d6d7e;
 }
 
+button.primary,
+.button.primary {
+  background: #2563eb;
+  color: white;
+}
+
 button.danger,
 .button.danger {
   background: #a93226;
+}
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 /* Tables */
@@ -264,6 +276,10 @@ tr.reorder-row:hover td {
   font-weight: 700;
   letter-spacing: 0;
   vertical-align: middle;
+}
+
+.reorder-indent.placeholder {
+  visibility: hidden;
 }
 
 /* Badges */
@@ -455,6 +471,13 @@ a.card:hover {
   white-space: normal;
 }
 
+.order-number-wrap {
+  display: inline-grid;
+  grid-template-columns: 38px max-content;
+  align-items: center;
+  column-gap: 8px;
+}
+
 .orders-table th {
   position: sticky;
   top: 0;
@@ -488,6 +511,10 @@ a.card:hover {
   display: grid;
   gap: 3px;
   min-width: 120px;
+}
+
+.order-summary-grid {
+  margin-top: 28px;
 }
 
 .qty-delivered.partial {
@@ -544,10 +571,6 @@ a.card:hover {
 
 .order-item-remove button {
   width: 100%;
-}
-
-.order-item select + input {
-  margin-top: 8px;
 }
 
 .order-items-table {
@@ -658,24 +681,26 @@ a.card:hover {
 
 .pdf-preview {
   display: grid;
-  grid-template-columns: 86px minmax(0, 1fr);
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   color: inherit;
+  max-width: 260px;
 }
 
 .pdf-preview iframe {
-  width: 86px;
-  height: 112px;
+  width: 240px;
+  height: 320px;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   background: white;
   pointer-events: none;
+  overflow: hidden;
 }
 
 .pdf-preview span {
   overflow-wrap: anywhere;
   font-weight: 700;
+  font-size: 13px;
 }
 
 .nav-link-button {
