@@ -799,6 +799,34 @@ LKS-Technik GmbH & Co. KG`
     setMsg('AB-PDF wurde hochgeladen.')
   }
 
+  async function deleteSupplierOrderPdf() {
+    if (!order || !order.supplier_order_pdf_path) return
+    if (!confirm('AB-PDF wirklich löschen?')) return
+
+    const supabase = createClient()
+
+    await supabase.storage
+      .from('order-pdfs')
+      .remove([order.supplier_order_pdf_path])
+
+    const { error } = await supabase
+      .from('material_orders')
+      .update({
+        supplier_order_pdf_name: null,
+        supplier_order_pdf_path: null,
+        supplier_order_pdf_url: null
+      })
+      .eq('id', order.id)
+
+    if (error) {
+      setMsg(error.message)
+      return
+    }
+
+    await load()
+    setMsg('AB-PDF wurde gelöscht.')
+  }
+
   function handlePdfDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
     setIsPdfDragging(false)
@@ -1065,11 +1093,7 @@ LKS-Technik GmbH & Co. KG`
                     rel="noreferrer"
                     title={order.supplier_order_pdf_name || 'AB-PDF öffnen'}
                   >
-                    <iframe
-                      src={`${order.supplier_order_pdf_url}#toolbar=0&navpanes=0&scrollbar=0`}
-                      title={order.supplier_order_pdf_name || 'AB-PDF'}
-                      scrolling="no"
-                    />
+                    <span className="pdf-preview-page">PDF</span>
                     <span>{order.supplier_order_pdf_name || 'AB-PDF'}</span>
                   </a>
                 ) : (
@@ -1097,6 +1121,11 @@ LKS-Technik GmbH & Co. KG`
                     }}
                   />
                 </label>
+                {order.supplier_order_pdf_url && (
+                  <button type="button" className="danger" onClick={deleteSupplierOrderPdf}>
+                    PDF löschen
+                  </button>
+                )}
               </div>
             </div>
           </>

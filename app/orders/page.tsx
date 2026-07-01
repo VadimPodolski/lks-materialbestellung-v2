@@ -459,15 +459,7 @@ function OrdersContent() {
                   </span>
                 </td>
                 <td>
-                  <b className="order-number-wrap">
-                    {isReorder(o.order_number) && (
-                      <span className="reorder-indent">
-                        NB
-                      </span>
-                    )}
-                    {!isReorder(o.order_number) && <span className="reorder-indent placeholder">NB</span>}
-                    <span>{o.order_number}</span>
-                  </b>
+                  <b>{o.order_number}</b>
                 </td>
                 <td>{o.customer}</td>
                 <td className="order-positions-cell">

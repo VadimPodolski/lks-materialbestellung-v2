@@ -34,6 +34,8 @@ export default function NewOrderPage() {
     notes: ''
   })
   const [items, setItems] = useState<OrderItem[]>([emptyOrderItem()])
+  const [activeMaterialIndex, setActiveMaterialIndex] = useState<number | null>(null)
+  const [activeCrossIndex, setActiveCrossIndex] = useState<number | null>(null)
 
   const [msg, setMsg] = useState('')
 
@@ -102,6 +104,22 @@ export default function NewOrderPage() {
 
   function materialLabel(m: Material) {
     return m.material_name || m.name
+  }
+
+  function materialOptions(value: string) {
+    const q = value.trim().toLowerCase()
+    if (!q) return materials
+    return materials.filter(m =>
+      m.name.toLowerCase().includes(q) ||
+      materialLabel(m).toLowerCase().includes(q) ||
+      (m.material_number || '').toLowerCase().includes(q)
+    )
+  }
+
+  function crossSectionOptions(value: string) {
+    const q = value.trim().toLowerCase()
+    if (!q) return crossSections
+    return crossSections.filter(c => c.name.toLowerCase().includes(q))
   }
 
   async function ensureMasterData(cleanItems: OrderItem[]) {
@@ -373,24 +391,64 @@ export default function NewOrderPage() {
 
                   <div>
                     <label>Material</label>
-                    <input
-                      list="material-options"
-                      value={item.material}
-                      onChange={e => setItem(index, 'material', e.target.value)}
-                      placeholder="Material wählen oder eingeben"
-                      required
-                    />
+                    <div className="combo-box">
+                      <input
+                        value={item.material}
+                        onFocus={() => setActiveMaterialIndex(index)}
+                        onBlur={() => window.setTimeout(() => setActiveMaterialIndex(null), 120)}
+                        onChange={e => setItem(index, 'material', e.target.value)}
+                        placeholder="Material wählen oder eingeben"
+                        required
+                      />
+                      {activeMaterialIndex === index && materialOptions(item.material).length > 0 && (
+                        <div className="combo-options">
+                          {materialOptions(item.material).map(m => (
+                            <button
+                              type="button"
+                              key={m.id}
+                              onMouseDown={e => e.preventDefault()}
+                              onClick={() => {
+                                setItem(index, 'material', m.name)
+                                setActiveMaterialIndex(null)
+                              }}
+                            >
+                              {materialLabel(m)}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div>
                     <label>Rohrquerschnitt</label>
-                    <input
-                      list="cross-section-options"
-                      value={item.cross_section}
-                      onChange={e => setItem(index, 'cross_section', e.target.value)}
-                      placeholder="Querschnitt wählen oder eingeben"
-                      required
-                    />
+                    <div className="combo-box">
+                      <input
+                        value={item.cross_section}
+                        onFocus={() => setActiveCrossIndex(index)}
+                        onBlur={() => window.setTimeout(() => setActiveCrossIndex(null), 120)}
+                        onChange={e => setItem(index, 'cross_section', e.target.value)}
+                        placeholder="Querschnitt wählen oder eingeben"
+                        required
+                      />
+                      {activeCrossIndex === index && crossSectionOptions(item.cross_section).length > 0 && (
+                        <div className="combo-options">
+                          {crossSectionOptions(item.cross_section).map(q => (
+                            <button
+                              type="button"
+                              key={q.id}
+                              onMouseDown={e => e.preventDefault()}
+                              onClick={() => {
+                                setItem(index, 'cross_section', q.name)
+                                setActiveCrossIndex(null)
+                              }}
+                            >
+                              {q.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -437,18 +495,6 @@ export default function NewOrderPage() {
           <label>Bemerkung</label>
           <textarea value={form.notes} onChange={e => set('notes', e.target.value)} />
         </div>
-
-        <datalist id="material-options">
-          {materials.map(m => (
-            <option key={m.id} value={m.name} label={materialLabel(m)} />
-          ))}
-        </datalist>
-
-        <datalist id="cross-section-options">
-          {crossSections.map(q => (
-            <option key={q.id} value={q.name} />
-          ))}
-        </datalist>
 
         <button>Speichern</button>
         {msg && <p className="error">{msg}</p>}
