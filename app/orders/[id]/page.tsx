@@ -343,6 +343,32 @@ LKS-Technik GmbH & Co. KG`
     return `mailto:${order.suppliers.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 
+  async function currentUserDisplayName() {
+    const supabase = createClient()
+    const { data: userData } = await supabase.auth.getUser()
+    const user = userData.user
+
+    if (!user) return ''
+
+    const { data: profileById } = await supabase
+      .from('profiles')
+      .select('full_name,email')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    if (profileById?.full_name || profileById?.email) {
+      return profileById.full_name || profileById.email || ''
+    }
+
+    const { data: profileByEmail } = await supabase
+      .from('profiles')
+      .select('full_name,email')
+      .eq('email', user.email)
+      .maybeSingle()
+
+    return profileByEmail?.full_name || profileByEmail?.email || user.email || ''
+  }
+
   async function sendOrderEmail() {
     if (!order || !order.suppliers?.email) {
       setMsg('Keine Lieferanten-E-Mail vorhanden.')
@@ -350,6 +376,7 @@ LKS-Technik GmbH & Co. KG`
     }
 
     setMsg('Bestellung wird per E-Mail versendet...')
+    const orderedBy = await currentUserDisplayName()
 
     const res = await fetch('/api/send-order-mail', {
       method: 'POST',
@@ -361,6 +388,7 @@ LKS-Technik GmbH & Co. KG`
         items: orderItems,
         desiredDeliveryDate: order.desired_delivery_date,
         supplierName: order.suppliers.name,
+        orderedBy,
         notes: order.notes
       })
     })
@@ -628,6 +656,7 @@ LKS-Technik GmbH & Co. KG`
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
+    const orderedBy = await currentUserDisplayName()
 
     const { data, error } = await supabase
       .from('material_orders')
@@ -681,6 +710,7 @@ LKS-Technik GmbH & Co. KG`
           items: reorderItems,
           desiredDeliveryDate: order.desired_delivery_date,
           supplierName: order.suppliers.name,
+          orderedBy,
           notes: reorderNotes
         })
       })

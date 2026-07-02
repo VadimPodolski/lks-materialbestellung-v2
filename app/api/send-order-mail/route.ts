@@ -15,6 +15,7 @@ export async function POST(req: Request) {
       quantity,
       desiredDeliveryDate,
       supplierName,
+      orderedBy,
       notes,
       items
     } = body
@@ -61,6 +62,7 @@ export async function POST(req: Request) {
 bitte liefern Sie uns folgendes Material:
 
 Auftrag: ${orderNumber}
+Bearbeiter: ${orderedBy || '-'}
 
 ${orderItemsMailText(orderItems)}
 
