@@ -1108,7 +1108,6 @@ LKS-Technik GmbH & Co. KG`
               onDrop={handlePdfDrop}
             >
               <label className="pdf-upload-target">
-                <b>AB vom Lieferanten</b>
                 <span className="small">
                   {isPdfUploading ? 'PDFs werden hochgeladen...' : 'PDFs hier ablegen oder klicken'}
                 </span>
