@@ -369,7 +369,7 @@ function OrdersContent() {
     const [year, month, day] = value.split('-')
     if (!year || !month || !day) return value
 
-    return `${day}/${month}/${year.slice(-2)}`
+    return `${day}.${month}.${year.slice(-2)}`
   }
 
   function formatDateTimeShort(value: string | null) {
@@ -384,7 +384,7 @@ function OrdersContent() {
     const hours = String(date.getHours()).padStart(2, '0')
     const minutes = String(date.getMinutes()).padStart(2, '0')
 
-    return `${day}/${month}/${year} ${hours}:${minutes}`
+    return `${day}.${month}.${year} ${hours}:${minutes}`
   }
 
   function openPdf(url: string | null, e: React.MouseEvent<HTMLAnchorElement>) {
