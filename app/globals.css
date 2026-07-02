@@ -478,6 +478,12 @@ a.card:hover {
   gap: 8px;
 }
 
+.orders-table td.row-actions {
+  display: table-cell;
+  text-align: center;
+  vertical-align: middle;
+}
+
 .pdf-icon-link {
   display: inline-flex;
   align-items: center;
