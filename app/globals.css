@@ -727,18 +727,21 @@ a.card:hover {
 }
 
 .pdf-preview-page {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
   width: 240px;
   height: 320px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
-  background: linear-gradient(180deg, #ffffff 0%, #eef3f8 100%);
-  color: #a93226;
-  font-size: 32px;
-  font-weight: 800;
-  box-shadow: inset 0 -18px 0 rgba(203,213,225,.38);
+  background: white;
+  overflow: hidden;
+}
+
+.pdf-preview-page iframe {
+  width: 260px;
+  height: 350px;
+  border: 0;
+  transform: translate(-10px, -12px);
+  pointer-events: none;
 }
 
 .pdf-preview span {

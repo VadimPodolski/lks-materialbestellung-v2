@@ -1139,7 +1139,13 @@ LKS-Technik GmbH & Co. KG`
                         rel="noreferrer"
                         title={pdf.file_name}
                       >
-                        <span className="pdf-preview-page">PDF</span>
+                        <span className="pdf-preview-page">
+                          <iframe
+                            src={`${pdf.file_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                            title={pdf.file_name}
+                            scrolling="no"
+                          />
+                        </span>
                         <span>{pdf.file_name}</span>
                       </a>
                       <button type="button" className="danger" onClick={() => deleteSupplierOrderPdf(pdf)}>
