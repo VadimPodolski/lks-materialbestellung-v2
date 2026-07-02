@@ -650,19 +650,6 @@ a.card:hover {
   width: 130px;
 }
 
-.position-entry-table th.we-block,
-.position-entry-table td.we-block {
-  background: #eef6ff;
-}
-
-.position-entry-table td.we-block input {
-  background: white;
-}
-
-.position-entry-table tbody tr:hover td.we-block {
-  background: #e3f0ff;
-}
-
 .table-input {
   min-width: 0;
   padding: 7px 8px;

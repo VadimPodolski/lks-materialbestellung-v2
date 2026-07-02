@@ -48,6 +48,7 @@ type SortKey =
   | 'scrap'
   | 'supplier'
   | 'desired_delivery_date'
+  | 'created_at'
   | 'created_by'
   | 'ordered_by'
 
@@ -230,6 +231,8 @@ function OrdersContent() {
         return order.suppliers?.name || ''
       case 'desired_delivery_date':
         return order.desired_delivery_date || ''
+      case 'created_at':
+        return order.created_at || ''
       case 'created_by':
         return profileName(order.created_by)
       case 'ordered_by':
@@ -333,7 +336,7 @@ function OrdersContent() {
   const filtered = useMemo(() => {
     return orders.filter(o => {
       const items = normalizeOrderItems(o)
-      const text = `${o.order_number} ${o.customer} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${o.suppliers?.name || ''}`.toLowerCase()
+      const text = `${o.order_number} ${o.customer} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
       const matchesSearch = text.includes(q.toLowerCase())
       const matchesStatus = !status || o.status === status
       const matchesOverdue =
@@ -367,6 +370,21 @@ function OrdersContent() {
     if (!year || !month || !day) return value
 
     return `${day}/${month}/${year.slice(-2)}`
+  }
+
+  function formatDateTimeShort(value: string | null) {
+    if (!value) return '-'
+
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return value
+
+    const day = String(date.getDate()).padStart(2, '0')
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const year = String(date.getFullYear()).slice(-2)
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+
+    return `${day}/${month}/${year} ${hours}:${minutes}`
   }
 
   function openPdf(url: string | null, e: React.MouseEvent<HTMLAnchorElement>) {
@@ -457,6 +475,7 @@ function OrdersContent() {
             <option value="material">Material</option>
             <option value="supplier">Lieferant</option>
             <option value="desired_delivery_date">Liefertermin</option>
+            <option value="created_at">Erstellt am</option>
           </select>
         </div>
       </div>
@@ -476,6 +495,7 @@ function OrdersContent() {
             <th>{sortButton('scrap', 'Ausschuss')}</th>
             <th>{sortButton('supplier', 'Lieferant')}</th>
             <th>{sortButton('desired_delivery_date', 'Liefertermin')}</th>
+            <th>{sortButton('created_at', 'Erstellt am')}</th>
             <th>{sortButton('created_by', 'Erstellt von')}</th>
             <th>{sortButton('ordered_by', 'Bestellt von')}</th>
             <th>PDF</th>
@@ -548,6 +568,7 @@ function OrdersContent() {
 </td>
                 <td>{o.suppliers?.name || '-'}</td>
                 <td>{formatDateShort(o.desired_delivery_date)}</td>
+                <td>{formatDateTimeShort(o.created_at)}</td>
                 <td>{profileName(o.created_by)}</td>
                 <td>{profileName(o.ordered_by)}</td>
                 <td>
