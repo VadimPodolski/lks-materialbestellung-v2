@@ -116,10 +116,7 @@ function OrdersContent() {
 
     setIsAdmin(admin)
 
-    const [{ data: orderData }, { data: profileData }] = await Promise.all([
-      supabase
-        .from('material_orders')
-        .select(`
+    const ordersSelect = `
           id,
           order_number,
           customer,
@@ -139,12 +136,47 @@ function OrdersContent() {
           order_items(${orderItemsSelect}),
           goods_receipts(received_quantity),
           scrap_items(quantity)
-        `)
+        `
+    const ordersSelectWithoutPdfs = `
+          id,
+          order_number,
+          customer,
+          material,
+          cross_section,
+          length_mm,
+          quantity,
+          status,
+          desired_delivery_date,
+          created_by,
+          ordered_by,
+          created_at,
+          supplier_order_pdf_name,
+          supplier_order_pdf_url,
+          suppliers(name),
+          order_items(${orderItemsSelect}),
+          goods_receipts(received_quantity),
+          scrap_items(quantity)
+        `
+
+    const [{ data: orderData, error: orderError }, { data: profileData }] = await Promise.all([
+      supabase
+        .from('material_orders')
+        .select(ordersSelect)
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id,full_name,email,role')
     ])
 
-    setOrders((orderData as any) || [])
+    if (orderError) {
+      const { data: fallbackOrderData } = await supabase
+        .from('material_orders')
+        .select(ordersSelectWithoutPdfs)
+        .order('created_at', { ascending: false })
+
+      setOrders((fallbackOrderData as any) || [])
+    } else {
+      setOrders((orderData as any) || [])
+    }
+
     setProfiles(profileData || [])
   }
 
