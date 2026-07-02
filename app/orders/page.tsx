@@ -20,6 +20,7 @@ type Order = {
   created_by: string | null
   ordered_by: string | null
   created_at: string | null
+  ordered_at: string | null
   supplier_order_pdf_name: string | null
   supplier_order_pdf_url: string | null
   order_pdfs?: { file_name: string | null; file_url: string | null }[] | null
@@ -130,6 +131,7 @@ function OrdersContent() {
           created_by,
           ordered_by,
           created_at,
+          ordered_at,
           supplier_order_pdf_name,
           supplier_order_pdf_url,
           order_pdfs(file_name,file_url),
@@ -151,6 +153,7 @@ function OrdersContent() {
           created_by,
           ordered_by,
           created_at,
+          ordered_at,
           supplier_order_pdf_name,
           supplier_order_pdf_url,
           suppliers(name),
@@ -495,7 +498,6 @@ function OrdersContent() {
             <th>{sortButton('scrap', 'Ausschuss')}</th>
             <th>{sortButton('supplier', 'Lieferant')}</th>
             <th>{sortButton('desired_delivery_date', 'Liefertermin')}</th>
-            <th>{sortButton('created_at', 'Erstellt am')}</th>
             <th>{sortButton('created_by', 'Erstellt von')}</th>
             <th>{sortButton('ordered_by', 'Bestellt von')}</th>
             <th>PDF</th>
@@ -568,9 +570,18 @@ function OrdersContent() {
 </td>
                 <td>{o.suppliers?.name || '-'}</td>
                 <td>{formatDateShort(o.desired_delivery_date)}</td>
-                <td>{formatDateTimeShort(o.created_at)}</td>
-                <td>{profileName(o.created_by)}</td>
-                <td>{profileName(o.ordered_by)}</td>
+                <td>
+                  <div className="table-person-cell">
+                    <b>{profileName(o.created_by)}</b>
+                    <span>{formatDateTimeShort(o.created_at)}</span>
+                  </div>
+                </td>
+                <td>
+                  <div className="table-person-cell">
+                    <b>{profileName(o.ordered_by)}</b>
+                    <span>{formatDateTimeShort(o.ordered_at)}</span>
+                  </div>
+                </td>
                 <td>
                   {pdfUrl && (
                     <a
@@ -586,7 +597,7 @@ function OrdersContent() {
                   )}
                 </td>
                 <td className="row-actions">
-                  {isAdmin && (
+                  {(isAdmin || o.status === 'offen') && (
                     <button
                       type="button"
                       className="danger"

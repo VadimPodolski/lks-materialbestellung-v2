@@ -425,6 +425,16 @@ a.card:hover {
   white-space: nowrap;
 }
 
+.table-person-cell {
+  display: grid;
+  gap: 3px;
+}
+
+.table-person-cell span {
+  color: #617080;
+  font-size: 12px;
+}
+
 .column-sort-button {
   width: 100%;
   display: inline-flex;
