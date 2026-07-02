@@ -262,6 +262,12 @@ export default function NewOrderPage() {
     e.preventDefault()
     setMsg('')
 
+    const orderNumberSuffix = form.order_number.replace(/^AB-/, '').trim()
+
+    if (!orderNumberSuffix) {
+      return setMsg('Bitte eine AB-Nummer eintragen.')
+    }
+
     const cleanItems = mergeOrderItems(items.map(item => ({
       material: item.material.trim(),
       cross_section: item.cross_section.trim(),

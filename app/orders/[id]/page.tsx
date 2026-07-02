@@ -26,7 +26,7 @@ type Order = {
   desired_delivery_date: string | null
   notes: string | null
   supplier_id: string | null
-  suppliers: { name: string; email: string } | null
+  suppliers: { name: string; contact_person: string | null; email: string } | null
   order_items?: OrderItem[] | null
   ordered_at: string | null
   supplier_order_pdf_name: string | null
@@ -124,7 +124,7 @@ export default function OrderDetailPage() {
     ] = await Promise.all([
       supabase
         .from('material_orders')
-        .select(`*,suppliers(name,email),order_items(${orderItemsSelect})`)
+        .select(`*,suppliers(name,contact_person,email),order_items(${orderItemsSelect})`)
         .eq('id', params.id)
         .single(),
 
@@ -1069,6 +1069,8 @@ LKS-Technik GmbH & Co. KG`
                 <b>Lieferant:</b>
                 <br />
                 {order.suppliers?.name || '-'}
+                <br />
+                {order.suppliers?.contact_person || '-'}
                 <br />
                 {order.suppliers?.email || ''}
               </p>
