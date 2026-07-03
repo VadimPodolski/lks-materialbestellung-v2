@@ -38,6 +38,15 @@ a {
 .main-nav {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex: 1;
+}
+
+.nav-left,
+.nav-right {
+  display: flex;
+  align-items: center;
   gap: 20px;
 }
 
@@ -392,6 +401,13 @@ a.card:hover {
   }
 
   .main-nav {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .nav-left,
+  .nav-right {
     flex-wrap: wrap;
     gap: 14px;
   }
