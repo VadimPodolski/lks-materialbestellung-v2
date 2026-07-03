@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { LOGIN_DISABLED } from '@/lib/authMode'
 
 type Customer = { id:string; name:string; contact_person:string|null; email:string|null; phone:string|null; notes:string|null }
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
@@ -17,6 +18,7 @@ function MasterDataContent() {
 
   const [type, setType] = useState<TypeKey>('customers')
   const [q, setQ] = useState('')
+  const [isAdmin, setIsAdmin] = useState(false)
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -39,13 +41,46 @@ function MasterDataContent() {
   async function load() {
     const supabase = createClient()
 
-    const [{data:c}, {data:s}, {data:m}, {data:cs}] = await Promise.all([
+    const [
+      { data: sessionData },
+      { data: userData },
+      {data:c},
+      {data:s},
+      {data:m},
+      {data:cs}
+    ] = await Promise.all([
+      supabase.auth.getSession(),
+      supabase.auth.getUser(),
       supabase.from('customers').select('*').order('name'),
       supabase.from('suppliers').select('*').order('name'),
       supabase.from('materials').select('*').order('name'),
       supabase.from('cross_sections').select('*').order('name')
     ])
 
+    const user = userData.user || sessionData.session?.user || null
+    const email = user?.email?.toLowerCase() || ''
+    let admin = !LOGIN_DISABLED && email === 'v.podolski@lks-technik.de'
+
+    if (!LOGIN_DISABLED && user) {
+      const { data: profileById } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      const { data: profileByEmail } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('email', email)
+        .maybeSingle()
+
+      admin =
+        admin ||
+        profileById?.role === 'admin' ||
+        profileByEmail?.role === 'admin'
+    }
+
+    setIsAdmin(admin)
     setCustomers(c || [])
     setSuppliers(s || [])
     setMaterials(m || [])
@@ -61,6 +96,7 @@ function MasterDataContent() {
 
   async function saveCustomer(e:React.FormEvent) {
     e.preventDefault()
+    if (!isAdmin) return
     const supabase = createClient()
 
     const row = {
@@ -83,6 +119,7 @@ function MasterDataContent() {
 
   async function saveSupplier(e:React.FormEvent) {
     e.preventDefault()
+    if (!isAdmin) return
     const supabase = createClient()
 
     const row = {
@@ -105,6 +142,7 @@ function MasterDataContent() {
 
   async function saveMaterial(e:React.FormEvent) {
     e.preventDefault()
+    if (!isAdmin) return
     const supabase = createClient()
 
     const row = {
@@ -125,6 +163,7 @@ function MasterDataContent() {
 
   async function saveCross(e:React.FormEvent) {
     e.preventDefault()
+    if (!isAdmin) return
     const supabase = createClient()
 
     if (cross.id) {
@@ -138,6 +177,7 @@ function MasterDataContent() {
   }
 
   async function remove(table:string, id:string) {
+    if (!isAdmin) return
     if (!confirm('Eintrag wirklich löschen?')) return
     const supabase = createClient()
     await supabase.from(table).delete().eq('id', id)
@@ -178,6 +218,10 @@ function MasterDataContent() {
 
       <h1>Stammdaten</h1>
 
+      {!isAdmin && (
+        <p className="small">Nur Administratoren koennen Stammdaten bearbeiten.</p>
+      )}
+
       <div className="card grid">
         <div>
           <label>Bereich</label>
@@ -202,6 +246,7 @@ function MasterDataContent() {
         <>
           <h2>Kunden</h2>
 
+          {isAdmin && (
           <form className="card grid" onSubmit={saveCustomer}>
             <input placeholder="Kundenname" value={customer.name} onChange={e=>setCustomer({...customer,name:e.target.value})} required />
             <input placeholder="Ansprechpartner" value={customer.contact_person} onChange={e=>setCustomer({...customer,contact_person:e.target.value})} />
@@ -210,6 +255,7 @@ function MasterDataContent() {
             <button>{customer.id ? 'Kunde ändern' : 'Kunde speichern'}</button>
             {customer.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
+          )}
 
           <table>
             <thead>
@@ -218,7 +264,7 @@ function MasterDataContent() {
                 <th>Ansprechpartner</th>
                 <th>E-Mail</th>
                 <th>Telefon</th>
-                <th>Aktionen</th>
+                {isAdmin && <th>Aktionen</th>}
               </tr>
             </thead>
             <tbody>
@@ -228,7 +274,7 @@ function MasterDataContent() {
                   <td>{c.contact_person || '-'}</td>
                   <td>{c.email || '-'}</td>
                   <td>{c.phone || '-'}</td>
-                  <td className="actions">
+                  {isAdmin && <td className="actions">
                     <button onClick={()=>setCustomer({
                       id:c.id,
                       name:c.name,
@@ -238,7 +284,7 @@ function MasterDataContent() {
                       notes:c.notes || ''
                     })}>Bearbeiten</button>
                     <button className="danger" onClick={()=>remove('customers', c.id)}>Löschen</button>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>
@@ -250,6 +296,7 @@ function MasterDataContent() {
         <>
           <h2>Lieferanten</h2>
 
+          {isAdmin && (
           <form className="card grid" onSubmit={saveSupplier}>
             <input placeholder="Lieferantenname" value={supplier.name} onChange={e=>setSupplier({...supplier,name:e.target.value})} required />
             <input placeholder="E-Mail" type="email" value={supplier.email} onChange={e=>setSupplier({...supplier,email:e.target.value})} required />
@@ -258,6 +305,7 @@ function MasterDataContent() {
             <button>{supplier.id ? 'Lieferant ändern' : 'Lieferant speichern'}</button>
             {supplier.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
+          )}
 
           <table>
             <thead>
@@ -266,7 +314,7 @@ function MasterDataContent() {
                 <th>E-Mail</th>
                 <th>Telefon</th>
                 <th>Ansprechpartner</th>
-                <th>Aktionen</th>
+                {isAdmin && <th>Aktionen</th>}
               </tr>
             </thead>
             <tbody>
@@ -276,7 +324,7 @@ function MasterDataContent() {
                   <td>{s.email}</td>
                   <td>{s.phone || '-'}</td>
                   <td>{s.contact_person || '-'}</td>
-                  <td className="actions">
+                  {isAdmin && <td className="actions">
                     <button onClick={()=>setSupplier({
                       id:s.id,
                       name:s.name,
@@ -286,7 +334,7 @@ function MasterDataContent() {
                       notes:s.notes || ''
                     })}>Bearbeiten</button>
                     <button className="danger" onClick={()=>remove('suppliers', s.id)}>Löschen</button>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>
@@ -298,6 +346,7 @@ function MasterDataContent() {
         <>
           <h2>Materialien</h2>
 
+          {isAdmin && (
           <form className="card grid" onSubmit={saveMaterial}>
             <input
               placeholder="Material z.B. Edelstahl"
@@ -308,26 +357,27 @@ function MasterDataContent() {
             <button>{material.id ? 'Material ändern' : 'Material speichern'}</button>
             {material.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
+          )}
 
           <table>
             <thead>
               <tr>
                 <th>Material</th>
-                <th>Aktionen</th>
+                {isAdmin && <th>Aktionen</th>}
               </tr>
             </thead>
             <tbody>
               {filteredMaterials.map(m=>(
                 <tr key={m.id}>
                   <td><b>{m.material_name || m.name}</b></td>
-                  <td className="actions">
+                  {isAdmin && <td className="actions">
                     <button onClick={()=>setMaterial({
                       id:m.id,
                       material_name:m.material_name || m.name,
                       material_number:''
                     })}>Bearbeiten</button>
                     <button className="danger" onClick={()=>remove('materials', m.id)}>Löschen</button>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>
@@ -339,27 +389,29 @@ function MasterDataContent() {
         <>
           <h2>Querschnitte</h2>
 
+          {isAdmin && (
           <form className="card grid" onSubmit={saveCross}>
             <input placeholder="z.B. 40x40x3" value={cross.name} onChange={e=>setCross({...cross,name:e.target.value})} required />
             <button>{cross.id ? 'Querschnitt ändern' : 'Querschnitt speichern'}</button>
             {cross.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
+          )}
 
           <table>
             <thead>
               <tr>
                 <th>Querschnitt</th>
-                <th>Aktionen</th>
+                {isAdmin && <th>Aktionen</th>}
               </tr>
             </thead>
             <tbody>
               {filteredCrossSections.map(c=>(
                 <tr key={c.id}>
                   <td><b>{c.name}</b></td>
-                  <td className="actions">
+                  {isAdmin && <td className="actions">
                     <button onClick={()=>setCross(c)}>Bearbeiten</button>
                     <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
-                  </td>
+                  </td>}
                 </tr>
               ))}
             </tbody>
