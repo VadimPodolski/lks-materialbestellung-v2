@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import { OrderItem, normalizeOrderItems, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
+import { ensureCurrentUserProfile } from '@/lib/profiles'
 
 type Order = {
   id: string
@@ -94,6 +95,10 @@ function OrdersContent() {
 
     const user = userData.user || sessionData.session?.user || null
     const email = user?.email?.toLowerCase() || ''
+
+    if (!LOGIN_DISABLED && user) {
+      await ensureCurrentUserProfile(supabase)
+    }
 
     setCurrentUserEmail(LOGIN_DISABLED ? 'Login deaktiviert' : email)
 

@@ -36,7 +36,7 @@ begin
       execute format('drop policy if exists %I on public.%I', table_name || '_delete', table_name);
 
       execute format('create policy %I on public.%I for select to authenticated using (true)', table_name || '_select', table_name);
-      execute format('create policy %I on public.%I for insert to authenticated with check (public.is_admin_user())', table_name || '_insert', table_name);
+      execute format('create policy %I on public.%I for insert to authenticated with check (true)', table_name || '_insert', table_name);
       execute format('create policy %I on public.%I for update to authenticated using (public.is_admin_user()) with check (public.is_admin_user())', table_name || '_update', table_name);
       execute format('create policy %I on public.%I for delete to authenticated using (public.is_admin_user())', table_name || '_delete', table_name);
     end if;

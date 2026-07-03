@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { OrderItem, emptyOrderItem, mergeOrderItems, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
+import { ensureCurrentUserProfile } from '@/lib/profiles'
 
 type Supplier = { id: string; name: string }
 type Customer = { id: string; name: string }
@@ -295,6 +296,7 @@ export default function NewOrderPage() {
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
+    await ensureCurrentUserProfile(supabase)
 
     const orderRow = {
       ...form,

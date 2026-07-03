@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { ensureCurrentUserProfile } from '@/lib/profiles'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,6 +27,8 @@ export default function LoginPage() {
       setMsg(error.message)
       return
     }
+
+    await ensureCurrentUserProfile(supabase)
 
     router.push('/')
     router.refresh()

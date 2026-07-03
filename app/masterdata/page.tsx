@@ -96,7 +96,7 @@ function MasterDataContent() {
 
   async function saveCustomer(e:React.FormEvent) {
     e.preventDefault()
-    if (!isAdmin) return
+    if (customer.id && !isAdmin) return
     const supabase = createClient()
 
     const row = {
@@ -119,7 +119,7 @@ function MasterDataContent() {
 
   async function saveSupplier(e:React.FormEvent) {
     e.preventDefault()
-    if (!isAdmin) return
+    if (supplier.id && !isAdmin) return
     const supabase = createClient()
 
     const row = {
@@ -142,7 +142,7 @@ function MasterDataContent() {
 
   async function saveMaterial(e:React.FormEvent) {
     e.preventDefault()
-    if (!isAdmin) return
+    if (material.id && !isAdmin) return
     const supabase = createClient()
 
     const row = {
@@ -163,7 +163,7 @@ function MasterDataContent() {
 
   async function saveCross(e:React.FormEvent) {
     e.preventDefault()
-    if (!isAdmin) return
+    if (cross.id && !isAdmin) return
     const supabase = createClient()
 
     if (cross.id) {
@@ -219,7 +219,7 @@ function MasterDataContent() {
       <h1>Stammdaten</h1>
 
       {!isAdmin && (
-        <p className="small">Nur Administratoren koennen Stammdaten bearbeiten.</p>
+        <p className="small">Normale Benutzer koennen Stammdaten anlegen. Bearbeiten und Loeschen ist nur fuer Administratoren moeglich.</p>
       )}
 
       <div className="card grid">
@@ -246,7 +246,6 @@ function MasterDataContent() {
         <>
           <h2>Kunden</h2>
 
-          {isAdmin && (
           <form className="card grid" onSubmit={saveCustomer}>
             <input placeholder="Kundenname" value={customer.name} onChange={e=>setCustomer({...customer,name:e.target.value})} required />
             <input placeholder="Ansprechpartner" value={customer.contact_person} onChange={e=>setCustomer({...customer,contact_person:e.target.value})} />
@@ -255,7 +254,6 @@ function MasterDataContent() {
             <button>{customer.id ? 'Kunde ändern' : 'Kunde speichern'}</button>
             {customer.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
-          )}
 
           <table>
             <thead>
@@ -296,7 +294,6 @@ function MasterDataContent() {
         <>
           <h2>Lieferanten</h2>
 
-          {isAdmin && (
           <form className="card grid" onSubmit={saveSupplier}>
             <input placeholder="Lieferantenname" value={supplier.name} onChange={e=>setSupplier({...supplier,name:e.target.value})} required />
             <input placeholder="E-Mail" type="email" value={supplier.email} onChange={e=>setSupplier({...supplier,email:e.target.value})} required />
@@ -305,7 +302,6 @@ function MasterDataContent() {
             <button>{supplier.id ? 'Lieferant ändern' : 'Lieferant speichern'}</button>
             {supplier.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
-          )}
 
           <table>
             <thead>
@@ -346,7 +342,6 @@ function MasterDataContent() {
         <>
           <h2>Materialien</h2>
 
-          {isAdmin && (
           <form className="card grid" onSubmit={saveMaterial}>
             <input
               placeholder="Material z.B. Edelstahl"
@@ -357,7 +352,6 @@ function MasterDataContent() {
             <button>{material.id ? 'Material ändern' : 'Material speichern'}</button>
             {material.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
-          )}
 
           <table>
             <thead>
@@ -389,13 +383,11 @@ function MasterDataContent() {
         <>
           <h2>Querschnitte</h2>
 
-          {isAdmin && (
           <form className="card grid" onSubmit={saveCross}>
             <input placeholder="z.B. 40x40x3" value={cross.name} onChange={e=>setCross({...cross,name:e.target.value})} required />
             <button>{cross.id ? 'Querschnitt ändern' : 'Querschnitt speichern'}</button>
             {cross.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
-          )}
 
           <table>
             <thead>

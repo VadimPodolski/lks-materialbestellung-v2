@@ -13,6 +13,7 @@ import {
   orderItemsTotal,
   primaryOrderItem
 } from '@/lib/orderItems'
+import { ensureCurrentUserProfile } from '@/lib/profiles'
 
 type Order = {
   id: string
@@ -167,6 +168,8 @@ export default function OrderDetailPage() {
     const user = userData.user
 
     if (user) {
+      await ensureCurrentUserProfile(supabase)
+
       const { data: profileById } = await supabase
         .from('profiles')
         .select('role')
@@ -499,6 +502,7 @@ LKS-Technik GmbH & Co. KG`
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
+    await ensureCurrentUserProfile(supabase)
 
     await supabase
       .from('material_orders')
@@ -595,6 +599,7 @@ LKS-Technik GmbH & Co. KG`
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
+    await ensureCurrentUserProfile(supabase)
 
     const { error } = await supabase.from('scrap_items').insert(
       entries.map(({ item, draft, qty }) => ({
@@ -665,6 +670,7 @@ LKS-Technik GmbH & Co. KG`
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
+    await ensureCurrentUserProfile(supabase)
     const orderedBy = await currentUserDisplayName()
 
     const { data, error } = await supabase
