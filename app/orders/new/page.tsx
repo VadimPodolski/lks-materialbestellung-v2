@@ -30,6 +30,7 @@ export default function NewOrderPage() {
     order_number: 'AB-',
     customer: '',
     supplier_id: '',
+    customer_delivery_date: '',
     desired_delivery_date: '',
     notes: ''
   })
@@ -295,22 +296,31 @@ export default function NewOrderPage() {
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
 
+    const orderRow = {
+      ...form,
+      supplier_id: form.supplier_id || null,
+      material: firstItem.material,
+      cross_section: firstItem.cross_section,
+      length_mm: firstItem.length_mm,
+      quantity: totalQuantity,
+      customer_delivery_date: form.customer_delivery_date || null,
+      desired_delivery_date: form.desired_delivery_date || null,
+      created_by: userData.user?.id || null
+    }
+
     const { data, error } = await supabase
       .from('material_orders')
-      .insert({
-        ...form,
-        supplier_id: form.supplier_id || null,
-        material: firstItem.material,
-        cross_section: firstItem.cross_section,
-        length_mm: firstItem.length_mm,
-        quantity: totalQuantity,
-        desired_delivery_date: form.desired_delivery_date || null,
-        created_by: userData.user?.id || null
-      })
+      .insert(orderRow)
       .select('id')
       .single()
 
-    if (error) return setMsg(error.message)
+    if (error) {
+      if (error.message.includes('customer_delivery_date')) {
+        return setMsg('Bitte zuerst die Supabase-Migration fuer Kunden-Liefertermin ausfuehren.')
+      }
+
+      return setMsg(error.message)
+    }
 
     const { error: itemError } = await supabase.from('order_items').insert(
       cleanItems.map((item, index) => ({
@@ -355,6 +365,11 @@ export default function NewOrderPage() {
               ))}
             </div>
           )}
+        </div>
+
+        <div>
+          <label>Kunden-Liefertermin</label>
+          <input type="date" value={form.customer_delivery_date} onChange={e => set('customer_delivery_date', e.target.value)} />
         </div>
 
         <div>

@@ -18,6 +18,7 @@ type Order = {
   id: string
   order_number: string
   customer: string
+  customer_delivery_date: string | null
   material: string
   cross_section: string
   length_mm: number | null
@@ -88,6 +89,7 @@ export default function OrderDetailPage() {
   const [editForm, setEditForm] = useState({
     customer: '',
     supplier_id: '',
+    customer_delivery_date: '',
     desired_delivery_date: '',
     notes: ''
   })
@@ -191,6 +193,7 @@ export default function OrderDetailPage() {
       setEditForm({
         customer: loadedOrder.customer || '',
         supplier_id: loadedOrder.supplier_id || supplierData?.[0]?.id || '',
+        customer_delivery_date: loadedOrder.customer_delivery_date || '',
         desired_delivery_date: loadedOrder.desired_delivery_date || '',
         notes: loadedOrder.notes || ''
       })
@@ -457,6 +460,7 @@ LKS-Technik GmbH & Co. KG`
         cross_section: firstItem.cross_section,
         length_mm: firstItem.length_mm,
         quantity: totalQuantity,
+        customer_delivery_date: editForm.customer_delivery_date || null,
         desired_delivery_date: editForm.desired_delivery_date || null,
         notes: editForm.notes || null
       })
@@ -668,6 +672,7 @@ LKS-Technik GmbH & Co. KG`
         length_mm: firstItem.length_mm,
         quantity: totalQuantity,
         supplier_id: order.supplier_id,
+        customer_delivery_date: order.customer_delivery_date,
         desired_delivery_date: order.desired_delivery_date,
         status: 'offen',
         notes: `Nachbestellung aus Ausschuss (${totalQuantity} Stück)\n${selectedScraps.map(scrap => {
@@ -1092,6 +1097,7 @@ LKS-Technik GmbH & Co. KG`
 
             <div className="grid order-summary-grid">
               <p><b>Gesamtstückzahl:</b><br />{orderItemsTotal(orderItems)}</p>
+              <p><b>Kunden-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>
               <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
@@ -1212,6 +1218,15 @@ LKS-Technik GmbH & Co. KG`
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label>Kunden-Liefertermin</label>
+              <input
+                type="date"
+                value={editForm.customer_delivery_date}
+                onChange={e => setEdit('customer_delivery_date', e.target.value)}
+              />
             </div>
 
             <div style={{ gridColumn: '1/-1' }}>

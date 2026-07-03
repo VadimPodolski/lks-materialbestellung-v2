@@ -11,6 +11,7 @@ type Order = {
   id: string
   order_number: string
   customer: string
+  customer_delivery_date: string | null
   material: string
   cross_section: string
   length_mm: number | null
@@ -41,6 +42,7 @@ type SortKey =
   | 'status'
   | 'order_number'
   | 'customer'
+  | 'customer_delivery_date'
   | 'material'
   | 'positions'
   | 'quantity'
@@ -122,6 +124,7 @@ function OrdersContent() {
           id,
           order_number,
           customer,
+          customer_delivery_date,
           material,
           cross_section,
           length_mm,
@@ -218,6 +221,8 @@ function OrdersContent() {
         return order.order_number
       case 'customer':
         return order.customer
+      case 'customer_delivery_date':
+        return order.customer_delivery_date || ''
       case 'material':
         return items.map(item => item.material).join(' ')
       case 'positions':
@@ -339,7 +344,7 @@ function OrdersContent() {
   const filtered = useMemo(() => {
     return orders.filter(o => {
       const items = normalizeOrderItems(o)
-      const text = `${o.order_number} ${o.customer} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
+      const text = `${o.order_number} ${o.customer} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
       const matchesSearch = text.includes(q.toLowerCase())
       const matchesStatus = !status || o.status === status
       const matchesOverdue =
@@ -475,6 +480,7 @@ function OrdersContent() {
             <option value="order_number">Auftragsnummer</option>
             <option value="status">Status</option>
             <option value="customer">Kunde</option>
+            <option value="customer_delivery_date">Kunden-Liefertermin</option>
             <option value="material">Material</option>
             <option value="supplier">Lieferant</option>
             <option value="desired_delivery_date">Liefertermin</option>
@@ -490,6 +496,7 @@ function OrdersContent() {
             <th>{sortButton('status', 'Status')}</th>
             <th>{sortButton('order_number', 'Auftrag')}</th>
             <th>{sortButton('customer', 'Kunde')}</th>
+            <th>{sortButton('customer_delivery_date', 'Kunden-Liefertermin')}</th>
             <th>{sortButton('material', 'Material')}</th>
             <th>{sortButton('positions', 'Positionen')}</th>
             <th>{sortButton('quantity', 'Menge')}</th>
@@ -530,6 +537,7 @@ function OrdersContent() {
                   <b>{o.order_number}</b>
                 </td>
                 <td>{o.customer}</td>
+                <td>{formatDateShort(o.customer_delivery_date)}</td>
                 <td className="order-positions-cell">
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (

@@ -22,6 +22,7 @@ create table if not exists material_orders (
   cross_section text not null,
   length_mm integer,
   quantity integer not null check (quantity > 0),
+  customer_delivery_date date,
   desired_delivery_date date,
   status text not null default 'offen' check (status in ('offen','bestellt','teilweise_geliefert','geliefert','storniert')),
   notes text,
