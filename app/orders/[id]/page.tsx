@@ -1235,6 +1235,15 @@ LKS-Technik GmbH & Co. KG`
               </select>
             </div>
 
+            <div>
+              <label>Liefertermin</label>
+              <input
+                type="date"
+                value={editForm.desired_delivery_date}
+                onChange={e => setEdit('desired_delivery_date', e.target.value)}
+              />
+            </div>
+
             <div style={{ gridColumn: '1/-1' }}>
               <div className="actions" style={{ justifyContent: 'space-between' }}>
                 <h2>Positionen</h2>
@@ -1314,14 +1323,6 @@ LKS-Technik GmbH & Co. KG`
               <p className="small">Gesamtstückzahl: {orderItemsTotal(editItems)}</p>
             </div>
 
-            <div>
-              <label>Liefertermin</label>
-              <input
-                type="date"
-                value={editForm.desired_delivery_date}
-                onChange={e => setEdit('desired_delivery_date', e.target.value)}
-              />
-            </div>
 
             <div style={{ gridColumn: '1/-1' }}>
               <label>Bemerkung</label>

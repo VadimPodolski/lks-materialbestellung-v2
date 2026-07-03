@@ -381,6 +381,11 @@ export default function NewOrderPage() {
           </select>
         </div>
 
+        <div>
+          <label>Liefertermin</label>
+          <input type="date" value={form.desired_delivery_date} onChange={e => set('desired_delivery_date', e.target.value)} />
+        </div>
+
         <div style={{ gridColumn: '1/-1' }}>
           <div className="actions" style={{ justifyContent: 'space-between' }}>
             <h2>Positionen</h2>
@@ -500,10 +505,6 @@ export default function NewOrderPage() {
           <p className="small">Gesamtstückzahl: {orderItemsTotal(items)}</p>
         </div>
 
-        <div>
-          <label>Gewünschter Liefertermin</label>
-          <input type="date" value={form.desired_delivery_date} onChange={e => set('desired_delivery_date', e.target.value)} />
-        </div>
 
         <div style={{ gridColumn: '1/-1' }}>
           <label>Bemerkung</label>
