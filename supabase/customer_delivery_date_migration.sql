@@ -1,4 +1,4 @@
--- Kunden-Liefertermin am Auftrag speichern.
+-- K-Liefertermin am Auftrag speichern.
 -- In Supabase SQL Editor ausfuehren.
 
 alter table material_orders

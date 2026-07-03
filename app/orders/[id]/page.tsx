@@ -1097,7 +1097,7 @@ LKS-Technik GmbH & Co. KG`
 
             <div className="grid order-summary-grid">
               <p><b>Gesamtstückzahl:</b><br />{orderItemsTotal(orderItems)}</p>
-              <p><b>Kunden-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>
+              <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>
               <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
@@ -1221,7 +1221,7 @@ LKS-Technik GmbH & Co. KG`
             </div>
 
             <div>
-              <label>Kunden-Liefertermin</label>
+              <label>K-Liefertermin</label>
               <input
                 type="date"
                 value={editForm.customer_delivery_date}

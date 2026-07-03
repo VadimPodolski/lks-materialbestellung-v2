@@ -480,7 +480,7 @@ function OrdersContent() {
             <option value="order_number">Auftragsnummer</option>
             <option value="status">Status</option>
             <option value="customer">Kunde</option>
-            <option value="customer_delivery_date">Kunden-Liefertermin</option>
+            <option value="customer_delivery_date">K-Liefertermin</option>
             <option value="material">Material</option>
             <option value="supplier">Lieferant</option>
             <option value="desired_delivery_date">Liefertermin</option>
@@ -496,7 +496,7 @@ function OrdersContent() {
             <th>{sortButton('status', 'Status')}</th>
             <th>{sortButton('order_number', 'Auftrag')}</th>
             <th>{sortButton('customer', 'Kunde')}</th>
-            <th>{sortButton('customer_delivery_date', 'Kunden-Liefertermin')}</th>
+            <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>
             <th>{sortButton('material', 'Material')}</th>
             <th>{sortButton('positions', 'Positionen')}</th>
             <th>{sortButton('quantity', 'Menge')}</th>

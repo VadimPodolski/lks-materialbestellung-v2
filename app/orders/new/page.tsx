@@ -303,6 +303,7 @@ export default function NewOrderPage() {
       cross_section: firstItem.cross_section,
       length_mm: firstItem.length_mm,
       quantity: totalQuantity,
+      status: 'offen',
       customer_delivery_date: form.customer_delivery_date || null,
       desired_delivery_date: form.desired_delivery_date || null,
       created_by: userData.user?.id || null
@@ -316,7 +317,7 @@ export default function NewOrderPage() {
 
     if (error) {
       if (error.message.includes('customer_delivery_date')) {
-        return setMsg('Bitte zuerst die Supabase-Migration fuer Kunden-Liefertermin ausfuehren.')
+        return setMsg('Bitte zuerst die Supabase-Migration fuer K-Liefertermin ausfuehren.')
       }
 
       return setMsg(error.message)
@@ -368,7 +369,7 @@ export default function NewOrderPage() {
         </div>
 
         <div>
-          <label>Kunden-Liefertermin</label>
+          <label>K-Liefertermin</label>
           <input type="date" value={form.customer_delivery_date} onChange={e => set('customer_delivery_date', e.target.value)} />
         </div>
 
