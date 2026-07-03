@@ -1104,6 +1104,8 @@ LKS-Technik GmbH & Co. KG`
               <p><b>Gesamtstückzahl:</b><br />{orderItemsTotal(orderItems)}</p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
+              <p><b>Kunde:</b><br />{order.customer}</p>
+              <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>
               <p>
                 <b>Lieferant:</b>
                 <br />
@@ -1113,7 +1115,6 @@ LKS-Technik GmbH & Co. KG`
                 <br />
                 {order.suppliers?.email || ''}
               </p>
-              <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>
               <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
             </div>
 
@@ -1211,6 +1212,15 @@ LKS-Technik GmbH & Co. KG`
             </div>
 
             <div>
+              <label>K-Liefertermin</label>
+              <input
+                type="date"
+                value={editForm.customer_delivery_date}
+                onChange={e => setEdit('customer_delivery_date', e.target.value)}
+              />
+            </div>
+
+            <div>
               <label>Lieferant</label>
               <select
                 value={editForm.supplier_id}
@@ -1223,15 +1233,6 @@ LKS-Technik GmbH & Co. KG`
                   </option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label>K-Liefertermin</label>
-              <input
-                type="date"
-                value={editForm.customer_delivery_date}
-                onChange={e => setEdit('customer_delivery_date', e.target.value)}
-              />
             </div>
 
             <div style={{ gridColumn: '1/-1' }}>

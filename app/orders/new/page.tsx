@@ -369,16 +369,16 @@ export default function NewOrderPage() {
         </div>
 
         <div>
+          <label>K-Liefertermin</label>
+          <input type="date" value={form.customer_delivery_date} onChange={e => set('customer_delivery_date', e.target.value)} />
+        </div>
+
+        <div>
           <label>Lieferant</label>
           <select value={form.supplier_id} onChange={e => set('supplier_id', e.target.value)}>
             <option value="">Bitte wählen</option>
             {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
-        </div>
-
-        <div>
-          <label>K-Liefertermin</label>
-          <input type="date" value={form.customer_delivery_date} onChange={e => set('customer_delivery_date', e.target.value)} />
         </div>
 
         <div style={{ gridColumn: '1/-1' }}>
