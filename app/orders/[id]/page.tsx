@@ -220,6 +220,11 @@ export default function OrderDetailPage() {
     setEditForm(prev => ({ ...prev, [k]: v }))
   }
 
+  function visibleStatus(currentOrder: Order) {
+    if (currentOrder.status === 'bestellt' && !currentOrder.ordered_at) return 'offen'
+    return currentOrder.status
+  }
+
   function setEditItem(index: number, key: 'material' | 'cross_section' | 'length_mm' | 'quantity', value: string) {
     setEditItems(prev => prev.map((item, itemIndex) => {
       if (itemIndex !== index) return item
@@ -998,8 +1003,8 @@ LKS-Technik GmbH & Co. KG`
         {!editing ? (
           <>
             <p>
-              <span className={statusClass(order.status)}>
-                {statusLabels[order.status]}
+              <span className={statusClass(visibleStatus(order))}>
+                {statusLabels[visibleStatus(order)]}
               </span>
             </p>
 
@@ -1097,8 +1102,6 @@ LKS-Technik GmbH & Co. KG`
 
             <div className="grid order-summary-grid">
               <p><b>Gesamtstückzahl:</b><br />{orderItemsTotal(orderItems)}</p>
-              <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>
-              <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
               <p>
@@ -1110,6 +1113,8 @@ LKS-Technik GmbH & Co. KG`
                 <br />
                 {order.suppliers?.email || ''}
               </p>
+              <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>
+              <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
             </div>
 
             {order.notes && (

@@ -193,6 +193,11 @@ function OrdersContent() {
     return p?.full_name || p?.email || '-'
   }
 
+  function visibleStatus(order: Order) {
+    if (order.status === 'bestellt' && !order.ordered_at) return 'offen'
+    return order.status
+  }
+
   function deliveredQty(order: Order) {
     return (order.goods_receipts || []).reduce(
       (sum, r) => sum + Number(r.received_quantity || 0),
@@ -216,7 +221,7 @@ function OrdersContent() {
 
     switch (key) {
       case 'status':
-        return statusLabels[order.status] || order.status
+        return statusLabels[visibleStatus(order)] || visibleStatus(order)
       case 'order_number':
         return order.order_number
       case 'customer':
@@ -346,7 +351,7 @@ function OrdersContent() {
       const items = normalizeOrderItems(o)
       const text = `${o.order_number} ${o.customer} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
       const matchesSearch = text.includes(q.toLowerCase())
-      const matchesStatus = !status || o.status === status
+      const matchesStatus = !status || visibleStatus(o) === status
       const matchesOverdue =
         !overdueOnly ||
         Boolean(
@@ -518,6 +523,7 @@ function OrdersContent() {
             const delivered = deliveredQty(o)
             const scrap = scrapQty(o)
             const open = openQty(o)
+            const orderStatus = visibleStatus(o)
             const pdf = o.order_pdfs?.[0]
             const pdfUrl = pdf?.file_url || o.supplier_order_pdf_url
             const pdfName = pdf?.file_name || o.supplier_order_pdf_name
@@ -529,8 +535,8 @@ function OrdersContent() {
                 className={`clickable-order-row ${isReorder(o.order_number) ? 'reorder-row' : ''}`}
               >
                 <td>
-                  <span className={statusClass(o.status)}>
-                    {statusLabels[o.status]}
+                  <span className={statusClass(orderStatus)}>
+                    {statusLabels[orderStatus]}
                   </span>
                 </td>
                 <td>
@@ -605,7 +611,7 @@ function OrdersContent() {
                   )}
                 </td>
                 <td className="row-actions">
-                  {(isAdmin || o.status === 'offen') && (
+                  {(isAdmin || orderStatus === 'offen') && (
                     <button
                       type="button"
                       className="danger"
