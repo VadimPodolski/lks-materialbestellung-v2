@@ -17,7 +17,8 @@ export async function POST(req: Request) {
       supplierName,
       orderedBy,
       notes,
-      items
+      items,
+      mailType
     } = body
 
     if (!supplierEmail) {
@@ -53,11 +54,29 @@ export async function POST(req: Request) {
         quantity
       }]
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to: supplierEmail,
-      subject: `Materialbestellung LKS - Auftrag ${orderNumber}`,
-      text: `Sehr geehrte Damen und Herren,
+    const isCancellation = mailType === 'cancellation'
+    const subject = isCancellation
+      ? `Stornierung Materialbestellung LKS - Auftrag ${orderNumber}`
+      : `Materialbestellung LKS - Auftrag ${orderNumber}`
+    const text = isCancellation
+      ? `Sehr geehrte Damen und Herren,
+
+hiermit stornieren wir unsere Materialbestellung.
+
+Auftrag: ${orderNumber}
+Bearbeiter: ${orderedBy || '-'}
+
+${orderItemsMailText(orderItems)}
+
+Bemerkung: ${notes || '-'}
+
+Bitte bestätigen Sie uns die Stornierung kurz per E-Mail.
+
+
+Mit freundlichen Grüßen
+
+LKS-Technik GmbH & Co. KG`
+      : `Sehr geehrte Damen und Herren,
 
 bitte liefern Sie uns folgendes Material:
 
@@ -75,11 +94,19 @@ Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren un
 Mit freundlichen Grüßen
 
 LKS-Technik GmbH & Co. KG`
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM,
+      to: supplierEmail,
+      subject,
+      text
     })
 
     return NextResponse.json({
       success: true,
-      message: `Bestellung wurde an ${supplierName || supplierEmail} versendet.`
+      message: isCancellation
+        ? `Stornierung wurde an ${supplierName || supplierEmail} versendet.`
+        : `Bestellung wurde an ${supplierName || supplierEmail} versendet.`
     })
   } catch (error: any) {
     return NextResponse.json(

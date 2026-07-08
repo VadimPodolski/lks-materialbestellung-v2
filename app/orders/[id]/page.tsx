@@ -8,6 +8,7 @@ import {
   emptyOrderItem,
   mergeOrderItems,
   normalizeOrderItems,
+  orderItemAvText,
   orderItemsMailText,
   orderItemsSelect,
   orderItemsTotal,
@@ -22,6 +23,10 @@ type Order = {
   customer_delivery_date: string | null
   material: string
   cross_section: string
+  av_1: string | null
+  av_2: string | null
+  av_3: string | null
+  av_4: string | null
   length_mm: number | null
   quantity: number
   status: string
@@ -84,6 +89,7 @@ export default function OrderDetailPage() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [materials, setMaterials] = useState<MasterData[]>([])
   const [crossSections, setCrossSections] = useState<MasterData[]>([])
+  const [workPreparations, setWorkPreparations] = useState<MasterData[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
 
   const [editing, setEditing] = useState(false)
@@ -123,7 +129,8 @@ export default function OrderDetailPage() {
       { data: pdfData },
       { data: supplierData },
       { data: materialData },
-      { data: crossData }
+      { data: crossData },
+      { data: workPreparationData }
     ] = await Promise.all([
       supabase
         .from('material_orders')
@@ -151,7 +158,8 @@ export default function OrderDetailPage() {
 
       supabase.from('suppliers').select('id,name,email').order('name'),
       supabase.from('materials').select('id,name').order('name'),
-      supabase.from('cross_sections').select('id,name').order('name')
+      supabase.from('cross_sections').select('id,name').order('name'),
+      supabase.from('work_preparations').select('id,name').order('name')
     ])
 
     const loadedOrder = orderData as any
@@ -163,6 +171,7 @@ export default function OrderDetailPage() {
     setSuppliers(supplierData || [])
     setMaterials(materialData || [])
     setCrossSections(crossData || [])
+    setWorkPreparations(workPreparationData || [])
 
     const { data: userData } = await supabase.auth.getUser()
     const user = userData.user
@@ -228,7 +237,7 @@ export default function OrderDetailPage() {
     return currentOrder.status
   }
 
-  function setEditItem(index: number, key: 'material' | 'cross_section' | 'length_mm' | 'quantity', value: string) {
+  function setEditItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity', value: string) {
     setEditItems(prev => prev.map((item, itemIndex) => {
       if (itemIndex !== index) return item
 
@@ -253,6 +262,10 @@ export default function OrderDetailPage() {
         ...emptyOrderItem(),
         material: last.material,
         cross_section: last.cross_section,
+        av_1: last.av_1,
+        av_2: last.av_2,
+        av_3: last.av_3,
+        av_4: last.av_4,
         length_mm: last.length_mm
       }
     ])
@@ -448,6 +461,10 @@ LKS-Technik GmbH & Co. KG`
     const cleanItems = mergeOrderItems(editItems.map(item => ({
       material: item.material.trim(),
       cross_section: item.cross_section.trim(),
+      av_1: (item.av_1 || '').trim(),
+      av_2: (item.av_2 || '').trim(),
+      av_3: (item.av_3 || '').trim(),
+      av_4: (item.av_4 || '').trim(),
       length_mm: item.length_mm ? Number(item.length_mm) : null,
       quantity: Number(item.quantity)
     })))
@@ -483,6 +500,10 @@ LKS-Technik GmbH & Co. KG`
         material_order_id: order.id,
         material: item.material,
         cross_section: item.cross_section,
+        av_1: item.av_1 || null,
+        av_2: item.av_2 || null,
+        av_3: item.av_3 || null,
+        av_4: item.av_4 || null,
         length_mm: item.length_mm,
         quantity: item.quantity,
         position: index + 1
@@ -515,6 +536,33 @@ LKS-Technik GmbH & Co. KG`
 
     await load()
     setMsg('Status wurde auf Bestellt gesetzt.')
+  }
+
+  async function changeStatus(nextStatus: string) {
+    if (!order) return
+
+    const supabase = createClient()
+    const { data: userData } = await supabase.auth.getUser()
+    const update: Record<string, string | null> = { status: nextStatus }
+
+    if (nextStatus === 'bestellt' && !order.ordered_at) {
+      await ensureCurrentUserProfile(supabase)
+      update.ordered_at = new Date().toISOString()
+      update.ordered_by = userData.user?.id || null
+    }
+
+    const { error } = await supabase
+      .from('material_orders')
+      .update(update)
+      .eq('id', order.id)
+
+    if (error) {
+      setMsg(error.message)
+      return
+    }
+
+    await load()
+    setMsg('Status wurde manuell geändert.')
   }
 
   async function receiveGoods() {
@@ -645,11 +693,16 @@ LKS-Technik GmbH & Co. KG`
 
     const reorderItems = mergeOrderItems(selectedScraps.map(scrap => {
       const fallbackItem = primaryOrderItem(orderItems)
+      const sourceItem = orderItems.find(item => item.id && item.id === scrap.order_item_id) || fallbackItem
 
       return {
-        material: scrap.material || fallbackItem.material,
-        cross_section: scrap.cross_section || fallbackItem.cross_section,
-        length_mm: scrap.length_mm ?? fallbackItem.length_mm,
+        material: scrap.material || sourceItem.material,
+        cross_section: scrap.cross_section || sourceItem.cross_section,
+        av_1: sourceItem.av_1 || '',
+        av_2: sourceItem.av_2 || '',
+        av_3: sourceItem.av_3 || '',
+        av_4: sourceItem.av_4 || '',
+        length_mm: scrap.length_mm ?? sourceItem.length_mm,
         quantity: scrap.quantity
       }
     }))
@@ -709,6 +762,10 @@ LKS-Technik GmbH & Co. KG`
         material_order_id: data.id,
         material: item.material,
         cross_section: item.cross_section,
+        av_1: item.av_1 || null,
+        av_2: item.av_2 || null,
+        av_3: item.av_3 || null,
+        av_4: item.av_4 || null,
         length_mm: item.length_mm,
         quantity: item.quantity,
         position: index + 1
@@ -927,16 +984,46 @@ LKS-Technik GmbH & Co. KG`
   }
 
   async function cancelOrder() {
+    if (!order || !confirm('Bestellung wirklich stornieren und Stornierungsmail senden?')) return
+
+    if (!order.suppliers?.email) {
+      setMsg('Keine Lieferanten-E-Mail vorhanden. Stornierungsmail wurde nicht gesendet.')
+      return
+    }
+
+    setMsg('Stornierung wird per E-Mail versendet...')
+    const orderedBy = await currentUserDisplayName()
+
+    const res = await fetch('/api/send-order-mail', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mailType: 'cancellation',
+        supplierEmail: order.suppliers.email,
+        orderNumber: order.order_number,
+        customer: order.customer,
+        items: orderItems,
+        supplierName: order.suppliers.name,
+        orderedBy,
+        notes: order.notes
+      })
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      setMsg(data.error || 'Stornierungsmail konnte nicht gesendet werden.')
+      return
+    }
+
     const supabase = createClient()
-
-    if (!order || !confirm('Bestellung wirklich stornieren?')) return
-
     await supabase
       .from('material_orders')
       .update({ status: 'storniert' })
       .eq('id', order.id)
 
     await load()
+    setMsg('Stornierung wurde per E-Mail gesendet und der Status wurde auf Storniert gesetzt.')
   }
 
   async function deleteOrder() {
@@ -1008,11 +1095,30 @@ LKS-Technik GmbH & Co. KG`
       <div className="card">
         {!editing ? (
           <>
-            <p>
-              <span className={statusClass(visibleStatus(order))}>
-                {statusLabels[visibleStatus(order)]}
-              </span>
-            </p>
+            <div className="status-control">
+              <div className="status-menu">
+                <button
+                  type="button"
+                  className={`status-badge-button ${statusClass(visibleStatus(order))}`}
+                  title="Status ändern"
+                >
+                  {statusLabels[visibleStatus(order)]}
+                </button>
+
+                <div className="status-menu-options">
+                  {Object.entries(statusLabels).map(([key, label]) => (
+                    <button
+                      type="button"
+                      key={key}
+                      className={`status-menu-option ${key === visibleStatus(order) ? 'active' : ''}`}
+                      onClick={() => changeStatus(key)}
+                    >
+                      <span className={statusClass(key)}>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             <div className="order-items-table">
               <table className="position-entry-table">
@@ -1021,6 +1127,7 @@ LKS-Technik GmbH & Co. KG`
                     <th>Position</th>
                     <th>Material</th>
                     <th>Querschnitt</th>
+                    <th>AV</th>
                     <th>Länge</th>
                     <th>Stückzahl</th>
                     <th>Geliefert</th>
@@ -1042,6 +1149,7 @@ LKS-Technik GmbH & Co. KG`
                         <td>{index + 1}</td>
                         <td>{item.material}</td>
                         <td>{item.cross_section}</td>
+                        <td>{orderItemAvText(item) || '-'}</td>
                         <td>{item.length_mm || '-'} mm</td>
                         <td>{item.quantity}</td>
                         <td className={receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}>
@@ -1256,6 +1364,12 @@ LKS-Technik GmbH & Co. KG`
                 <button type="button" onClick={addEditItem}>+ Position</button>
               </div>
 
+              <datalist id="edit-work-preparation-options">
+                {workPreparations.map(av => (
+                  <option key={av.id} value={av.name} />
+                ))}
+              </datalist>
+
               <div className="order-items">
                 {editItems.map((item, index) => (
                   <div className="order-item" key={index}>
@@ -1293,6 +1407,18 @@ LKS-Technik GmbH & Co. KG`
                           ))}
                         </select>
                       </div>
+
+                      {(['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
+                        <div key={key}>
+                          <label>AV {avIndex + 1}</label>
+                          <input
+                            value={item[key] || ''}
+                            list="edit-work-preparation-options"
+                            onChange={e => setEditItem(index, key, e.target.value)}
+                            placeholder="Arbeitsvorbereitung"
+                          />
+                        </div>
+                      ))}
 
                       <div>
                         <label>Länge mm</label>

@@ -13,6 +13,12 @@ create table if not exists suppliers (
   created_at timestamptz default now()
 );
 
+create table if not exists work_preparations (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  created_at timestamptz default now()
+);
+
 create table if not exists material_orders (
   id uuid primary key default gen_random_uuid(),
   order_number text not null,
@@ -38,6 +44,10 @@ create table if not exists order_items (
   position integer not null default 1,
   material text not null,
   cross_section text not null,
+  av_1 text,
+  av_2 text,
+  av_3 text,
+  av_4 text,
   length_mm integer,
   quantity integer not null check (quantity > 0),
   created_at timestamptz default now()
@@ -82,6 +92,7 @@ create table if not exists order_history (
 );
 
 alter table suppliers enable row level security;
+alter table work_preparations enable row level security;
 alter table material_orders enable row level security;
 alter table order_items enable row level security;
 alter table goods_receipts enable row level security;
@@ -93,6 +104,11 @@ create policy "suppliers_select" on suppliers for select to authenticated using 
 create policy "suppliers_insert" on suppliers for insert to authenticated with check (true);
 create policy "suppliers_update" on suppliers for update to authenticated using (true);
 create policy "suppliers_delete" on suppliers for delete to authenticated using (true);
+
+create policy "work_preparations_select" on work_preparations for select to authenticated using (true);
+create policy "work_preparations_insert" on work_preparations for insert to authenticated with check (true);
+create policy "work_preparations_update" on work_preparations for update to authenticated using (true);
+create policy "work_preparations_delete" on work_preparations for delete to authenticated using (true);
 
 create policy "orders_select" on material_orders for select to authenticated using (true);
 create policy "orders_insert" on material_orders for insert to authenticated with check (auth.uid() = created_by or created_by is null);

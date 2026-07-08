@@ -10,6 +10,7 @@ type Supplier = { id: string; name: string }
 type Customer = { id: string; name: string }
 type Material = { id: string; name: string; material_name: string | null; material_number: string | null }
 type CrossSection = { id: string; name: string }
+type WorkPreparation = { id: string; name: string }
 
 export default function NewOrderPage() {
   const router = useRouter()
@@ -18,14 +19,17 @@ export default function NewOrderPage() {
   const [customers, setCustomers] = useState<Customer[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [crossSections, setCrossSections] = useState<CrossSection[]>([])
+  const [workPreparations, setWorkPreparations] = useState<WorkPreparation[]>([])
 
   const [showMaterialModal, setShowMaterialModal] = useState(false)
   const [showCrossModal, setShowCrossModal] = useState(false)
   const [showCustomerModal, setShowCustomerModal] = useState(false)
+  const [showWorkPreparationModal, setShowWorkPreparationModal] = useState(false)
 
   const [materialForm, setMaterialForm] = useState({ material_name: '' })
   const [crossForm, setCrossForm] = useState({ name: '' })
   const [customerForm, setCustomerForm] = useState({ name: '', contact_person: '', email: '', phone: '', notes: '' })
+  const [workPreparationForm, setWorkPreparationForm] = useState({ name: '' })
 
   const [form, setForm] = useState({
     order_number: 'AB-',
@@ -48,12 +52,13 @@ export default function NewOrderPage() {
   async function loadMasterData() {
     const supabase = createClient()
 
-    const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }] =
+    const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }, { data: workPreparationData }] =
       await Promise.all([
         supabase.from('suppliers').select('id,name').order('name'),
         supabase.from('customers').select('id,name').order('name'),
         supabase.from('materials').select('id,name,material_name,material_number').order('name'),
-        supabase.from('cross_sections').select('id,name').order('name')
+        supabase.from('cross_sections').select('id,name').order('name'),
+        supabase.from('work_preparations').select('id,name').order('name')
       ])
 
     const supplierList = supplierData || []
@@ -64,6 +69,7 @@ export default function NewOrderPage() {
     setCustomers(customerData || [])
     setMaterials(materialList)
     setCrossSections(crossSectionList)
+    setWorkPreparations(workPreparationData || [])
 
     const lastSupplier = localStorage.getItem('last_supplier_id')
     const lastMaterial = localStorage.getItem('last_material')
@@ -124,6 +130,9 @@ export default function NewOrderPage() {
     const knownCrossSections = new Set(
       crossSections.map(c => c.name.trim().toLowerCase()).filter(Boolean)
     )
+    const knownWorkPreparations = new Set(
+      workPreparations.map(av => av.name.trim().toLowerCase()).filter(Boolean)
+    )
     const newMaterials = Array.from(
       new Set(
         cleanItems
@@ -136,6 +145,14 @@ export default function NewOrderPage() {
         cleanItems
           .map(item => item.cross_section.trim())
           .filter(name => name && !knownCrossSections.has(name.toLowerCase()))
+      )
+    )
+    const newWorkPreparations = Array.from(
+      new Set(
+        cleanItems
+          .flatMap(item => [item.av_1, item.av_2, item.av_3, item.av_4])
+          .map(name => (name || '').trim())
+          .filter(name => name && !knownWorkPreparations.has(name.toLowerCase()))
       )
     )
 
@@ -162,9 +179,19 @@ export default function NewOrderPage() {
         throw new Error(error.message)
       }
     }
+
+    if (newWorkPreparations.length > 0) {
+      const { error } = await supabase.from('work_preparations').insert(
+        newWorkPreparations.map(name => ({ name }))
+      )
+
+      if (error && !error.message.includes('duplicate')) {
+        throw new Error(error.message)
+      }
+    }
   }
 
-  function setItem(index: number, key: 'material' | 'cross_section' | 'length_mm' | 'quantity', value: string) {
+  function setItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity', value: string) {
     setItems(prev => prev.map((item, itemIndex) => {
       if (itemIndex !== index) return item
 
@@ -189,6 +216,10 @@ export default function NewOrderPage() {
         ...emptyOrderItem(),
         material: last.material,
         cross_section: last.cross_section,
+        av_1: last.av_1,
+        av_2: last.av_2,
+        av_3: last.av_3,
+        av_4: last.av_4,
         length_mm: last.length_mm
       }
     ])
@@ -238,6 +269,22 @@ export default function NewOrderPage() {
     setItems(prev => prev.map((item, index) => index === 0 ? { ...item, cross_section: name } : item))
   }
 
+  async function saveWorkPreparation() {
+    const name = workPreparationForm.name.trim()
+    if (!name) return setMsg('Bitte Arbeitsvorbereitung eintragen.')
+
+    const supabase = createClient()
+    const { error } = await supabase.from('work_preparations').insert({ name })
+
+    if (error && !error.message.includes('duplicate')) return setMsg(error.message)
+
+    setWorkPreparationForm({ name: '' })
+    setShowWorkPreparationModal(false)
+    setMsg('')
+    await loadMasterData()
+    setItems(prev => prev.map((item, index) => index === 0 ? { ...item, av_1: name } : item))
+  }
+
   async function saveCustomer() {
     const name = customerForm.name.trim()
     if (!name) return setMsg('Bitte Kundennamen eintragen.')
@@ -273,6 +320,10 @@ export default function NewOrderPage() {
     const cleanItems = mergeOrderItems(items.map(item => ({
       material: item.material.trim(),
       cross_section: item.cross_section.trim(),
+      av_1: (item.av_1 || '').trim(),
+      av_2: (item.av_2 || '').trim(),
+      av_3: (item.av_3 || '').trim(),
+      av_4: (item.av_4 || '').trim(),
       length_mm: item.length_mm ? Number(item.length_mm) : null,
       quantity: Number(item.quantity)
     })))
@@ -330,6 +381,10 @@ export default function NewOrderPage() {
         material_order_id: data.id,
         material: item.material,
         cross_section: item.cross_section,
+        av_1: item.av_1 || null,
+        av_2: item.av_2 || null,
+        av_3: item.av_3 || null,
+        av_4: item.av_4 || null,
         length_mm: item.length_mm,
         quantity: item.quantity,
         position: index + 1
@@ -398,9 +453,16 @@ export default function NewOrderPage() {
               }}>+ Kunde</button>
               <button type="button" className="button-material" onClick={() => setShowMaterialModal(true)}>+ Material</button>
               <button type="button" className="button-cross-section" onClick={() => setShowCrossModal(true)}>+ Querschnitt</button>
+              <button type="button" className="button-work-preparation" onClick={() => setShowWorkPreparationModal(true)}>+ AV</button>
               <button type="button" className="primary" onClick={addItem}>+ Position</button>
             </div>
           </div>
+
+          <datalist id="work-preparation-options">
+            {workPreparations.map(av => (
+              <option key={av.id} value={av.name} />
+            ))}
+          </datalist>
 
           <div className="order-items">
             {items.map((item, index) => (
@@ -480,6 +542,18 @@ export default function NewOrderPage() {
                       onChange={e => setItem(index, 'length_mm', e.target.value)}
                     />
                   </div>
+
+                  {(['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
+                    <div key={key}>
+                      <label>AV {avIndex + 1}</label>
+                      <input
+                        value={item[key] || ''}
+                        list="work-preparation-options"
+                        onChange={e => setItem(index, key, e.target.value)}
+                        placeholder="Arbeitsvorbereitung"
+                      />
+                    </div>
+                  ))}
 
                   <div>
                     <label>Stückzahl</label>
@@ -568,6 +642,20 @@ export default function NewOrderPage() {
             <div className="actions">
               <button type="button" onClick={saveCustomer}>Speichern</button>
               <button type="button" className="secondary" onClick={() => setShowCustomerModal(false)}>Abbrechen</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showWorkPreparationModal && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <h2>AV anlegen</h2>
+            <label>Arbeitsvorbereitung</label>
+            <input value={workPreparationForm.name} onChange={e => setWorkPreparationForm({ name: e.target.value })} placeholder="z.B. Sortieren, Kanten, Schweißen" />
+            <div className="actions">
+              <button type="button" onClick={saveWorkPreparation}>Speichern</button>
+              <button type="button" className="secondary" onClick={() => setShowWorkPreparationModal(false)}>Abbrechen</button>
             </div>
           </div>
         </div>

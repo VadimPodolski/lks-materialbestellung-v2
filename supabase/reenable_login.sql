@@ -6,6 +6,7 @@ declare
     'suppliers',
     'materials',
     'cross_sections',
+    'work_preparations',
     'profiles',
     'material_orders',
     'order_items',

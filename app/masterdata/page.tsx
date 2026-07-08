@@ -9,8 +9,9 @@ type Customer = { id:string; name:string; contact_person:string|null; email:stri
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
 type Material = { id:string; name:string; material_name:string|null; material_number:string|null }
 type CrossSection = { id:string; name:string }
+type WorkPreparation = { id:string; name:string }
 
-type TypeKey = 'customers' | 'suppliers' | 'materials' | 'cross_sections'
+type TypeKey = 'customers' | 'suppliers' | 'materials' | 'cross_sections' | 'work_preparations'
 
 function MasterDataContent() {
   const router = useRouter()
@@ -24,15 +25,17 @@ function MasterDataContent() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [crossSections, setCrossSections] = useState<CrossSection[]>([])
+  const [workPreparations, setWorkPreparations] = useState<WorkPreparation[]>([])
 
   const [customer, setCustomer] = useState({ id:'', name:'', contact_person:'', email:'', phone:'', notes:'' })
   const [supplier, setSupplier] = useState({ id:'', name:'', email:'', phone:'', contact_person:'', notes:'' })
   const [material, setMaterial] = useState({ id:'', material_name:'', material_number:'' })
   const [cross, setCross] = useState({ id:'', name:'' })
+  const [workPreparation, setWorkPreparation] = useState({ id:'', name:'' })
 
   useEffect(() => {
     const t = searchParams.get('type') as TypeKey | null
-    if (t && ['customers','suppliers','materials','cross_sections'].includes(t)) {
+    if (t && ['customers','suppliers','materials','cross_sections','work_preparations'].includes(t)) {
       setType(t)
     }
     load()
@@ -47,14 +50,16 @@ function MasterDataContent() {
       {data:c},
       {data:s},
       {data:m},
-      {data:cs}
+      {data:cs},
+      {data:av}
     ] = await Promise.all([
       supabase.auth.getSession(),
       supabase.auth.getUser(),
       supabase.from('customers').select('*').order('name'),
       supabase.from('suppliers').select('*').order('name'),
       supabase.from('materials').select('*').order('name'),
-      supabase.from('cross_sections').select('*').order('name')
+      supabase.from('cross_sections').select('*').order('name'),
+      supabase.from('work_preparations').select('*').order('name')
     ])
 
     const user = userData.user || sessionData.session?.user || null
@@ -85,6 +90,7 @@ function MasterDataContent() {
     setSuppliers(s || [])
     setMaterials(m || [])
     setCrossSections(cs || [])
+    setWorkPreparations(av || [])
   }
 
   function resetForms() {
@@ -92,6 +98,7 @@ function MasterDataContent() {
     setSupplier({ id:'', name:'', email:'', phone:'', contact_person:'', notes:'' })
     setMaterial({ id:'', material_name:'', material_number:'' })
     setCross({ id:'', name:'' })
+    setWorkPreparation({ id:'', name:'' })
   }
 
   async function saveCustomer(e:React.FormEvent) {
@@ -176,6 +183,21 @@ function MasterDataContent() {
     load()
   }
 
+  async function saveWorkPreparation(e:React.FormEvent) {
+    e.preventDefault()
+    if (workPreparation.id && !isAdmin) return
+    const supabase = createClient()
+
+    if (workPreparation.id) {
+      await supabase.from('work_preparations').update({ name: workPreparation.name }).eq('id', workPreparation.id)
+    } else {
+      await supabase.from('work_preparations').insert({ name: workPreparation.name })
+    }
+
+    resetForms()
+    load()
+  }
+
   async function remove(table:string, id:string) {
     if (!isAdmin) return
     if (!confirm('Eintrag wirklich löschen?')) return
@@ -183,13 +205,6 @@ function MasterDataContent() {
     await supabase.from(table).delete().eq('id', id)
     load()
   }
-
-  const filteredCustomers = useMemo(() => {
-    const x = q.toLowerCase()
-    return customers.filter(c =>
-      `${c.name} ${c.contact_person || ''} ${c.email || ''} ${c.phone || ''}`.toLowerCase().includes(x)
-    )
-  }, [customers, q])
 
   const filteredSuppliers = useMemo(() => {
     const x = q.toLowerCase()
@@ -209,6 +224,18 @@ function MasterDataContent() {
     const x = q.toLowerCase()
     return crossSections.filter(c => c.name.toLowerCase().includes(x))
   }, [crossSections, q])
+
+  const filteredWorkPreparations = useMemo(() => {
+    const x = q.toLowerCase()
+    return workPreparations.filter(av => av.name.toLowerCase().includes(x))
+  }, [workPreparations, q])
+
+  const filteredCustomers = useMemo(() => {
+    const x = q.toLowerCase()
+    return customers.filter(c =>
+      `${c.name} ${c.contact_person || ''} ${c.email || ''} ${c.phone || ''}`.toLowerCase().includes(x)
+    )
+  }, [customers, q])
 
   return (
     <main className="container">
@@ -233,6 +260,7 @@ function MasterDataContent() {
             <option value="suppliers">Lieferanten</option>
             <option value="materials">Materialien</option>
             <option value="cross_sections">Querschnitte</option>
+            <option value="work_preparations">AV</option>
           </select>
         </div>
 
@@ -403,6 +431,38 @@ function MasterDataContent() {
                   {isAdmin && <td className="actions">
                     <button onClick={()=>setCross(c)}>Bearbeiten</button>
                     <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
+                  </td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {type === 'work_preparations' && (
+        <>
+          <h2>AV</h2>
+
+          <form className="card grid" onSubmit={saveWorkPreparation}>
+            <input placeholder="z.B. Sortieren, Kanten, Schweißen, Pulverbeschichtung" value={workPreparation.name} onChange={e=>setWorkPreparation({...workPreparation,name:e.target.value})} required />
+            <button>{workPreparation.id ? 'AV ändern' : 'AV speichern'}</button>
+            {workPreparation.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
+          </form>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Arbeitsvorbereitung</th>
+                {isAdmin && <th>Aktionen</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredWorkPreparations.map(av=>(
+                <tr key={av.id}>
+                  <td><b>{av.name}</b></td>
+                  {isAdmin && <td className="actions">
+                    <button onClick={()=>setWorkPreparation(av)}>Bearbeiten</button>
+                    <button className="danger" onClick={()=>remove('work_preparations', av.id)}>Löschen</button>
                   </td>}
                 </tr>
               ))}

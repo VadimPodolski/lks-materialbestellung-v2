@@ -31,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                   <Link href="/masterdata?type=suppliers">Lieferanten</Link>
                   <Link href="/masterdata?type=materials">Materialien</Link>
                   <Link href="/masterdata?type=cross_sections">Querschnitte</Link>
+                  <Link href="/masterdata?type=work_preparations">AV</Link>
                 </div>
               </div>
             </div>

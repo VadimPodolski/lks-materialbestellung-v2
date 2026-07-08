@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
-import { OrderItem, normalizeOrderItems, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
+import { OrderItem, normalizeOrderItems, orderItemAvText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 
@@ -28,7 +28,7 @@ type Order = {
   order_pdfs?: { file_name: string | null; file_url: string | null }[] | null
   suppliers: { name: string } | null
   order_items?: OrderItem[] | null
-  goods_receipts?: { received_quantity: number | null }[]
+  goods_receipts?: { received_quantity: number | null; delivery_note_number: string | null }[]
   scrap_items?: { quantity: number | null }[]
 }
 
@@ -145,7 +145,7 @@ function OrdersContent() {
           order_pdfs(file_name,file_url),
           suppliers(name),
           order_items(${orderItemsSelect}),
-          goods_receipts(received_quantity),
+          goods_receipts(received_quantity,delivery_note_number),
           scrap_items(quantity)
         `
     const ordersSelectWithoutPdfs = `
@@ -166,7 +166,7 @@ function OrdersContent() {
           supplier_order_pdf_url,
           suppliers(name),
           order_items(${orderItemsSelect}),
-          goods_receipts(received_quantity),
+          goods_receipts(received_quantity,delivery_note_number),
           scrap_items(quantity)
         `
 
@@ -333,6 +333,37 @@ function OrdersContent() {
     await load()
   }
 
+  async function changeOrderStatus(order: Order, nextStatus: string) {
+    const supabase = createClient()
+    const { data: userData } = await supabase.auth.getUser()
+    const update: Record<string, string | null> = { status: nextStatus }
+
+    if (nextStatus === 'bestellt' && !order.ordered_at) {
+      await ensureCurrentUserProfile(supabase)
+      update.ordered_at = new Date().toISOString()
+      update.ordered_by = userData.user?.id || null
+    }
+
+    await supabase
+      .from('material_orders')
+      .update(update)
+      .eq('id', order.id)
+
+    await load()
+  }
+
+  function orderItemAvTitle(item: OrderItem) {
+    return [
+      ['AV 1', item.av_1],
+      ['AV 2', item.av_2],
+      ['AV 3', item.av_3],
+      ['AV 4', item.av_4]
+    ]
+      .filter(([, value]) => Boolean(String(value || '').trim()))
+      .map(([label, value]) => `${label}: ${value}`)
+      .join('\n')
+  }
+
   const today = new Date().toISOString().slice(0, 10)
 
   const latestGroupTime = useMemo(() => {
@@ -354,7 +385,10 @@ function OrdersContent() {
   const filtered = useMemo(() => {
     return orders.filter(o => {
       const items = normalizeOrderItems(o)
-      const text = `${o.order_number} ${o.customer} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
+      const deliveryNotes = (o.goods_receipts || [])
+        .map(receipt => receipt.delivery_note_number || '')
+        .join(' ')
+      const text = `${o.order_number} ${o.customer} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${deliveryNotes} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
       const matchesSearch = text.includes(q.toLowerCase())
       const matchesStatus = !status || visibleStatus(o) === status
       const matchesOverdue =
@@ -445,7 +479,7 @@ function OrdersContent() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Auftrag, Kunde, Material..."
+            placeholder="Auftrag, Kunde, Material, Lieferschein..."
           />
         </div>
 
@@ -501,6 +535,25 @@ function OrdersContent() {
 
       <div className="orders-table-shell">
       <table className="orders-table">
+        <colgroup>
+          <col className="orders-col-status" />
+          <col className="orders-col-order" />
+          <col className="orders-col-customer" />
+          <col className="orders-col-date" />
+          <col className="orders-col-material" />
+          <col className="orders-col-positions" />
+          <col className="orders-col-av" />
+          <col className="orders-col-qty" />
+          <col className="orders-col-qty" />
+          <col className="orders-col-qty" />
+          <col className="orders-col-qty" />
+          <col className="orders-col-supplier" />
+          <col className="orders-col-date" />
+          <col className="orders-col-person" />
+          <col className="orders-col-person" />
+          <col className="orders-col-pdf" />
+          <col className="orders-col-action" />
+        </colgroup>
         <thead>
           <tr>
             <th>{sortButton('status', 'Status')}</th>
@@ -509,6 +562,7 @@ function OrdersContent() {
             <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>
             <th>{sortButton('material', 'Material')}</th>
             <th>{sortButton('positions', 'Positionen')}</th>
+            <th>AV</th>
             <th>{sortButton('quantity', 'Menge')}</th>
             <th>{sortButton('delivered', 'Geliefert')}</th>
             <th>{sortButton('open', 'Offen')}</th>
@@ -540,9 +594,28 @@ function OrdersContent() {
                 className={`clickable-order-row ${isReorder(o.order_number) ? 'reorder-row' : ''}`}
               >
                 <td>
-                  <span className={statusClass(orderStatus)}>
-                    {statusLabels[orderStatus]}
-                  </span>
+                  <div className="status-menu" onClick={e => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className={`status-badge-button ${statusClass(orderStatus)}`}
+                      title="Status ändern"
+                    >
+                      {statusLabels[orderStatus]}
+                    </button>
+
+                    <div className="status-menu-options">
+                      {Object.entries(statusLabels).map(([key, label]) => (
+                        <button
+                          type="button"
+                          key={key}
+                          className={`status-menu-option ${key === orderStatus ? 'active' : ''}`}
+                          onClick={() => changeOrderStatus(o, key)}
+                        >
+                          <span className={statusClass(key)}>{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </td>
                 <td>
                   <b>{o.order_number}</b>
@@ -565,6 +638,28 @@ function OrdersContent() {
                         {item.cross_section} ({item.quantity} Stk.)
                       </div>
                     ))}
+                  </div>
+                </td>
+                <td className="av-cell">
+                  <div className="av-lines">
+                    {orderItems.some(item => orderItemAvText(item)) ? (
+                      orderItems.map((item, index) => (
+                        orderItemAvText(item) ? (
+                          <span
+                            key={`${item.cross_section}-${item.length_mm}-${index}`}
+                            className="av-indicator"
+                            title={orderItemAvTitle(item)}
+                            aria-label={orderItemAvTitle(item)}
+                          >
+                            AV
+                          </span>
+                        ) : (
+                          <span key={`${item.cross_section}-${item.length_mm}-${index}`} className="av-empty-line">-</span>
+                        )
+                      ))
+                    ) : (
+                      <span className="av-empty-line">-</span>
+                    )}
                   </div>
                 </td>
                 <td>{o.quantity}</td>
