@@ -35,7 +35,7 @@ export default function RegisterPage() {
       email: email.trim().toLowerCase(),
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/orders`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=/orders`,
         data: {
           full_name: fullName.trim()
         }
