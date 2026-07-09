@@ -87,6 +87,7 @@ export default function OrderDetailPage() {
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [scraps, setScraps] = useState<Scrap[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [customers, setCustomers] = useState<MasterData[]>([])
   const [materials, setMaterials] = useState<MasterData[]>([])
   const [crossSections, setCrossSections] = useState<MasterData[]>([])
   const [workPreparations, setWorkPreparations] = useState<MasterData[]>([])
@@ -101,6 +102,9 @@ export default function OrderDetailPage() {
     notes: ''
   })
   const [editItems, setEditItems] = useState<OrderItem[]>([emptyOrderItem()])
+  const [activeCustomerSuggestions, setActiveCustomerSuggestions] = useState(false)
+  const [activeEditMaterialIndex, setActiveEditMaterialIndex] = useState<number | null>(null)
+  const [activeEditCrossIndex, setActiveEditCrossIndex] = useState<number | null>(null)
 
   const [receiptDrafts, setReceiptDrafts] = useState<Record<string, ReceiptDraft>>({})
   const [scrapDrafts, setScrapDrafts] = useState<Record<string, ScrapDraft>>({})
@@ -128,6 +132,7 @@ export default function OrderDetailPage() {
       { data: scrapData },
       { data: pdfData },
       { data: supplierData },
+      { data: customerData },
       { data: materialData },
       { data: crossData },
       { data: workPreparationData }
@@ -157,6 +162,7 @@ export default function OrderDetailPage() {
         .order('created_at', { ascending: false }),
 
       supabase.from('suppliers').select('id,name,email').order('name'),
+      supabase.from('customers').select('id,name').order('name'),
       supabase.from('materials').select('id,name').order('name'),
       supabase.from('cross_sections').select('id,name').order('name'),
       supabase.from('work_preparations').select('id,name').order('name')
@@ -169,6 +175,7 @@ export default function OrderDetailPage() {
     setReceipts(receiptData || [])
     setScraps((scrapData as any) || [])
     setSuppliers(supplierData || [])
+    setCustomers(customerData || [])
     setMaterials(materialData || [])
     setCrossSections(crossData || [])
     setWorkPreparations(workPreparationData || [])
@@ -228,8 +235,95 @@ export default function OrderDetailPage() {
     [order]
   )
 
+  const customerSuggestions = useMemo(() => {
+    return masterDataOptions(customers, editForm.customer)
+  }, [customers, editForm.customer])
+
   function setEdit(k: string, v: string) {
     setEditForm(prev => ({ ...prev, [k]: v }))
+  }
+
+  function masterDataOptions(list: MasterData[], value: string) {
+    const q = value.trim().toLowerCase()
+    const matches = q
+      ? list.filter(item => item.name.toLowerCase().includes(q))
+      : list
+
+    return matches.slice(0, 8)
+  }
+
+  async function ensureEditMasterData(customerName: string, cleanItems: OrderItem[]) {
+    const supabase = createClient()
+    const customer = customerName.trim()
+    const knownCustomers = new Set(customers.map(item => item.name.trim().toLowerCase()).filter(Boolean))
+    const knownMaterials = new Set(materials.map(item => item.name.trim().toLowerCase()).filter(Boolean))
+    const knownCrossSections = new Set(crossSections.map(item => item.name.trim().toLowerCase()).filter(Boolean))
+    const knownWorkPreparations = new Set(workPreparations.map(item => item.name.trim().toLowerCase()).filter(Boolean))
+
+    if (customer && !knownCustomers.has(customer.toLowerCase())) {
+      const { error } = await supabase.from('customers').insert({ name: customer })
+
+      if (error && !error.message.includes('duplicate')) {
+        throw new Error(error.message)
+      }
+    }
+
+    const newMaterials = Array.from(
+      new Set(
+        cleanItems
+          .map(item => item.material.trim())
+          .filter(name => name && !knownMaterials.has(name.toLowerCase()))
+      )
+    )
+    const newCrossSections = Array.from(
+      new Set(
+        cleanItems
+          .map(item => item.cross_section.trim())
+          .filter(name => name && !knownCrossSections.has(name.toLowerCase()))
+      )
+    )
+    const newWorkPreparations = Array.from(
+      new Set(
+        cleanItems
+          .flatMap(item => [item.av_1, item.av_2, item.av_3, item.av_4])
+          .map(name => (name || '').trim())
+          .filter(name => name && !knownWorkPreparations.has(name.toLowerCase()))
+      )
+    )
+
+    if (newMaterials.length > 0) {
+      const { error } = await supabase.from('materials').insert(
+        newMaterials.map(name => ({
+          name,
+          material_name: name,
+          material_number: null
+        }))
+      )
+
+      if (error && !error.message.includes('duplicate')) {
+        throw new Error(error.message)
+      }
+    }
+
+    if (newCrossSections.length > 0) {
+      const { error } = await supabase.from('cross_sections').insert(
+        newCrossSections.map(name => ({ name }))
+      )
+
+      if (error && !error.message.includes('duplicate')) {
+        throw new Error(error.message)
+      }
+    }
+
+    if (newWorkPreparations.length > 0) {
+      const { error } = await supabase.from('work_preparations').insert(
+        newWorkPreparations.map(name => ({ name }))
+      )
+
+      if (error && !error.message.includes('duplicate')) {
+        throw new Error(error.message)
+      }
+    }
   }
 
   function visibleStatus(currentOrder: Order) {
@@ -458,6 +552,7 @@ LKS-Technik GmbH & Co. KG`
     if (!order) return
 
     const supabase = createClient()
+    const customerName = editForm.customer.trim()
     const cleanItems = mergeOrderItems(editItems.map(item => ({
       material: item.material.trim(),
       cross_section: item.cross_section.trim(),
@@ -469,8 +564,18 @@ LKS-Technik GmbH & Co. KG`
       quantity: Number(item.quantity)
     })))
 
+    if (!customerName) {
+      return setMsg('Bitte Kundennamen eintragen.')
+    }
+
     if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
       return setMsg('Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+    }
+
+    try {
+      await ensureEditMasterData(customerName, cleanItems)
+    } catch (error: any) {
+      return setMsg(error.message || 'Stammdaten konnten nicht gespeichert werden.')
     }
 
     const firstItem = primaryOrderItem(cleanItems)
@@ -479,7 +584,7 @@ LKS-Technik GmbH & Co. KG`
     const { error } = await supabase
       .from('material_orders')
       .update({
-        customer: editForm.customer,
+        customer: customerName,
         supplier_id: editForm.supplier_id || null,
         material: firstItem.material,
         cross_section: firstItem.cross_section,
@@ -1318,11 +1423,33 @@ LKS-Technik GmbH & Co. KG`
           <form className="grid" onSubmit={saveEdit}>
             <div>
               <label>Kunde</label>
-              <input
-                value={editForm.customer}
-                onChange={e => setEdit('customer', e.target.value)}
-                required
-              />
+              <div className="combo-box">
+                <input
+                  value={editForm.customer}
+                  onFocus={() => setActiveCustomerSuggestions(true)}
+                  onBlur={() => window.setTimeout(() => setActiveCustomerSuggestions(false), 120)}
+                  onChange={e => setEdit('customer', e.target.value)}
+                  placeholder="Kunde wählen oder eingeben"
+                  required
+                />
+                {activeCustomerSuggestions && customerSuggestions.length > 0 && (
+                  <div className="combo-options">
+                    {customerSuggestions.map(customer => (
+                      <button
+                        type="button"
+                        key={customer.id}
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => {
+                          setEdit('customer', customer.name)
+                          setActiveCustomerSuggestions(false)
+                        }}
+                      >
+                        {customer.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>
@@ -1380,32 +1507,64 @@ LKS-Technik GmbH & Co. KG`
 
                       <div>
                         <label>Material</label>
-                        <select
-                          value={item.material}
-                          onChange={e => setEditItem(index, 'material', e.target.value)}
-                          required
-                        >
-                          {materials.map(m => (
-                            <option key={m.id} value={m.name}>
-                              {m.name}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="combo-box">
+                          <input
+                            value={item.material}
+                            onFocus={() => setActiveEditMaterialIndex(index)}
+                            onBlur={() => window.setTimeout(() => setActiveEditMaterialIndex(null), 120)}
+                            onChange={e => setEditItem(index, 'material', e.target.value)}
+                            placeholder="Material wählen oder eingeben"
+                            required
+                          />
+                          {activeEditMaterialIndex === index && masterDataOptions(materials, item.material).length > 0 && (
+                            <div className="combo-options">
+                              {masterDataOptions(materials, item.material).map(material => (
+                                <button
+                                  type="button"
+                                  key={material.id}
+                                  onMouseDown={e => e.preventDefault()}
+                                  onClick={() => {
+                                    setEditItem(index, 'material', material.name)
+                                    setActiveEditMaterialIndex(null)
+                                  }}
+                                >
+                                  {material.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div>
                         <label>Querschnitt</label>
-                        <select
-                          value={item.cross_section}
-                          onChange={e => setEditItem(index, 'cross_section', e.target.value)}
-                          required
-                        >
-                          {crossSections.map(q => (
-                            <option key={q.id} value={q.name}>
-                              {q.name}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="combo-box">
+                          <input
+                            value={item.cross_section}
+                            onFocus={() => setActiveEditCrossIndex(index)}
+                            onBlur={() => window.setTimeout(() => setActiveEditCrossIndex(null), 120)}
+                            onChange={e => setEditItem(index, 'cross_section', e.target.value)}
+                            placeholder="Querschnitt wählen oder eingeben"
+                            required
+                          />
+                          {activeEditCrossIndex === index && masterDataOptions(crossSections, item.cross_section).length > 0 && (
+                            <div className="combo-options">
+                              {masterDataOptions(crossSections, item.cross_section).map(crossSection => (
+                                <button
+                                  type="button"
+                                  key={crossSection.id}
+                                  onMouseDown={e => e.preventDefault()}
+                                  onClick={() => {
+                                    setEditItem(index, 'cross_section', crossSection.name)
+                                    setActiveEditCrossIndex(null)
+                                  }}
+                                >
+                                  {crossSection.name}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {(['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
