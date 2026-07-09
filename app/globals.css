@@ -109,8 +109,9 @@ a {
 
 /* Layout */
 .container {
-  max-width: 1600px;
-  margin: 24px auto;
+  width: 100%;
+  max-width: none;
+  margin: 24px 0;
   padding: 0 18px;
 }
 
