@@ -539,16 +539,6 @@ a.card:hover {
   z-index: 300;
 }
 
-.status-menu-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 250;
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  cursor: default;
-}
-
 .status-menu-options {
   display: grid;
   gap: 4px;

@@ -463,15 +463,6 @@ function OrdersContent() {
 
   return (
     <main className="container wide">
-      {activeStatusOrderId && (
-        <button
-          type="button"
-          className="status-menu-backdrop"
-          aria-label="Statusmenü schließen"
-          onClick={() => setActiveStatusOrderId(null)}
-        />
-      )}
-
       <div className="actions" style={{ justifyContent: 'space-between' }}>
         <div>
           <h1>Bestellungen</h1>
@@ -608,6 +599,7 @@ function OrdersContent() {
                   <div
                     className={`status-menu ${activeStatusOrderId === o.id ? 'open' : ''}`}
                     onMouseEnter={() => setActiveStatusOrderId(o.id)}
+                    onMouseLeave={() => setActiveStatusOrderId(null)}
                     onClick={e => e.stopPropagation()}
                   >
                     <button
