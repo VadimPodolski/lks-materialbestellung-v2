@@ -21,16 +21,6 @@ export default function NewOrderPage() {
   const [crossSections, setCrossSections] = useState<CrossSection[]>([])
   const [workPreparations, setWorkPreparations] = useState<WorkPreparation[]>([])
 
-  const [showMaterialModal, setShowMaterialModal] = useState(false)
-  const [showCrossModal, setShowCrossModal] = useState(false)
-  const [showCustomerModal, setShowCustomerModal] = useState(false)
-  const [showWorkPreparationModal, setShowWorkPreparationModal] = useState(false)
-
-  const [materialForm, setMaterialForm] = useState({ material_name: '' })
-  const [crossForm, setCrossForm] = useState({ name: '' })
-  const [customerForm, setCustomerForm] = useState({ name: '', contact_person: '', email: '', phone: '', notes: '' })
-  const [workPreparationForm, setWorkPreparationForm] = useState({ name: '' })
-
   const [form, setForm] = useState({
     order_number: 'AB-',
     customer: '',
@@ -247,84 +237,6 @@ export default function NewOrderPage() {
     setItems(prev => prev.length === 1 ? prev : prev.filter((_, itemIndex) => itemIndex !== index))
   }
 
-  async function saveMaterial() {
-    const materialName = materialForm.material_name.trim()
-
-    if (!materialName) return setMsg('Bitte Material eintragen.')
-
-    const supabase = createClient()
-
-    const { error } = await supabase.from('materials').insert({
-      name: materialName,
-      material_name: materialName,
-      material_number: null
-    })
-
-    if (error && !error.message.includes('duplicate')) return setMsg(error.message)
-
-    setMaterialForm({ material_name: '' })
-    setShowMaterialModal(false)
-    setMsg('')
-
-    await loadMasterData()
-
-    setItems(prev => prev.map((item, index) => index === 0 ? { ...item, material: materialName } : item))
-  }
-
-  async function saveCrossSection() {
-    const name = crossForm.name.trim()
-    if (!name) return setMsg('Bitte Querschnitt eintragen.')
-
-    const supabase = createClient()
-    const { error } = await supabase.from('cross_sections').insert({ name })
-
-    if (error && !error.message.includes('duplicate')) return setMsg(error.message)
-
-    setCrossForm({ name: '' })
-    setShowCrossModal(false)
-    setMsg('')
-    await loadMasterData()
-    setItems(prev => prev.map((item, index) => index === 0 ? { ...item, cross_section: name } : item))
-  }
-
-  async function saveWorkPreparation() {
-    const name = workPreparationForm.name.trim()
-    if (!name) return setMsg('Bitte Arbeitsvorbereitung eintragen.')
-
-    const supabase = createClient()
-    const { error } = await supabase.from('work_preparations').insert({ name })
-
-    if (error && !error.message.includes('duplicate')) return setMsg(error.message)
-
-    setWorkPreparationForm({ name: '' })
-    setShowWorkPreparationModal(false)
-    setMsg('')
-    await loadMasterData()
-    setItems(prev => prev.map((item, index) => index === 0 ? { ...item, av_1: name } : item))
-  }
-
-  async function saveCustomer() {
-    const name = customerForm.name.trim()
-    if (!name) return setMsg('Bitte Kundennamen eintragen.')
-
-    const supabase = createClient()
-    const { error } = await supabase.from('customers').insert({
-      name,
-      contact_person: customerForm.contact_person || null,
-      email: customerForm.email || null,
-      phone: customerForm.phone || null,
-      notes: customerForm.notes || null
-    })
-
-    if (error && !error.message.includes('duplicate')) return setMsg(error.message)
-
-    setCustomerForm({ name: '', contact_person: '', email: '', phone: '', notes: '' })
-    setShowCustomerModal(false)
-    setMsg('')
-    await loadMasterData()
-    setForm(prev => ({ ...prev, customer: name }))
-  }
-
   async function save(e: React.FormEvent) {
     e.preventDefault()
     setMsg('')
@@ -472,13 +384,6 @@ export default function NewOrderPage() {
           <div className="actions" style={{ justifyContent: 'space-between' }}>
             <h2>Positionen</h2>
             <div className="actions">
-              <button type="button" className="button-customer" onClick={() => {
-                setCustomerForm(prev => ({ ...prev, name: form.customer }))
-                setShowCustomerModal(true)
-              }}>+ Kunde</button>
-              <button type="button" className="button-material" onClick={() => setShowMaterialModal(true)}>+ Material</button>
-              <button type="button" className="button-cross-section" onClick={() => setShowCrossModal(true)}>+ Querschnitt</button>
-              <button type="button" className="button-work-preparation" onClick={() => setShowWorkPreparationModal(true)}>+ AV</button>
               <button type="button" className="primary" onClick={addItem}>+ Position</button>
             </div>
           </div>
@@ -616,75 +521,6 @@ export default function NewOrderPage() {
         {msg && <p className="error">{msg}</p>}
       </form>
 
-      {showMaterialModal && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h2>Material anlegen</h2>
-
-            <label>Material</label>
-            <input
-              value={materialForm.material_name}
-              onChange={e => setMaterialForm({ material_name: e.target.value })}
-              placeholder="z.B. Edelstahl, Baustahl, Alu"
-            />
-
-            <div className="actions">
-              <button type="button" onClick={saveMaterial}>Speichern</button>
-              <button type="button" className="secondary" onClick={() => setShowMaterialModal(false)}>Abbrechen</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showCrossModal && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h2>Querschnitt anlegen</h2>
-            <label>Querschnitt</label>
-            <input value={crossForm.name} onChange={e => setCrossForm({ name: e.target.value })} placeholder="z.B. 70x70x4" />
-            <div className="actions">
-              <button type="button" onClick={saveCrossSection}>Speichern</button>
-              <button type="button" className="secondary" onClick={() => setShowCrossModal(false)}>Abbrechen</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showCustomerModal && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h2>Kunde anlegen</h2>
-            <label>Kundenname</label>
-            <input value={customerForm.name} onChange={e => setCustomerForm({ ...customerForm, name: e.target.value })} />
-            <label>Ansprechpartner</label>
-            <input value={customerForm.contact_person} onChange={e => setCustomerForm({ ...customerForm, contact_person: e.target.value })} />
-            <label>E-Mail</label>
-            <input value={customerForm.email} onChange={e => setCustomerForm({ ...customerForm, email: e.target.value })} />
-            <label>Telefon</label>
-            <input value={customerForm.phone} onChange={e => setCustomerForm({ ...customerForm, phone: e.target.value })} />
-            <label>Bemerkung</label>
-            <textarea value={customerForm.notes} onChange={e => setCustomerForm({ ...customerForm, notes: e.target.value })} />
-            <div className="actions">
-              <button type="button" onClick={saveCustomer}>Speichern</button>
-              <button type="button" className="secondary" onClick={() => setShowCustomerModal(false)}>Abbrechen</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showWorkPreparationModal && (
-        <div className="modal-backdrop">
-          <div className="modal">
-            <h2>AV anlegen</h2>
-            <label>Arbeitsvorbereitung</label>
-            <input value={workPreparationForm.name} onChange={e => setWorkPreparationForm({ name: e.target.value })} placeholder="z.B. Sortieren, Kanten, Schweißen" />
-            <div className="actions">
-              <button type="button" onClick={saveWorkPreparation}>Speichern</button>
-              <button type="button" className="secondary" onClick={() => setShowWorkPreparationModal(false)}>Abbrechen</button>
-            </div>
-          </div>
-        </div>
-      )}
     </main>
   )
 }

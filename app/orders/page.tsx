@@ -73,6 +73,7 @@ function OrdersContent() {
   const [sortKey, setSortKey] = useState<SortKey>('order_number')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
+  const [activeStatusOrderId, setActiveStatusOrderId] = useState<string | null>(null)
 
   useEffect(() => {
     setStatus(searchParams.get('status') || '')
@@ -349,6 +350,7 @@ function OrdersContent() {
       .update(update)
       .eq('id', order.id)
 
+    setActiveStatusOrderId(null)
     await load()
   }
 
@@ -461,6 +463,15 @@ function OrdersContent() {
 
   return (
     <main className="container wide">
+      {activeStatusOrderId && (
+        <button
+          type="button"
+          className="status-menu-backdrop"
+          aria-label="Statusmenü schließen"
+          onClick={() => setActiveStatusOrderId(null)}
+        />
+      )}
+
       <div className="actions" style={{ justifyContent: 'space-between' }}>
         <div>
           <h1>Bestellungen</h1>
@@ -594,27 +605,34 @@ function OrdersContent() {
                 className={`clickable-order-row ${isReorder(o.order_number) ? 'reorder-row' : ''}`}
               >
                 <td>
-                  <div className="status-menu" onClick={e => e.stopPropagation()}>
+                  <div
+                    className={`status-menu ${activeStatusOrderId === o.id ? 'open' : ''}`}
+                    onMouseEnter={() => setActiveStatusOrderId(o.id)}
+                    onClick={e => e.stopPropagation()}
+                  >
                     <button
                       type="button"
                       className={`status-badge-button ${statusClass(orderStatus)}`}
                       title="Status ändern"
+                      onClick={() => setActiveStatusOrderId(o.id)}
                     >
                       {statusLabels[orderStatus]}
                     </button>
 
-                    <div className="status-menu-options">
-                      {Object.entries(statusLabels).map(([key, label]) => (
-                        <button
-                          type="button"
-                          key={key}
-                          className={`status-menu-option ${key === orderStatus ? 'active' : ''}`}
-                          onClick={() => changeOrderStatus(o, key)}
-                        >
-                          <span className={statusClass(key)}>{label}</span>
-                        </button>
-                      ))}
-                    </div>
+                    {activeStatusOrderId === o.id && (
+                      <div className="status-menu-options">
+                        {Object.entries(statusLabels).map(([key, label]) => (
+                          <button
+                            type="button"
+                            key={key}
+                            className={`status-menu-option ${key === orderStatus ? 'active' : ''}`}
+                            onClick={() => changeOrderStatus(o, key)}
+                          >
+                            <span className={statusClass(key)}>{label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td>

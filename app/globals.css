@@ -470,7 +470,8 @@ a.card:hover {
 }
 
 .orders-table td:has(.status-menu:hover),
-.orders-table td:has(.status-menu:focus-within) {
+.orders-table td:has(.status-menu:focus-within),
+.orders-table td:has(.status-menu.open) {
   z-index: 300;
 }
 
@@ -537,8 +538,19 @@ a.card:hover {
   z-index: 300;
 }
 
+.status-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  cursor: default;
+}
+
 .status-menu-options {
-  display: none;
+  display: grid;
+  gap: 4px;
   position: absolute;
   top: calc(100% + 8px);
   left: 0;
@@ -549,12 +561,6 @@ a.card:hover {
   background: white;
   box-shadow: 0 14px 30px rgba(15,23,42,.20);
   z-index: 1000;
-}
-
-.status-menu:hover .status-menu-options,
-.status-menu:focus-within .status-menu-options {
-  display: grid;
-  gap: 4px;
 }
 
 .status-menu-option {
