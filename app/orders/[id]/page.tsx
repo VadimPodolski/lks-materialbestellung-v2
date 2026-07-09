@@ -117,6 +117,7 @@ export default function OrderDetailPage() {
 
   const [isPdfDragging, setIsPdfDragging] = useState(false)
   const [isPdfUploading, setIsPdfUploading] = useState(false)
+  const [showDetailStatusMenu, setShowDetailStatusMenu] = useState(false)
   const [msg, setMsg] = useState('')
 
   useEffect(() => {
@@ -667,6 +668,7 @@ LKS-Technik GmbH & Co. KG`
     }
 
     await load()
+    setShowDetailStatusMenu(false)
     setMsg('Status wurde manuell geändert.')
   }
 
@@ -1201,7 +1203,11 @@ LKS-Technik GmbH & Co. KG`
         {!editing ? (
           <>
             <div className="status-control">
-              <div className="status-menu">
+              <div
+                className="status-menu"
+                onMouseEnter={() => setShowDetailStatusMenu(true)}
+                onMouseLeave={() => setShowDetailStatusMenu(false)}
+              >
                 <button
                   type="button"
                   className={`status-badge-button ${statusClass(visibleStatus(order))}`}
@@ -1210,18 +1216,20 @@ LKS-Technik GmbH & Co. KG`
                   {statusLabels[visibleStatus(order)]}
                 </button>
 
-                <div className="status-menu-options">
-                  {Object.entries(statusLabels).map(([key, label]) => (
-                    <button
-                      type="button"
-                      key={key}
-                      className={`status-menu-option ${key === visibleStatus(order) ? 'active' : ''}`}
-                      onClick={() => changeStatus(key)}
-                    >
-                      <span className={statusClass(key)}>{label}</span>
-                    </button>
-                  ))}
-                </div>
+                {showDetailStatusMenu && (
+                  <div className="status-detail-menu-options">
+                    {Object.entries(statusLabels).map(([key, label]) => (
+                      <button
+                        type="button"
+                        key={key}
+                        className={`status-menu-option ${key === visibleStatus(order) ? 'active' : ''}`}
+                        onClick={() => changeStatus(key)}
+                      >
+                        <span className={statusClass(key)}>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

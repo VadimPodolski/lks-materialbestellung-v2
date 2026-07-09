@@ -536,24 +536,43 @@ a.card:hover {
   position: relative;
   display: inline-flex;
   align-items: center;
-  padding-bottom: 8px;
-  margin-bottom: -8px;
   z-index: 300;
 }
 
 .status-menu-options {
   display: grid;
   gap: 4px;
-  position: absolute;
-  top: 100%;
-  left: 0;
-  min-width: 165px;
+  position: fixed;
+  width: 170px;
   padding: 6px;
   border: 1px solid #dbe1e7;
   border-radius: 8px;
   background: white;
   box-shadow: 0 14px 30px rgba(15,23,42,.20);
-  z-index: 1000;
+  z-index: 20000;
+}
+
+.status-menu-options.above {
+  transform-origin: bottom left;
+}
+
+.status-menu-options.below {
+  transform-origin: top left;
+}
+
+.status-detail-menu-options {
+  display: grid;
+  gap: 4px;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 170px;
+  padding: 6px;
+  border: 1px solid #dbe1e7;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 14px 30px rgba(15,23,42,.20);
+  z-index: 20000;
 }
 
 .status-menu-option {

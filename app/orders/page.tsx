@@ -58,6 +58,7 @@ type SortKey =
 
 type SortDirection = 'asc' | 'desc'
 type SortMode = 'latest_order' | SortKey
+type ActiveStatusMenu = { orderId: string; top: number; left: number; placement: 'top' | 'bottom' }
 
 function OrdersContent() {
   const router = useRouter()
@@ -73,7 +74,7 @@ function OrdersContent() {
   const [sortKey, setSortKey] = useState<SortKey>('order_number')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
-  const [activeStatusOrderId, setActiveStatusOrderId] = useState<string | null>(null)
+  const [activeStatusMenu, setActiveStatusMenu] = useState<ActiveStatusMenu | null>(null)
   const statusMenuCloseTimer = useRef<number | null>(null)
 
   useEffect(() => {
@@ -93,15 +94,34 @@ function OrdersContent() {
     }
   }
 
-  function openStatusMenu(orderId: string) {
+  function statusMenuPosition(anchor: HTMLElement) {
+    const rect = anchor.getBoundingClientRect()
+    const menuWidth = 170
+    const menuHeight = 190
+    const gap = 6
+    const viewportGap = 8
+    const belowTop = rect.bottom + gap
+    const hasRoomBelow = belowTop + menuHeight <= window.innerHeight - viewportGap
+
+    return {
+      top: hasRoomBelow ? belowTop : Math.max(viewportGap, rect.top - menuHeight - gap),
+      left: Math.min(
+        Math.max(viewportGap, rect.left),
+        window.innerWidth - menuWidth - viewportGap
+      ),
+      placement: hasRoomBelow ? 'bottom' as const : 'top' as const
+    }
+  }
+
+  function openStatusMenu(orderId: string, anchor: HTMLElement) {
     clearStatusMenuCloseTimer()
-    setActiveStatusOrderId(orderId)
+    setActiveStatusMenu({ orderId, ...statusMenuPosition(anchor) })
   }
 
   function closeStatusMenuSoon() {
     clearStatusMenuCloseTimer()
     statusMenuCloseTimer.current = window.setTimeout(() => {
-      setActiveStatusOrderId(null)
+      setActiveStatusMenu(null)
       statusMenuCloseTimer.current = null
     }, 120)
   }
@@ -376,7 +396,7 @@ function OrdersContent() {
       .eq('id', order.id)
 
     clearStatusMenuCloseTimer()
-    setActiveStatusOrderId(null)
+    setActiveStatusMenu(null)
     await load()
   }
 
@@ -561,7 +581,7 @@ function OrdersContent() {
         </div>
       </div>
 
-      <div className="orders-table-shell">
+      <div className="orders-table-shell" onScroll={() => setActiveStatusMenu(null)}>
       <table className="orders-table">
         <colgroup>
           <col className="orders-col-status" />
@@ -623,8 +643,7 @@ function OrdersContent() {
               >
                 <td>
                   <div
-                    className={`status-menu ${activeStatusOrderId === o.id ? 'open' : ''}`}
-                    onMouseEnter={() => openStatusMenu(o.id)}
+                    className={`status-menu ${activeStatusMenu?.orderId === o.id ? 'open' : ''}`}
                     onMouseLeave={closeStatusMenuSoon}
                     onClick={e => e.stopPropagation()}
                   >
@@ -632,14 +651,20 @@ function OrdersContent() {
                       type="button"
                       className={`status-badge-button ${statusClass(orderStatus)}`}
                       title="Status ändern"
-                      onFocus={() => openStatusMenu(o.id)}
-                      onClick={() => openStatusMenu(o.id)}
+                      onMouseEnter={e => openStatusMenu(o.id, e.currentTarget)}
+                      onFocus={e => openStatusMenu(o.id, e.currentTarget)}
+                      onClick={e => openStatusMenu(o.id, e.currentTarget)}
                     >
                       {statusLabels[orderStatus]}
                     </button>
 
-                    {activeStatusOrderId === o.id && (
-                      <div className="status-menu-options">
+                    {activeStatusMenu?.orderId === o.id && (
+                      <div
+                        className={`status-menu-options ${activeStatusMenu.placement === 'top' ? 'above' : 'below'}`}
+                        style={{ top: activeStatusMenu.top, left: activeStatusMenu.left }}
+                        onMouseEnter={clearStatusMenuCloseTimer}
+                        onMouseLeave={closeStatusMenuSoon}
+                      >
                         {Object.entries(statusLabels).map(([key, label]) => (
                           <button
                             type="button"
