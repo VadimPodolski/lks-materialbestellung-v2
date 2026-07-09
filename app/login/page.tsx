@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 
@@ -35,11 +36,11 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="container">
-      <div className="card" style={{ maxWidth: 420, margin: '80px auto' }}>
+    <main className="container auth-page">
+      <div className="card auth-card">
         <h1>Anmelden</h1>
 
-        <form className="grid" onSubmit={login}>
+        <form className="grid auth-form" onSubmit={login}>
           <div>
             <label>E-Mail</label>
             <input
@@ -64,6 +65,11 @@ export default function LoginPage() {
 
           {msg && <p className="error">{msg}</p>}
         </form>
+
+        <div className="auth-link-row">
+          <Link href="/forgot-password">Passwort vergessen?</Link>
+          <Link href="/register">Registrieren</Link>
+        </div>
       </div>
     </main>
   )
