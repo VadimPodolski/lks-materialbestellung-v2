@@ -536,6 +536,8 @@ a.card:hover {
   position: relative;
   display: inline-flex;
   align-items: center;
+  padding-bottom: 8px;
+  margin-bottom: -8px;
   z-index: 300;
 }
 
@@ -543,7 +545,7 @@ a.card:hover {
   display: grid;
   gap: 4px;
   position: absolute;
-  top: calc(100% + 8px);
+  top: 100%;
   left: 0;
   min-width: 165px;
   padding: 6px;

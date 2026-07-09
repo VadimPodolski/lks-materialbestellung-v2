@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
@@ -74,12 +74,37 @@ function OrdersContent() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
   const [activeStatusOrderId, setActiveStatusOrderId] = useState<string | null>(null)
+  const statusMenuCloseTimer = useRef<number | null>(null)
 
   useEffect(() => {
     setStatus(searchParams.get('status') || '')
     setOverdueOnly(searchParams.get('overdue') === '1')
     load()
   }, [searchParams])
+
+  useEffect(() => {
+    return () => clearStatusMenuCloseTimer()
+  }, [])
+
+  function clearStatusMenuCloseTimer() {
+    if (statusMenuCloseTimer.current !== null) {
+      window.clearTimeout(statusMenuCloseTimer.current)
+      statusMenuCloseTimer.current = null
+    }
+  }
+
+  function openStatusMenu(orderId: string) {
+    clearStatusMenuCloseTimer()
+    setActiveStatusOrderId(orderId)
+  }
+
+  function closeStatusMenuSoon() {
+    clearStatusMenuCloseTimer()
+    statusMenuCloseTimer.current = window.setTimeout(() => {
+      setActiveStatusOrderId(null)
+      statusMenuCloseTimer.current = null
+    }, 120)
+  }
 
   async function logout() {
   if (LOGIN_DISABLED) return
@@ -350,6 +375,7 @@ function OrdersContent() {
       .update(update)
       .eq('id', order.id)
 
+    clearStatusMenuCloseTimer()
     setActiveStatusOrderId(null)
     await load()
   }
@@ -598,15 +624,16 @@ function OrdersContent() {
                 <td>
                   <div
                     className={`status-menu ${activeStatusOrderId === o.id ? 'open' : ''}`}
-                    onMouseEnter={() => setActiveStatusOrderId(o.id)}
-                    onMouseLeave={() => setActiveStatusOrderId(null)}
+                    onMouseEnter={() => openStatusMenu(o.id)}
+                    onMouseLeave={closeStatusMenuSoon}
                     onClick={e => e.stopPropagation()}
                   >
                     <button
                       type="button"
                       className={`status-badge-button ${statusClass(orderStatus)}`}
                       title="Status ändern"
-                      onClick={() => setActiveStatusOrderId(o.id)}
+                      onFocus={() => openStatusMenu(o.id)}
+                      onClick={() => openStatusMenu(o.id)}
                     >
                       {statusLabels[orderStatus]}
                     </button>
