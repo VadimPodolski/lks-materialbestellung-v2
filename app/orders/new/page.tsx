@@ -191,6 +191,24 @@ export default function NewOrderPage() {
     }
   }
 
+  async function ensureCustomerMasterData(customerName: string) {
+    const name = customerName.trim()
+    if (!name) return
+
+    const knownCustomers = new Set(
+      customers.map(customer => customer.name.trim().toLowerCase()).filter(Boolean)
+    )
+
+    if (knownCustomers.has(name.toLowerCase())) return
+
+    const supabase = createClient()
+    const { error } = await supabase.from('customers').insert({ name })
+
+    if (error && !error.message.includes('duplicate')) {
+      throw new Error(error.message)
+    }
+  }
+
   function setItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity', value: string) {
     setItems(prev => prev.map((item, itemIndex) => {
       if (itemIndex !== index) return item
@@ -312,9 +330,14 @@ export default function NewOrderPage() {
     setMsg('')
 
     const orderNumberSuffix = form.order_number.replace(/^AB-/, '').trim()
+    const customerName = form.customer.trim()
 
     if (!orderNumberSuffix) {
       return setMsg('Bitte eine AB-Nummer eintragen.')
+    }
+
+    if (!customerName) {
+      return setMsg('Bitte Kundennamen eintragen.')
     }
 
     const cleanItems = mergeOrderItems(items.map(item => ({
@@ -333,6 +356,7 @@ export default function NewOrderPage() {
     }
 
     try {
+      await ensureCustomerMasterData(customerName)
       await ensureMasterData(cleanItems)
     } catch (error: any) {
       return setMsg(error.message || 'Stammdaten konnten nicht gespeichert werden.')
@@ -351,6 +375,7 @@ export default function NewOrderPage() {
 
     const orderRow = {
       ...form,
+      customer: customerName,
       supplier_id: form.supplier_id || null,
       material: firstItem.material,
       cross_section: firstItem.cross_section,
