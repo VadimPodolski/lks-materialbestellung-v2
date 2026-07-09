@@ -451,6 +451,14 @@ function OrdersContent() {
     }).sort(sortMode === 'latest_order' ? latestOrderSort : sortOrders)
   }, [orders, q, status, overdueOnly, today, sortKey, sortDirection, sortMode, profiles, latestGroupTime])
 
+  const statusCounts = useMemo(() => {
+    return orders.reduce<Record<string, number>>((counts, order) => {
+      const key = visibleStatus(order)
+      counts[key] = (counts[key] || 0) + 1
+      return counts
+    }, {})
+  }, [orders])
+
   function orderBaseNumber(orderNumber: string) {
     return orderNumber.replace(/(?:-NB)+$/, '')
   }
@@ -534,10 +542,10 @@ function OrdersContent() {
         <div>
           <label>Status</label>
           <select value={status} onChange={e => setStatus(e.target.value)}>
-            <option value="">Alle</option>
+            <option value="">Alle ({orders.length})</option>
             {Object.entries(statusLabels).map(([k, v]) => (
               <option key={k} value={k}>
-                {v}
+                {v} ({statusCounts[k] || 0})
               </option>
             ))}
           </select>
