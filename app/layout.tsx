@@ -12,10 +12,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="de">
       <body>
         <div className="header">
-          <Link href="/orders" className="brand">LKS-Materialbestellung</Link>
+          <Link href="/" className="brand">LKS Bestellportal</Link>
 
           <nav className="main-nav">
             <div className="nav-left">
+              <Link href="/">Portal</Link>
               <Link href="/orders">Bestellungen</Link>
               <LoginLogoutLink />
             </div>

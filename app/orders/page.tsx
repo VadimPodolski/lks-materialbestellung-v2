@@ -524,7 +524,7 @@ function OrdersContent() {
           <p className="small">{LOGIN_DISABLED ? currentUserEmail : `Eingeloggt als: ${currentUserEmail || 'nicht erkannt'}`}</p>
         </div>
 
-        <Link className="button" href="/orders/new">
+        <Link className="button" href="/">
           Neue Bestellung
         </Link>
       </div>

@@ -14,6 +14,7 @@ type WorkPreparation = { id: string; name: string }
 
 export default function NewOrderPage() {
   const router = useRouter()
+  const [orderArea, setOrderArea] = useState('')
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -36,6 +37,8 @@ export default function NewOrderPage() {
   const [msg, setMsg] = useState('')
 
   useEffect(() => {
+    const area = new URLSearchParams(window.location.search).get('bereich') || ''
+    setOrderArea(area)
     loadMasterData()
   }, [])
 
@@ -339,7 +342,17 @@ export default function NewOrderPage() {
         Zurück
       </button>
 
-      <h1>Neue Materialbestellung</h1>
+      <div className="order-page-heading">
+        <div>
+          <span className="order-area-badge">
+            {orderArea === '2d-laser' ? '2D-Laser' : orderArea === 'rohrlaser' ? 'Rohrlaser' : 'Materialbestellung'}
+          </span>
+          <h1>Neue Materialbestellung</h1>
+        </div>
+        <button type="button" className="button secondary" onClick={() => router.push('/')}>
+          Bereich wechseln
+        </button>
+      </div>
 
       <form className="card grid" onSubmit={save}>
         <div>
