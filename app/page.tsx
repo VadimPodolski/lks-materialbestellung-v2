@@ -4,7 +4,7 @@ const portals = [
   {
     title: 'Rohrlaser',
     description: 'Rohre, Profile und passende Querschnitte für den Rohrlaser bestellen.',
-    href: '/orders/new?bereich=rohrlaser',
+    href: '/orders?bereich=rohrlaser',
     accent: 'blue',
     icon: (
       <svg viewBox="0 0 96 96" aria-hidden="true">
@@ -17,7 +17,7 @@ const portals = [
   {
     title: '2D-Laser',
     description: 'Bleche und flache Zuschnitte für die 2D-Laserbearbeitung bestellen.',
-    href: '/orders/new?bereich=2d-laser',
+    href: '/orders?bereich=2d-laser',
     accent: 'orange',
     icon: (
       <svg viewBox="0 0 96 96" aria-hidden="true">
@@ -47,7 +47,7 @@ export default function Home() {
               <span>{portal.description}</span>
             </span>
             <span className="portal-card-action">
-              Auswählen
+              Bestellungen öffnen
               <span aria-hidden="true">→</span>
             </span>
           </Link>

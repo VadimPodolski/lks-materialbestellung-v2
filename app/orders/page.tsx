@@ -7,9 +7,11 @@ import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import { OrderItem, normalizeOrderItems, orderItemAvText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
+import { masterDataHref, newOrderHref, normalizeOrderArea, orderAreaLabel } from '@/lib/orderAreas'
 
 type Order = {
   id: string
+  order_area: string
   order_number: string
   customer: string
   customer_delivery_date: string | null
@@ -63,6 +65,7 @@ type ActiveStatusMenu = { orderId: string; top: number; left: number; placement:
 function OrdersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const orderArea = normalizeOrderArea(searchParams.get('bereich'))
 
   const [orders, setOrders] = useState<Order[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -173,6 +176,7 @@ function OrdersContent() {
 
     const ordersSelect = `
           id,
+          order_area,
           order_number,
           customer,
           customer_delivery_date,
@@ -196,6 +200,7 @@ function OrdersContent() {
         `
     const ordersSelectWithoutPdfs = `
           id,
+          order_area,
           order_number,
           customer,
           material,
@@ -220,6 +225,7 @@ function OrdersContent() {
       supabase
         .from('material_orders')
         .select(ordersSelect)
+        .eq('order_area', orderArea)
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id,full_name,email,role')
     ])
@@ -228,6 +234,7 @@ function OrdersContent() {
       const { data: fallbackOrderData } = await supabase
         .from('material_orders')
         .select(ordersSelectWithoutPdfs)
+        .eq('order_area', orderArea)
         .order('created_at', { ascending: false })
 
       setOrders((fallbackOrderData as any) || [])
@@ -519,14 +526,21 @@ function OrdersContent() {
     <main className="container wide">
       <div className="actions" style={{ justifyContent: 'space-between' }}>
         <div>
+          <span className="order-area-badge">{orderAreaLabel(orderArea)}</span>
           <h1>Bestellungen</h1>
           <p className="small">Admin: {isAdmin ? 'JA' : 'NEIN'}</p>
           <p className="small">{LOGIN_DISABLED ? currentUserEmail : `Eingeloggt als: ${currentUserEmail || 'nicht erkannt'}`}</p>
         </div>
 
-        <Link className="button" href="/">
-          Neue Bestellung
-        </Link>
+        <div className="actions">
+          <Link className="button secondary" href={masterDataHref(orderArea)}>
+            Stammdaten
+          </Link>
+
+          <Link className="button" href={newOrderHref(orderArea)}>
+            Neue Bestellung
+          </Link>
+        </div>
       </div>
 
       <div className="card grid">

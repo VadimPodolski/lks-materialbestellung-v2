@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { OrderItem, emptyOrderItem, mergeOrderItems, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
+import { normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
 
 type Supplier = { id: string; name: string }
 type Customer = { id: string; name: string }
@@ -14,7 +15,7 @@ type WorkPreparation = { id: string; name: string }
 
 export default function NewOrderPage() {
   const router = useRouter()
-  const [orderArea, setOrderArea] = useState('')
+  const [orderArea, setOrderArea] = useState<OrderArea>('rohrlaser')
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -37,21 +38,21 @@ export default function NewOrderPage() {
   const [msg, setMsg] = useState('')
 
   useEffect(() => {
-    const area = new URLSearchParams(window.location.search).get('bereich') || ''
+    const area = normalizeOrderArea(new URLSearchParams(window.location.search).get('bereich'))
     setOrderArea(area)
-    loadMasterData()
+    loadMasterData(area)
   }, [])
 
-  async function loadMasterData() {
+  async function loadMasterData(area: OrderArea) {
     const supabase = createClient()
 
     const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }, { data: workPreparationData }] =
       await Promise.all([
-        supabase.from('suppliers').select('id,name').order('name'),
-        supabase.from('customers').select('id,name').order('name'),
-        supabase.from('materials').select('id,name,material_name,material_number').order('name'),
-        supabase.from('cross_sections').select('id,name').order('name'),
-        supabase.from('work_preparations').select('id,name').order('name')
+        supabase.from('suppliers').select('id,name').eq('order_area', area).order('name'),
+        supabase.from('customers').select('id,name').eq('order_area', area).order('name'),
+        supabase.from('materials').select('id,name,material_name,material_number').eq('order_area', area).order('name'),
+        supabase.from('cross_sections').select('id,name').eq('order_area', area).order('name'),
+        supabase.from('work_preparations').select('id,name').eq('order_area', area).order('name')
       ])
 
     const supplierList = supplierData || []
@@ -64,9 +65,9 @@ export default function NewOrderPage() {
     setCrossSections(crossSectionList)
     setWorkPreparations(workPreparationData || [])
 
-    const lastSupplier = localStorage.getItem('last_supplier_id')
-    const lastMaterial = localStorage.getItem('last_material')
-    const lastCrossSection = localStorage.getItem('last_cross_section')
+    const lastSupplier = localStorage.getItem(`${area}_last_supplier_id`)
+    const lastMaterial = localStorage.getItem(`${area}_last_material`)
+    const lastCrossSection = localStorage.getItem(`${area}_last_cross_section`)
 
     setForm(prev => ({
       ...prev,
@@ -154,7 +155,8 @@ export default function NewOrderPage() {
         newMaterials.map(name => ({
           name,
           material_name: name,
-          material_number: null
+          material_number: null,
+          order_area: orderArea
         }))
       )
 
@@ -165,7 +167,7 @@ export default function NewOrderPage() {
 
     if (newCrossSections.length > 0) {
       const { error } = await supabase.from('cross_sections').insert(
-        newCrossSections.map(name => ({ name }))
+        newCrossSections.map(name => ({ name, order_area: orderArea }))
       )
 
       if (error && !error.message.includes('duplicate')) {
@@ -175,7 +177,7 @@ export default function NewOrderPage() {
 
     if (newWorkPreparations.length > 0) {
       const { error } = await supabase.from('work_preparations').insert(
-        newWorkPreparations.map(name => ({ name }))
+        newWorkPreparations.map(name => ({ name, order_area: orderArea }))
       )
 
       if (error && !error.message.includes('duplicate')) {
@@ -195,7 +197,7 @@ export default function NewOrderPage() {
     if (knownCustomers.has(name.toLowerCase())) return
 
     const supabase = createClient()
-    const { error } = await supabase.from('customers').insert({ name })
+    const { error } = await supabase.from('customers').insert({ name, order_area: orderArea })
 
     if (error && !error.message.includes('duplicate')) {
       throw new Error(error.message)
@@ -280,9 +282,9 @@ export default function NewOrderPage() {
     const firstItem = primaryOrderItem(cleanItems)
     const totalQuantity = orderItemsTotal(cleanItems)
 
-    if (form.supplier_id) localStorage.setItem('last_supplier_id', form.supplier_id)
-    if (firstItem.material) localStorage.setItem('last_material', firstItem.material)
-    if (firstItem.cross_section) localStorage.setItem('last_cross_section', firstItem.cross_section)
+    if (form.supplier_id) localStorage.setItem(`${orderArea}_last_supplier_id`, form.supplier_id)
+    if (firstItem.material) localStorage.setItem(`${orderArea}_last_material`, firstItem.material)
+    if (firstItem.cross_section) localStorage.setItem(`${orderArea}_last_cross_section`, firstItem.cross_section)
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
@@ -297,6 +299,7 @@ export default function NewOrderPage() {
       length_mm: firstItem.length_mm,
       quantity: totalQuantity,
       status: 'offen',
+      order_area: orderArea,
       customer_delivery_date: form.customer_delivery_date || null,
       desired_delivery_date: form.desired_delivery_date || null,
       created_by: userData.user?.id || null
@@ -338,14 +341,14 @@ export default function NewOrderPage() {
 
   return (
     <main className="container">
-      <button type="button" className="secondary" onClick={() => router.push('/orders')}>
+      <button type="button" className="secondary" onClick={() => router.push(ordersHref(orderArea))}>
         Zurück
       </button>
 
       <div className="order-page-heading">
         <div>
           <span className="order-area-badge">
-            {orderArea === '2d-laser' ? '2D-Laser' : orderArea === 'rohrlaser' ? 'Rohrlaser' : 'Materialbestellung'}
+            {orderAreaLabel(orderArea)}
           </span>
           <h1>Neue Materialbestellung</h1>
         </div>

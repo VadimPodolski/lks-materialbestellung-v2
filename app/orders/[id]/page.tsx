@@ -15,9 +15,11 @@ import {
   primaryOrderItem
 } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
+import { normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
 
 type Order = {
   id: string
+  order_area: OrderArea
   order_number: string
   customer: string
   customer_delivery_date: string | null
@@ -73,8 +75,8 @@ type Scrap = {
   created_at: string
 }
 
-type Supplier = { id: string; name: string; email: string }
-type MasterData = { id: string; name: string }
+type Supplier = { id: string; name: string; email: string; order_area: OrderArea }
+type MasterData = { id: string; name: string; order_area: OrderArea }
 type ReceiptDraft = { quantity: string; deliveryNote: string; notes: string }
 type ScrapDraft = { quantity: string; reason: string }
 
@@ -162,11 +164,11 @@ export default function OrderDetailPage() {
         .eq('material_order_id', params.id)
         .order('created_at', { ascending: false }),
 
-      supabase.from('suppliers').select('id,name,email').order('name'),
-      supabase.from('customers').select('id,name').order('name'),
-      supabase.from('materials').select('id,name').order('name'),
-      supabase.from('cross_sections').select('id,name').order('name'),
-      supabase.from('work_preparations').select('id,name').order('name')
+      supabase.from('suppliers').select('id,name,email,order_area').order('name'),
+      supabase.from('customers').select('id,name,order_area').order('name'),
+      supabase.from('materials').select('id,name,order_area').order('name'),
+      supabase.from('cross_sections').select('id,name,order_area').order('name'),
+      supabase.from('work_preparations').select('id,name,order_area').order('name')
     ])
 
     const loadedOrder = orderData as any
@@ -175,11 +177,12 @@ export default function OrderDetailPage() {
     setOrderPdfs((pdfData as any) || [])
     setReceipts(receiptData || [])
     setScraps((scrapData as any) || [])
-    setSuppliers(supplierData || [])
-    setCustomers(customerData || [])
-    setMaterials(materialData || [])
-    setCrossSections(crossData || [])
-    setWorkPreparations(workPreparationData || [])
+    const area = normalizeOrderArea(loadedOrder?.order_area)
+    setSuppliers(((supplierData as Supplier[]) || []).filter(item => item.order_area === area))
+    setCustomers(((customerData as MasterData[]) || []).filter(item => item.order_area === area))
+    setMaterials(((materialData as MasterData[]) || []).filter(item => item.order_area === area))
+    setCrossSections(((crossData as MasterData[]) || []).filter(item => item.order_area === area))
+    setWorkPreparations(((workPreparationData as MasterData[]) || []).filter(item => item.order_area === area))
 
     const { data: userData } = await supabase.auth.getUser()
     const user = userData.user
@@ -255,6 +258,7 @@ export default function OrderDetailPage() {
 
   async function ensureEditMasterData(customerName: string, cleanItems: OrderItem[]) {
     const supabase = createClient()
+    const orderArea = normalizeOrderArea(order?.order_area)
     const customer = customerName.trim()
     const knownCustomers = new Set(customers.map(item => item.name.trim().toLowerCase()).filter(Boolean))
     const knownMaterials = new Set(materials.map(item => item.name.trim().toLowerCase()).filter(Boolean))
@@ -262,7 +266,7 @@ export default function OrderDetailPage() {
     const knownWorkPreparations = new Set(workPreparations.map(item => item.name.trim().toLowerCase()).filter(Boolean))
 
     if (customer && !knownCustomers.has(customer.toLowerCase())) {
-      const { error } = await supabase.from('customers').insert({ name: customer })
+      const { error } = await supabase.from('customers').insert({ name: customer, order_area: orderArea })
 
       if (error && !error.message.includes('duplicate')) {
         throw new Error(error.message)
@@ -297,7 +301,8 @@ export default function OrderDetailPage() {
         newMaterials.map(name => ({
           name,
           material_name: name,
-          material_number: null
+          material_number: null,
+          order_area: orderArea
         }))
       )
 
@@ -308,7 +313,7 @@ export default function OrderDetailPage() {
 
     if (newCrossSections.length > 0) {
       const { error } = await supabase.from('cross_sections').insert(
-        newCrossSections.map(name => ({ name }))
+        newCrossSections.map(name => ({ name, order_area: orderArea }))
       )
 
       if (error && !error.message.includes('duplicate')) {
@@ -318,7 +323,7 @@ export default function OrderDetailPage() {
 
     if (newWorkPreparations.length > 0) {
       const { error } = await supabase.from('work_preparations').insert(
-        newWorkPreparations.map(name => ({ name }))
+        newWorkPreparations.map(name => ({ name, order_area: orderArea }))
       )
 
       if (error && !error.message.includes('duplicate')) {
@@ -1167,7 +1172,7 @@ LKS-Technik GmbH & Co. KG`
       .delete()
       .eq('id', order.id)
 
-    router.push('/orders')
+    router.push(ordersHref(normalizeOrderArea(order?.order_area)))
   }
 
   if (!order) {
@@ -1180,14 +1185,17 @@ LKS-Technik GmbH & Co. KG`
 
   return (
     <main className="container wide">
-      <button className="secondary" onClick={() => router.push('/orders')}>
+      <button className="secondary" onClick={() => router.push(ordersHref(normalizeOrderArea(order.order_area)))}>
         Zurück
       </button>
 
       <div className="actions" style={{ justifyContent: 'space-between' }}>
-        <h1>
-          Auftrag {order.order_number} — {order.customer}
-        </h1>
+        <div>
+          <span className="order-area-badge">{orderAreaLabel(normalizeOrderArea(order.order_area))}</span>
+          <h1>
+            Auftrag {order.order_number} — {order.customer}
+          </h1>
+        </div>
 
         <button
           type="button"

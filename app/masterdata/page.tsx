@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { LOGIN_DISABLED } from '@/lib/authMode'
+import { normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
 
 type Customer = { id:string; name:string; contact_person:string|null; email:string|null; phone:string|null; notes:string|null }
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
@@ -16,6 +17,7 @@ type TypeKey = 'customers' | 'suppliers' | 'materials' | 'cross_sections' | 'wor
 function MasterDataContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const orderArea = normalizeOrderArea(searchParams.get('bereich'))
 
   const [type, setType] = useState<TypeKey>('customers')
   const [q, setQ] = useState('')
@@ -55,11 +57,11 @@ function MasterDataContent() {
     ] = await Promise.all([
       supabase.auth.getSession(),
       supabase.auth.getUser(),
-      supabase.from('customers').select('*').order('name'),
-      supabase.from('suppliers').select('*').order('name'),
-      supabase.from('materials').select('*').order('name'),
-      supabase.from('cross_sections').select('*').order('name'),
-      supabase.from('work_preparations').select('*').order('name')
+      supabase.from('customers').select('*').eq('order_area', orderArea).order('name'),
+      supabase.from('suppliers').select('*').eq('order_area', orderArea).order('name'),
+      supabase.from('materials').select('*').eq('order_area', orderArea).order('name'),
+      supabase.from('cross_sections').select('*').eq('order_area', orderArea).order('name'),
+      supabase.from('work_preparations').select('*').eq('order_area', orderArea).order('name')
     ])
 
     const user = userData.user || sessionData.session?.user || null
@@ -111,7 +113,8 @@ function MasterDataContent() {
       contact_person: customer.contact_person || null,
       email: customer.email || null,
       phone: customer.phone || null,
-      notes: customer.notes || null
+      notes: customer.notes || null,
+      order_area: orderArea
     }
 
     if (customer.id) {
@@ -134,7 +137,8 @@ function MasterDataContent() {
       email: supplier.email,
       phone: supplier.phone || null,
       contact_person: supplier.contact_person || null,
-      notes: supplier.notes || null
+      notes: supplier.notes || null,
+      order_area: orderArea
     }
 
     if (supplier.id) {
@@ -155,7 +159,8 @@ function MasterDataContent() {
     const row = {
       name: material.material_name,
       material_name: material.material_name,
-      material_number: null
+      material_number: null,
+      order_area: orderArea
     }
 
     if (material.id) {
@@ -176,7 +181,7 @@ function MasterDataContent() {
     if (cross.id) {
       await supabase.from('cross_sections').update({ name: cross.name }).eq('id', cross.id)
     } else {
-      await supabase.from('cross_sections').insert({ name: cross.name })
+      await supabase.from('cross_sections').insert({ name: cross.name, order_area: orderArea })
     }
 
     resetForms()
@@ -191,7 +196,7 @@ function MasterDataContent() {
     if (workPreparation.id) {
       await supabase.from('work_preparations').update({ name: workPreparation.name }).eq('id', workPreparation.id)
     } else {
-      await supabase.from('work_preparations').insert({ name: workPreparation.name })
+      await supabase.from('work_preparations').insert({ name: workPreparation.name, order_area: orderArea })
     }
 
     resetForms()
@@ -239,10 +244,11 @@ function MasterDataContent() {
 
   return (
     <main className="container">
-      <button type="button" className="secondary" onClick={() => router.push('/orders')}>
+      <button type="button" className="secondary" onClick={() => router.push(ordersHref(orderArea))}>
         Zurück
       </button>
 
+      <span className="order-area-badge">{orderAreaLabel(orderArea)}</span>
       <h1>Stammdaten</h1>
 
       {!isAdmin && (
@@ -250,6 +256,17 @@ function MasterDataContent() {
       )}
 
       <div className="card grid">
+        <div>
+          <label>Fertigungsbereich</label>
+          <select value={orderArea} onChange={e => {
+            const area = e.target.value as OrderArea
+            router.push(`/masterdata?bereich=${area}&type=${type}`)
+          }}>
+            <option value="rohrlaser">Rohrlaser</option>
+            <option value="2d-laser">2D-Laser</option>
+          </select>
+        </div>
+
         <div>
           <label>Bereich</label>
           <select value={type} onChange={e => {
