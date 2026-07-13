@@ -50,6 +50,8 @@ create table if not exists order_items (
   av_4 text,
   length_mm integer,
   quantity integer not null check (quantity > 0),
+  order_unit text not null default 'stück' check (order_unit in ('stück', 'paket')),
+  pieces_per_package integer,
   created_at timestamptz default now()
 );
 

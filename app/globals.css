@@ -1009,6 +1009,11 @@ a.card:hover {
   background: #eef6ff;
 }
 
+table th,
+table td {
+  text-align: left !important;
+}
+
 .order-items-table {
   margin-bottom: 16px;
 }

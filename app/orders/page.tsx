@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
-import { OrderItem, normalizeOrderItems, orderItemAvText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
+import { OrderItem, normalizeOrderItems, orderItemAvText, orderItemQuantityText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { newOrderHref, normalizeOrderArea, orderAreaLabel } from '@/lib/orderAreas'
@@ -589,8 +589,8 @@ function OrdersContent() {
             <option value="latest_order">Letzter Auftrag</option>
             <option value="order_number">Auftragsnummer</option>
             <option value="status">Status</option>
-            <option value="customer">Kunde</option>
-            <option value="customer_delivery_date">K-Liefertermin</option>
+            {orderArea === 'rohrlaser' && <option value="customer">Kunde</option>}
+            {orderArea === 'rohrlaser' && <option value="customer_delivery_date">K-Liefertermin</option>}
             <option value="material">Material</option>
             <option value="supplier">Lieferant</option>
             <option value="desired_delivery_date">Liefertermin</option>
@@ -604,11 +604,11 @@ function OrdersContent() {
         <colgroup>
           <col className="orders-col-status" />
           <col className="orders-col-order" />
-          <col className="orders-col-customer" />
-          <col className="orders-col-date" />
+          {orderArea === 'rohrlaser' && <col className="orders-col-customer" />}
+          {orderArea === 'rohrlaser' && <col className="orders-col-date" />}
           <col className="orders-col-material" />
           <col className="orders-col-positions" />
-          <col className="orders-col-av" />
+          {orderArea === 'rohrlaser' && <col className="orders-col-av" />}
           <col className="orders-col-qty" />
           <col className="orders-col-qty" />
           <col className="orders-col-qty" />
@@ -624,11 +624,11 @@ function OrdersContent() {
           <tr>
             <th>{sortButton('status', 'Status')}</th>
             <th>{sortButton('order_number', 'Auftrag')}</th>
-            <th>{sortButton('customer', 'Kunde')}</th>
-            <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>
+            {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
+            {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
             <th>{sortButton('material', 'Material')}</th>
             <th>{sortButton('positions', 'Positionen')}</th>
-            <th>AV</th>
+            {orderArea === 'rohrlaser' && <th>AV</th>}
             <th>{sortButton('quantity', 'Menge')}</th>
             <th>{sortButton('delivered', 'Geliefert')}</th>
             <th>{sortButton('open', 'Offen')}</th>
@@ -700,8 +700,8 @@ function OrdersContent() {
                 <td>
                   <b>{o.order_number}</b>
                 </td>
-                <td>{o.customer}</td>
-                <td>{formatDateShort(o.customer_delivery_date)}</td>
+                {orderArea === 'rohrlaser' && <td>{o.customer}</td>}
+                {orderArea === 'rohrlaser' && <td>{formatDateShort(o.customer_delivery_date)}</td>}
                 <td className="order-positions-cell">
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (
@@ -715,12 +715,12 @@ function OrdersContent() {
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (
                       <div key={`${item.cross_section}-${item.length_mm}-${index}`}>
-                        {item.cross_section} ({item.quantity} Stk.)
+                        {item.cross_section} ({orderItemQuantityText(item)})
                       </div>
                     ))}
                   </div>
                 </td>
-                <td className="av-cell">
+                {orderArea === 'rohrlaser' && <td className="av-cell">
                   <div className="av-lines">
                     {orderItems.some(item => orderItemAvText(item)) ? (
                       orderItems.map((item, index) => (
@@ -741,7 +741,7 @@ function OrdersContent() {
                       <span className="av-empty-line">-</span>
                     )}
                   </div>
-                </td>
+                </td>}
                 <td>{o.quantity}</td>
                <td
   className={

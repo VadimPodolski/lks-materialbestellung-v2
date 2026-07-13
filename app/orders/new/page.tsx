@@ -74,12 +74,19 @@ export default function NewOrderPage() {
     setCrossSections(crossSectionList)
     setWorkPreparations(workPreparationData || [])
 
+    const { data: tafelNumber } = area === '2d-laser'
+      ? await supabase.rpc('next_tafel_order_number')
+      : { data: null }
+
     const lastSupplier = localStorage.getItem(`${area}_last_supplier_id`)
     const lastMaterial = localStorage.getItem(`${area}_last_material`)
     const lastCrossSection = localStorage.getItem(`${area}_last_cross_section`)
 
     setForm(prev => ({
       ...prev,
+      order_number: area === '2d-laser' && tafelNumber ? tafelNumber : prev.order_number,
+      customer: area === '2d-laser' ? '2D-Laser' : prev.customer,
+      customer_delivery_date: area === '2d-laser' ? '' : prev.customer_delivery_date,
       supplier_id: lastSupplier && supplierList.some(s => s.id === lastSupplier)
         ? lastSupplier
         : prev.supplier_id || supplierList[0]?.id || ''
@@ -106,6 +113,7 @@ export default function NewOrderPage() {
 
   function set(k: string, v: string) {
     if (k === 'order_number') {
+      if (orderArea === '2d-laser') return
       const rest = v.startsWith('AB-') ? v.slice(3) : v.replace(/^AB-?/, '')
       setForm(prev => ({ ...prev, order_number: 'AB-' + rest }))
       return
@@ -216,7 +224,7 @@ export default function NewOrderPage() {
     }
   }
 
-  function setItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity', value: string) {
+  function setItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity' | 'order_unit' | 'pieces_per_package', value: string) {
     setItems(prev => prev.map((item, itemIndex) => {
       if (itemIndex !== index) return item
 
@@ -226,6 +234,14 @@ export default function NewOrderPage() {
 
       if (key === 'quantity') {
         return { ...item, quantity: Number(value || 0) }
+      }
+
+      if (key === 'pieces_per_package') {
+        return { ...item, pieces_per_package: value ? Number(value) : null }
+      }
+
+      if (key === 'order_unit') {
+        return { ...item, order_unit: value === 'paket' ? 'paket' : 'stück', pieces_per_package: null }
       }
 
       return { ...item, [key]: value }
@@ -245,7 +261,9 @@ export default function NewOrderPage() {
         av_2: last.av_2,
         av_3: last.av_3,
         av_4: last.av_4,
-        length_mm: last.length_mm
+        length_mm: last.length_mm,
+        order_unit: last.order_unit,
+        pieces_per_package: last.pieces_per_package
       }
     ])
   }
@@ -258,14 +276,18 @@ export default function NewOrderPage() {
     e.preventDefault()
     setMsg('')
 
-    const orderNumberSuffix = form.order_number.replace(/^AB-/, '').trim()
-    const customerName = form.customer.trim()
+    const orderNumberSuffix = orderArea === '2d-laser'
+      ? form.order_number.replace(/^TAFEL-/, '').trim()
+      : form.order_number.replace(/^AB-/, '').trim()
+    const customerName = orderArea === '2d-laser' ? '2D-Laser' : form.customer.trim()
 
     if (!orderNumberSuffix) {
-      return setMsg('Bitte eine AB-Nummer eintragen.')
+      return setMsg(orderArea === '2d-laser'
+        ? 'Die TAFEL-Auftragsnummer konnte nicht erzeugt werden.'
+        : 'Bitte eine AB-Nummer eintragen.')
     }
 
-    if (!customerName) {
+    if (orderArea === 'rohrlaser' && !customerName) {
       return setMsg('Bitte Kundennamen eintragen.')
     }
 
@@ -277,13 +299,19 @@ export default function NewOrderPage() {
       av_3: (item.av_3 || '').trim(),
       av_4: (item.av_4 || '').trim(),
       length_mm: item.length_mm ? Number(item.length_mm) : null,
-      quantity: Number(item.quantity)
+      quantity: Number(item.quantity),
+      order_unit: item.order_unit === 'paket' ? 'paket' : 'stück',
+      pieces_per_package: item.order_unit === 'paket' ? Number(item.pieces_per_package || 0) : null
     })))
 
     if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
       return setMsg(orderArea === '2d-laser'
         ? 'Bitte jede Position mit Material, Format und Stückzahl ausfüllen.'
         : 'Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+    }
+
+    if (orderArea === '2d-laser' && cleanItems.some(item => item.order_unit === 'paket' && !item.pieces_per_package)) {
+      return setMsg('Bitte bei jeder Paket-Position die Stückzahl pro Paket angeben.')
     }
 
     try {
@@ -307,6 +335,7 @@ export default function NewOrderPage() {
     const orderRow = {
       ...form,
       customer: customerName,
+      order_number: form.order_number,
       supplier_id: form.supplier_id || null,
       material: firstItem.material,
       cross_section: firstItem.cross_section,
@@ -314,7 +343,7 @@ export default function NewOrderPage() {
       quantity: totalQuantity,
       status: 'offen',
       order_area: orderArea,
-      customer_delivery_date: form.customer_delivery_date || null,
+      customer_delivery_date: orderArea === '2d-laser' ? null : form.customer_delivery_date || null,
       desired_delivery_date: form.desired_delivery_date || null,
       created_by: userData.user?.id || null
     }
@@ -344,6 +373,8 @@ export default function NewOrderPage() {
         av_4: item.av_4 || null,
         length_mm: item.length_mm,
         quantity: item.quantity,
+        order_unit: item.order_unit || 'stück',
+        pieces_per_package: item.order_unit === 'paket' ? item.pieces_per_package : null,
         position: index + 1
       }))
     )
@@ -374,28 +405,37 @@ export default function NewOrderPage() {
       <form className="card grid" onSubmit={save}>
         <div>
           <label>Auftragsnummer</label>
-          <input value={form.order_number} onChange={e => set('order_number', e.target.value)} required />
+          <input
+            value={form.order_number}
+            onChange={e => set('order_number', e.target.value)}
+            readOnly={orderArea === '2d-laser'}
+            required
+          />
         </div>
 
-        <div style={{ position: 'relative' }}>
-          <label>Kunde</label>
-          <input value={form.customer} onChange={e => set('customer', e.target.value)} required />
+        {orderArea === 'rohrlaser' && (
+          <div style={{ position: 'relative' }}>
+            <label>Kunde</label>
+            <input value={form.customer} onChange={e => set('customer', e.target.value)} required />
 
-          {orderArea === 'rohrlaser' && customerSuggestions.length > 0 && (
-            <div className="suggestions">
-              {customerSuggestions.map(c => (
-                <button type="button" key={c.id} onClick={() => set('customer', c.name)}>
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+            {customerSuggestions.length > 0 && (
+              <div className="suggestions">
+                {customerSuggestions.map(c => (
+                  <button type="button" key={c.id} onClick={() => set('customer', c.name)}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-        <div>
-          <label>K-Liefertermin</label>
-          <input type="date" value={form.customer_delivery_date} onChange={e => set('customer_delivery_date', e.target.value)} />
-        </div>
+        {orderArea === 'rohrlaser' && (
+          <div>
+            <label>K-Liefertermin</label>
+            <input type="date" value={form.customer_delivery_date} onChange={e => set('customer_delivery_date', e.target.value)} />
+          </div>
+        )}
 
         <div>
           <label>Lieferant</label>
@@ -467,33 +507,55 @@ export default function NewOrderPage() {
 
                   <div>
                     <label>{orderArea === '2d-laser' ? 'Format' : 'Rohrquerschnitt'}</label>
-                    <div className="combo-box">
-                      <input
-                        value={item.cross_section}
-                        onFocus={() => setActiveCrossIndex(index)}
-                        onBlur={() => window.setTimeout(() => setActiveCrossIndex(null), 120)}
-                        onChange={e => setItem(index, 'cross_section', e.target.value)}
-                        placeholder={orderArea === '2d-laser' ? 'Format wählen' : 'Querschnitt wählen oder eingeben'}
-                        required
-                      />
-                      {activeCrossIndex === index && crossSectionOptions(item.cross_section).length > 0 && (
-                        <div className="combo-options">
-                          {crossSectionOptions(item.cross_section).map(q => (
-                            <button
-                              type="button"
-                              key={q.id}
-                              onMouseDown={e => e.preventDefault()}
-                              onClick={() => {
-                                setItem(index, 'cross_section', q.name)
-                                setActiveCrossIndex(null)
-                              }}
-                            >
-                              {q.name}
-                            </button>
+                    {orderArea === '2d-laser' ? (
+                      <>
+                        <select
+                          value={crossSections.some(format => format.name === item.cross_section) ? item.cross_section : '__custom__'}
+                          onChange={e => setItem(index, 'cross_section', e.target.value === '__custom__' ? '' : e.target.value)}
+                        >
+                          {crossSections.map(format => (
+                            <option key={format.id} value={format.name}>{format.name}</option>
                           ))}
-                        </div>
-                      )}
-                    </div>
+                          <option value="__custom__">Eigenes Format</option>
+                        </select>
+                        {!crossSections.some(format => format.name === item.cross_section) && (
+                          <input
+                            value={item.cross_section}
+                            onChange={e => setItem(index, 'cross_section', e.target.value)}
+                            placeholder="Eigenes Maß, z.B. 2800x1400 mm"
+                            required
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <div className="combo-box">
+                        <input
+                          value={item.cross_section}
+                          onFocus={() => setActiveCrossIndex(index)}
+                          onBlur={() => window.setTimeout(() => setActiveCrossIndex(null), 120)}
+                          onChange={e => setItem(index, 'cross_section', e.target.value)}
+                          placeholder="Querschnitt wählen oder eingeben"
+                          required
+                        />
+                        {activeCrossIndex === index && crossSectionOptions(item.cross_section).length > 0 && (
+                          <div className="combo-options">
+                            {crossSectionOptions(item.cross_section).map(q => (
+                              <button
+                                type="button"
+                                key={q.id}
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => {
+                                  setItem(index, 'cross_section', q.name)
+                                  setActiveCrossIndex(null)
+                                }}
+                              >
+                                {q.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {orderArea === 'rohrlaser' && (
@@ -519,8 +581,18 @@ export default function NewOrderPage() {
                     </div>
                   ))}
 
+                  {orderArea === '2d-laser' && (
+                    <div>
+                      <label>Einheit</label>
+                      <select value={item.order_unit || 'stück'} onChange={e => setItem(index, 'order_unit', e.target.value)}>
+                        <option value="stück">Stück</option>
+                        <option value="paket">Paket</option>
+                      </select>
+                    </div>
+                  )}
+
                   <div>
-                    <label>Stückzahl</label>
+                    <label>{orderArea === '2d-laser' ? 'Menge' : 'Stückzahl'}</label>
                     <input
                       type="number"
                       min="1"
@@ -529,6 +601,19 @@ export default function NewOrderPage() {
                       required
                     />
                   </div>
+
+                  {orderArea === '2d-laser' && item.order_unit === 'paket' && (
+                    <div>
+                      <label>Stück pro Paket</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.pieces_per_package || ''}
+                        onChange={e => setItem(index, 'pieces_per_package', e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
 
                   <div className="order-item-remove">
                     {items.length > 1 && (
@@ -542,7 +627,7 @@ export default function NewOrderPage() {
             ))}
           </div>
 
-          <p className="small">Gesamtstückzahl: {orderItemsTotal(items)}</p>
+          <p className="small">Gesamtmenge: {orderItemsTotal(items)}</p>
         </div>
 
 
