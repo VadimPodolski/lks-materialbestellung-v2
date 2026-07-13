@@ -85,6 +85,10 @@ function formatLabel(format: SheetFormat) {
   return `${format.name} ${format.width_mm}x${format.height_mm} mm`
 }
 
+function customFormatValue(value: string) {
+  return value.replace(/^Eigenes Format:\s*/i, '')
+}
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -1597,10 +1601,10 @@ LKS-Technik GmbH & Co. KG`
                       <div>
                         <label>{isTwoDLaser ? 'Format' : 'Querschnitt'}</label>
                         {isTwoDLaser ? (
-                          <>
+                          <div className="format-entry-row">
                             <select
                               value={crossSections.some(format => format.name === item.cross_section) ? item.cross_section : '__custom__'}
-                              onChange={e => setEditItem(index, 'cross_section', e.target.value === '__custom__' ? '' : e.target.value)}
+                              onChange={e => setEditItem(index, 'cross_section', e.target.value === '__custom__' ? 'Eigenes Format: ' : e.target.value)}
                             >
                               {crossSections.map(format => (
                                 <option key={format.id} value={format.name}>{format.name}</option>
@@ -1609,13 +1613,13 @@ LKS-Technik GmbH & Co. KG`
                             </select>
                             {!crossSections.some(format => format.name === item.cross_section) && (
                               <input
-                                value={item.cross_section}
-                                onChange={e => setEditItem(index, 'cross_section', e.target.value)}
+                                value={customFormatValue(item.cross_section)}
+                                onChange={e => setEditItem(index, 'cross_section', `Eigenes Format: ${e.target.value}`)}
                                 placeholder="Eigenes Maß, z.B. 2800x1400 mm"
                                 required
                               />
                             )}
-                          </>
+                          </div>
                         ) : (
                           <div className="combo-box">
                             <input

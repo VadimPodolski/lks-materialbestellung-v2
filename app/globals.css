@@ -981,6 +981,19 @@ a.card:hover {
   position: relative;
 }
 
+.format-entry-row {
+  display: grid;
+  grid-template-columns: minmax(150px, .9fr) minmax(190px, 1.1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 700px) {
+  .format-entry-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 .combo-options {
   position: absolute;
   top: calc(100% + 4px);

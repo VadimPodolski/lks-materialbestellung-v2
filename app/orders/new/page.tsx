@@ -18,6 +18,10 @@ function formatLabel(format: SheetFormat) {
   return `${format.name} ${format.width_mm}x${format.height_mm} mm`
 }
 
+function customFormatValue(value: string) {
+  return value.replace(/^Eigenes Format:\s*/i, '')
+}
+
 export default function NewOrderPage() {
   const router = useRouter()
   const [orderArea, setOrderArea] = useState<OrderArea>('rohrlaser')
@@ -508,10 +512,10 @@ export default function NewOrderPage() {
                   <div>
                     <label>{orderArea === '2d-laser' ? 'Format' : 'Rohrquerschnitt'}</label>
                     {orderArea === '2d-laser' ? (
-                      <>
+                      <div className="format-entry-row">
                         <select
                           value={crossSections.some(format => format.name === item.cross_section) ? item.cross_section : '__custom__'}
-                          onChange={e => setItem(index, 'cross_section', e.target.value === '__custom__' ? '' : e.target.value)}
+                          onChange={e => setItem(index, 'cross_section', e.target.value === '__custom__' ? 'Eigenes Format: ' : e.target.value)}
                         >
                           {crossSections.map(format => (
                             <option key={format.id} value={format.name}>{format.name}</option>
@@ -520,13 +524,13 @@ export default function NewOrderPage() {
                         </select>
                         {!crossSections.some(format => format.name === item.cross_section) && (
                           <input
-                            value={item.cross_section}
-                            onChange={e => setItem(index, 'cross_section', e.target.value)}
+                            value={customFormatValue(item.cross_section)}
+                            onChange={e => setItem(index, 'cross_section', `Eigenes Format: ${e.target.value}`)}
                             placeholder="Eigenes Maß, z.B. 2800x1400 mm"
                             required
                           />
                         )}
-                      </>
+                      </div>
                     ) : (
                       <div className="combo-box">
                         <input
