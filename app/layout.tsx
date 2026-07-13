@@ -16,8 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <nav className="main-nav">
             <div className="nav-left">
-              <Link href="/">Portal</Link>
-              <Link href="/orders">Bestellungen</Link>
+              <Link href="/">Bestellungen</Link>
               <Link href="/masterdata">Stammdaten</Link>
               <LoginLogoutLink />
             </div>
