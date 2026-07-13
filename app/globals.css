@@ -964,6 +964,36 @@ a.card:hover {
   align-items: flex-end;
 }
 
+.order-item-row.two-d-order-item-row {
+  grid-template-columns:
+    minmax(105px, .45fr)
+    minmax(220px, 1fr)
+    minmax(460px, 1.9fr)
+    minmax(150px, .65fr)
+    minmax(135px, .55fr)
+    minmax(180px, .7fr)
+    minmax(110px, .5fr);
+  align-items: end;
+}
+
+.two-d-order-item-row > div,
+.two-d-order-item-row label,
+.two-d-order-item-row input,
+.two-d-order-item-row select {
+  min-width: 0;
+  text-align: left;
+}
+
+.two-d-order-item-row input,
+.two-d-order-item-row select {
+  width: 100%;
+}
+
+.two-d-order-item-row .order-item-title {
+  align-self: end;
+  padding-bottom: 10px;
+}
+
 .order-item-title {
   align-self: center;
   min-width: 120px;
@@ -983,12 +1013,31 @@ a.card:hover {
 
 .format-entry-row {
   display: grid;
-  grid-template-columns: minmax(150px, .9fr) minmax(190px, 1.1fr);
+  grid-template-columns: minmax(170px, .8fr) minmax(270px, 1.2fr);
   gap: 8px;
   align-items: center;
 }
 
+@media (max-width: 1400px) {
+  .order-item-row.two-d-order-item-row {
+    grid-template-columns: repeat(2, minmax(240px, 1fr));
+  }
+
+  .two-d-order-item-row .order-item-title,
+  .two-d-order-item-row .order-item-format {
+    grid-column: 1 / -1;
+  }
+
+  .two-d-order-item-row .order-item-title {
+    padding-bottom: 0;
+  }
+}
+
 @media (max-width: 700px) {
+  .order-item-row.two-d-order-item-row {
+    grid-template-columns: 1fr;
+  }
+
   .format-entry-row {
     grid-template-columns: 1fr;
   }

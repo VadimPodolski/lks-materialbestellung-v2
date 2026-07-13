@@ -473,7 +473,7 @@ export default function NewOrderPage() {
           <div className="order-items">
             {items.map((item, index) => (
               <div className="order-item" key={index}>
-                <div className="order-item-row">
+                <div className={`order-item-row${orderArea === '2d-laser' ? ' two-d-order-item-row' : ''}`}>
                   <div className="order-item-title">
                     <b>Position {index + 1}</b>
                   </div>
@@ -509,7 +509,7 @@ export default function NewOrderPage() {
                     </div>
                   </div>
 
-                  <div>
+                  <div className={orderArea === '2d-laser' ? 'order-item-format' : undefined}>
                     <label>{orderArea === '2d-laser' ? 'Format' : 'Rohrquerschnitt'}</label>
                     {orderArea === '2d-laser' ? (
                       <div className="format-entry-row">

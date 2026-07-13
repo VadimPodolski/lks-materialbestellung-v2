@@ -1562,7 +1562,7 @@ LKS-Technik GmbH & Co. KG`
               <div className="order-items">
                 {editItems.map((item, index) => (
                   <div className="order-item" key={index}>
-                    <div className="order-item-row">
+                    <div className={`order-item-row${isTwoDLaser ? ' two-d-order-item-row' : ''}`}>
                       <div className="order-item-title">
                         <b>Position {index + 1}</b>
                       </div>
@@ -1598,7 +1598,7 @@ LKS-Technik GmbH & Co. KG`
                         </div>
                       </div>
 
-                      <div>
+                      <div className={isTwoDLaser ? 'order-item-format' : undefined}>
                         <label>{isTwoDLaser ? 'Format' : 'Querschnitt'}</label>
                         {isTwoDLaser ? (
                           <div className="format-entry-row">
