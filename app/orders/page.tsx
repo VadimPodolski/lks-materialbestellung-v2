@@ -7,7 +7,7 @@ import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import { OrderItem, normalizeOrderItems, orderItemAvText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
-import { masterDataHref, newOrderHref, normalizeOrderArea, orderAreaLabel } from '@/lib/orderAreas'
+import { newOrderHref, normalizeOrderArea, orderAreaLabel } from '@/lib/orderAreas'
 
 type Order = {
   id: string
@@ -533,10 +533,6 @@ function OrdersContent() {
         </div>
 
         <div className="actions">
-          <Link className="button secondary" href={masterDataHref(orderArea)}>
-            Stammdaten
-          </Link>
-
           <Link className="button" href={newOrderHref(orderArea)}>
             Neue Bestellung
           </Link>

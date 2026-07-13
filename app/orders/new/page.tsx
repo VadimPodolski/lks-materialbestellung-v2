@@ -12,6 +12,11 @@ type Customer = { id: string; name: string }
 type Material = { id: string; name: string; material_name: string | null; material_number: string | null }
 type CrossSection = { id: string; name: string }
 type WorkPreparation = { id: string; name: string }
+type SheetFormat = { id: string; name: string; width_mm: number; height_mm: number }
+
+function formatLabel(format: SheetFormat) {
+  return `${format.name} ${format.width_mm}x${format.height_mm} mm`
+}
 
 export default function NewOrderPage() {
   const router = useRouter()
@@ -51,13 +56,17 @@ export default function NewOrderPage() {
         supabase.from('suppliers').select('id,name').eq('order_area', area).order('name'),
         supabase.from('customers').select('id,name').eq('order_area', area).order('name'),
         supabase.from('materials').select('id,name,material_name,material_number').eq('order_area', area).order('name'),
-        supabase.from('cross_sections').select('id,name').eq('order_area', area).order('name'),
+        area === '2d-laser'
+          ? supabase.from('formats').select('id,name,width_mm,height_mm').order('width_mm', { ascending: false })
+          : supabase.from('cross_sections').select('id,name').eq('order_area', area).order('name'),
         supabase.from('work_preparations').select('id,name').eq('order_area', area).order('name')
       ])
 
     const supplierList = supplierData || []
     const materialList = materialData || []
-    const crossSectionList = crossSectionData || []
+    const crossSectionList: CrossSection[] = area === '2d-laser'
+      ? ((crossSectionData as SheetFormat[] | null) || []).map(format => ({ id: format.id, name: formatLabel(format) }))
+      : (crossSectionData || []) as CrossSection[]
 
     setSuppliers(supplierList)
     setCustomers(customerData || [])
@@ -83,7 +92,8 @@ export default function NewOrderPage() {
       return prev.map((item, index) => index === 0 ? {
         ...item,
         material: item.material || material,
-        cross_section: item.cross_section || crossSection
+        cross_section: item.cross_section || crossSection,
+        length_mm: area === '2d-laser' ? null : item.length_mm
       } : item)
     })
   }
@@ -165,7 +175,7 @@ export default function NewOrderPage() {
       }
     }
 
-    if (newCrossSections.length > 0) {
+    if (orderArea === 'rohrlaser' && newCrossSections.length > 0) {
       const { error } = await supabase.from('cross_sections').insert(
         newCrossSections.map(name => ({ name, order_area: orderArea }))
       )
@@ -175,7 +185,7 @@ export default function NewOrderPage() {
       }
     }
 
-    if (newWorkPreparations.length > 0) {
+    if (orderArea === 'rohrlaser' && newWorkPreparations.length > 0) {
       const { error } = await supabase.from('work_preparations').insert(
         newWorkPreparations.map(name => ({ name, order_area: orderArea }))
       )
@@ -187,6 +197,8 @@ export default function NewOrderPage() {
   }
 
   async function ensureCustomerMasterData(customerName: string) {
+    if (orderArea === '2d-laser') return
+
     const name = customerName.trim()
     if (!name) return
 
@@ -269,7 +281,9 @@ export default function NewOrderPage() {
     })))
 
     if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
-      return setMsg('Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+      return setMsg(orderArea === '2d-laser'
+        ? 'Bitte jede Position mit Material, Format und Stückzahl ausfüllen.'
+        : 'Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
     }
 
     try {
@@ -367,7 +381,7 @@ export default function NewOrderPage() {
           <label>Kunde</label>
           <input value={form.customer} onChange={e => set('customer', e.target.value)} required />
 
-          {customerSuggestions.length > 0 && (
+          {orderArea === 'rohrlaser' && customerSuggestions.length > 0 && (
             <div className="suggestions">
               {customerSuggestions.map(c => (
                 <button type="button" key={c.id} onClick={() => set('customer', c.name)}>
@@ -404,11 +418,13 @@ export default function NewOrderPage() {
             </div>
           </div>
 
-          <datalist id="work-preparation-options">
-            {workPreparations.map(av => (
-              <option key={av.id} value={av.name} />
-            ))}
-          </datalist>
+          {orderArea === 'rohrlaser' && (
+            <datalist id="work-preparation-options">
+              {workPreparations.map(av => (
+                <option key={av.id} value={av.name} />
+              ))}
+            </datalist>
+          )}
 
           <div className="order-items">
             {items.map((item, index) => (
@@ -450,14 +466,14 @@ export default function NewOrderPage() {
                   </div>
 
                   <div>
-                    <label>Rohrquerschnitt</label>
+                    <label>{orderArea === '2d-laser' ? 'Format' : 'Rohrquerschnitt'}</label>
                     <div className="combo-box">
                       <input
                         value={item.cross_section}
                         onFocus={() => setActiveCrossIndex(index)}
                         onBlur={() => window.setTimeout(() => setActiveCrossIndex(null), 120)}
                         onChange={e => setItem(index, 'cross_section', e.target.value)}
-                        placeholder="Querschnitt wählen oder eingeben"
+                        placeholder={orderArea === '2d-laser' ? 'Format wählen' : 'Querschnitt wählen oder eingeben'}
                         required
                       />
                       {activeCrossIndex === index && crossSectionOptions(item.cross_section).length > 0 && (
@@ -480,16 +496,18 @@ export default function NewOrderPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label>Länge mm</label>
-                    <input
-                      type="number"
-                      value={item.length_mm || ''}
-                      onChange={e => setItem(index, 'length_mm', e.target.value)}
-                    />
-                  </div>
+                  {orderArea === 'rohrlaser' && (
+                    <div>
+                      <label>Länge mm</label>
+                      <input
+                        type="number"
+                        value={item.length_mm || ''}
+                        onChange={e => setItem(index, 'length_mm', e.target.value)}
+                      />
+                    </div>
+                  )}
 
-                  {(['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
+                  {orderArea === 'rohrlaser' && (['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
                     <div key={key}>
                       <label>AV {avIndex + 1}</label>
                       <input

@@ -77,8 +77,13 @@ type Scrap = {
 
 type Supplier = { id: string; name: string; email: string; order_area: OrderArea }
 type MasterData = { id: string; name: string; order_area: OrderArea }
+type SheetFormat = { id: string; name: string; width_mm: number; height_mm: number }
 type ReceiptDraft = { quantity: string; deliveryNote: string; notes: string }
 type ScrapDraft = { quantity: string; reason: string }
+
+function formatLabel(format: SheetFormat) {
+  return `${format.name} ${format.width_mm}x${format.height_mm} mm`
+}
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>()
@@ -138,7 +143,8 @@ export default function OrderDetailPage() {
       { data: customerData },
       { data: materialData },
       { data: crossData },
-      { data: workPreparationData }
+      { data: workPreparationData },
+      { data: formatData }
     ] = await Promise.all([
       supabase
         .from('material_orders')
@@ -168,7 +174,8 @@ export default function OrderDetailPage() {
       supabase.from('customers').select('id,name,order_area').order('name'),
       supabase.from('materials').select('id,name,order_area').order('name'),
       supabase.from('cross_sections').select('id,name,order_area').order('name'),
-      supabase.from('work_preparations').select('id,name,order_area').order('name')
+      supabase.from('work_preparations').select('id,name,order_area').order('name'),
+      supabase.from('formats').select('id,name,width_mm,height_mm').order('width_mm', { ascending: false })
     ])
 
     const loadedOrder = orderData as any
@@ -181,7 +188,9 @@ export default function OrderDetailPage() {
     setSuppliers(((supplierData as Supplier[]) || []).filter(item => item.order_area === area))
     setCustomers(((customerData as MasterData[]) || []).filter(item => item.order_area === area))
     setMaterials(((materialData as MasterData[]) || []).filter(item => item.order_area === area))
-    setCrossSections(((crossData as MasterData[]) || []).filter(item => item.order_area === area))
+    setCrossSections(area === '2d-laser'
+      ? ((formatData as SheetFormat[]) || []).map(format => ({ id: format.id, name: formatLabel(format), order_area: area }))
+      : ((crossData as MasterData[]) || []).filter(item => item.order_area === area))
     setWorkPreparations(((workPreparationData as MasterData[]) || []).filter(item => item.order_area === area))
 
     const { data: userData } = await supabase.auth.getUser()
@@ -265,7 +274,7 @@ export default function OrderDetailPage() {
     const knownCrossSections = new Set(crossSections.map(item => item.name.trim().toLowerCase()).filter(Boolean))
     const knownWorkPreparations = new Set(workPreparations.map(item => item.name.trim().toLowerCase()).filter(Boolean))
 
-    if (customer && !knownCustomers.has(customer.toLowerCase())) {
+    if (orderArea === 'rohrlaser' && customer && !knownCustomers.has(customer.toLowerCase())) {
       const { error } = await supabase.from('customers').insert({ name: customer, order_area: orderArea })
 
       if (error && !error.message.includes('duplicate')) {
@@ -311,7 +320,7 @@ export default function OrderDetailPage() {
       }
     }
 
-    if (newCrossSections.length > 0) {
+    if (orderArea === 'rohrlaser' && newCrossSections.length > 0) {
       const { error } = await supabase.from('cross_sections').insert(
         newCrossSections.map(name => ({ name, order_area: orderArea }))
       )
@@ -321,7 +330,7 @@ export default function OrderDetailPage() {
       }
     }
 
-    if (newWorkPreparations.length > 0) {
+    if (orderArea === 'rohrlaser' && newWorkPreparations.length > 0) {
       const { error } = await supabase.from('work_preparations').insert(
         newWorkPreparations.map(name => ({ name, order_area: orderArea }))
       )
@@ -575,7 +584,9 @@ LKS-Technik GmbH & Co. KG`
     }
 
     if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
-      return setMsg('Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+      return setMsg(normalizeOrderArea(order.order_area) === '2d-laser'
+        ? 'Bitte jede Position mit Material, Format und Stückzahl ausfüllen.'
+        : 'Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
     }
 
     try {
@@ -1183,6 +1194,8 @@ LKS-Technik GmbH & Co. KG`
     )
   }
 
+  const isTwoDLaser = normalizeOrderArea(order.order_area) === '2d-laser'
+
   return (
     <main className="container wide">
       <button className="secondary" onClick={() => router.push(ordersHref(normalizeOrderArea(order.order_area)))}>
@@ -1247,9 +1260,9 @@ LKS-Technik GmbH & Co. KG`
                   <tr>
                     <th>Position</th>
                     <th>Material</th>
-                    <th>Querschnitt</th>
-                    <th>AV</th>
-                    <th>Länge</th>
+                    <th>{isTwoDLaser ? 'Format' : 'Querschnitt'}</th>
+                    {!isTwoDLaser && <th>AV</th>}
+                    {!isTwoDLaser && <th>Länge</th>}
                     <th>Stückzahl</th>
                     <th>Geliefert</th>
                     <th className="we-block">WE-Menge</th>
@@ -1270,8 +1283,8 @@ LKS-Technik GmbH & Co. KG`
                         <td>{index + 1}</td>
                         <td>{item.material}</td>
                         <td>{item.cross_section}</td>
-                        <td>{orderItemAvText(item) || '-'}</td>
-                        <td>{item.length_mm || '-'} mm</td>
+                        {!isTwoDLaser && <td>{orderItemAvText(item) || '-'}</td>}
+                        {!isTwoDLaser && <td>{item.length_mm || '-'} mm</td>}
                         <td>{item.quantity}</td>
                         <td className={receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}>
                           {receivedQtyForItem(item)}
@@ -1507,11 +1520,13 @@ LKS-Technik GmbH & Co. KG`
                 <button type="button" onClick={addEditItem}>+ Position</button>
               </div>
 
-              <datalist id="edit-work-preparation-options">
-                {workPreparations.map(av => (
-                  <option key={av.id} value={av.name} />
-                ))}
-              </datalist>
+              {!isTwoDLaser && (
+                <datalist id="edit-work-preparation-options">
+                  {workPreparations.map(av => (
+                    <option key={av.id} value={av.name} />
+                  ))}
+                </datalist>
+              )}
 
               <div className="order-items">
                 {editItems.map((item, index) => (
@@ -1553,14 +1568,14 @@ LKS-Technik GmbH & Co. KG`
                       </div>
 
                       <div>
-                        <label>Querschnitt</label>
+                        <label>{isTwoDLaser ? 'Format' : 'Querschnitt'}</label>
                         <div className="combo-box">
                           <input
                             value={item.cross_section}
                             onFocus={() => setActiveEditCrossIndex(index)}
                             onBlur={() => window.setTimeout(() => setActiveEditCrossIndex(null), 120)}
                             onChange={e => setEditItem(index, 'cross_section', e.target.value)}
-                            placeholder="Querschnitt wählen oder eingeben"
+                            placeholder={isTwoDLaser ? 'Format wählen' : 'Querschnitt wählen oder eingeben'}
                             required
                           />
                           {activeEditCrossIndex === index && masterDataOptions(crossSections, item.cross_section).length > 0 && (
@@ -1583,7 +1598,7 @@ LKS-Technik GmbH & Co. KG`
                         </div>
                       </div>
 
-                      {(['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
+                      {!isTwoDLaser && (['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
                         <div key={key}>
                           <label>AV {avIndex + 1}</label>
                           <input
@@ -1595,14 +1610,16 @@ LKS-Technik GmbH & Co. KG`
                         </div>
                       ))}
 
-                      <div>
-                        <label>Länge mm</label>
-                        <input
-                          type="number"
-                          value={item.length_mm || ''}
-                          onChange={e => setEditItem(index, 'length_mm', e.target.value)}
-                        />
-                      </div>
+                      {!isTwoDLaser && (
+                        <div>
+                          <label>Länge mm</label>
+                          <input
+                            type="number"
+                            value={item.length_mm || ''}
+                            onChange={e => setEditItem(index, 'length_mm', e.target.value)}
+                          />
+                        </div>
+                      )}
 
                       <div>
                         <label>Stückzahl</label>

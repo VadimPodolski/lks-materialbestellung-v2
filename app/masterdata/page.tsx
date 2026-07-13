@@ -11,8 +11,12 @@ type Supplier = { id:string; name:string; email:string; phone:string|null; conta
 type Material = { id:string; name:string; material_name:string|null; material_number:string|null }
 type CrossSection = { id:string; name:string }
 type WorkPreparation = { id:string; name:string }
+type SheetFormat = { id:string; name:string; width_mm:number; height_mm:number }
 
-type TypeKey = 'customers' | 'suppliers' | 'materials' | 'cross_sections' | 'work_preparations'
+type TypeKey = 'customers' | 'suppliers' | 'materials' | 'cross_sections' | 'work_preparations' | 'formats'
+
+const ROHRLASER_TYPES: TypeKey[] = ['customers', 'suppliers', 'materials', 'cross_sections', 'work_preparations']
+const TWO_D_LASER_TYPES: TypeKey[] = ['suppliers', 'materials', 'formats']
 
 function MasterDataContent() {
   const router = useRouter()
@@ -28,18 +32,19 @@ function MasterDataContent() {
   const [materials, setMaterials] = useState<Material[]>([])
   const [crossSections, setCrossSections] = useState<CrossSection[]>([])
   const [workPreparations, setWorkPreparations] = useState<WorkPreparation[]>([])
+  const [formats, setFormats] = useState<SheetFormat[]>([])
 
   const [customer, setCustomer] = useState({ id:'', name:'', contact_person:'', email:'', phone:'', notes:'' })
   const [supplier, setSupplier] = useState({ id:'', name:'', email:'', phone:'', contact_person:'', notes:'' })
   const [material, setMaterial] = useState({ id:'', material_name:'', material_number:'' })
   const [cross, setCross] = useState({ id:'', name:'' })
   const [workPreparation, setWorkPreparation] = useState({ id:'', name:'' })
+  const [format, setFormat] = useState({ id:'', name:'', width_mm:'', height_mm:'' })
 
   useEffect(() => {
     const t = searchParams.get('type') as TypeKey | null
-    if (t && ['customers','suppliers','materials','cross_sections','work_preparations'].includes(t)) {
-      setType(t)
-    }
+    const allowedTypes = orderArea === '2d-laser' ? TWO_D_LASER_TYPES : ROHRLASER_TYPES
+    setType(t && allowedTypes.includes(t) ? t : orderArea === '2d-laser' ? 'formats' : 'customers')
     load()
   }, [searchParams])
 
@@ -53,7 +58,8 @@ function MasterDataContent() {
       {data:s},
       {data:m},
       {data:cs},
-      {data:av}
+      {data:av},
+      {data:f}
     ] = await Promise.all([
       supabase.auth.getSession(),
       supabase.auth.getUser(),
@@ -61,7 +67,8 @@ function MasterDataContent() {
       supabase.from('suppliers').select('*').eq('order_area', orderArea).order('name'),
       supabase.from('materials').select('*').eq('order_area', orderArea).order('name'),
       supabase.from('cross_sections').select('*').eq('order_area', orderArea).order('name'),
-      supabase.from('work_preparations').select('*').eq('order_area', orderArea).order('name')
+      supabase.from('work_preparations').select('*').eq('order_area', orderArea).order('name'),
+      supabase.from('formats').select('*').order('width_mm', { ascending: false })
     ])
 
     const user = userData.user || sessionData.session?.user || null
@@ -93,6 +100,7 @@ function MasterDataContent() {
     setMaterials(m || [])
     setCrossSections(cs || [])
     setWorkPreparations(av || [])
+    setFormats(f || [])
   }
 
   function resetForms() {
@@ -101,6 +109,7 @@ function MasterDataContent() {
     setMaterial({ id:'', material_name:'', material_number:'' })
     setCross({ id:'', name:'' })
     setWorkPreparation({ id:'', name:'' })
+    setFormat({ id:'', name:'', width_mm:'', height_mm:'' })
   }
 
   async function saveCustomer(e:React.FormEvent) {
@@ -203,6 +212,31 @@ function MasterDataContent() {
     load()
   }
 
+  async function saveFormat(e:React.FormEvent) {
+    e.preventDefault()
+    if (format.id && !isAdmin) return
+
+    const width = Number(format.width_mm)
+    const height = Number(format.height_mm)
+    if (!width || !height) return
+
+    const row = {
+      name: format.name.trim() || 'Sonderformat',
+      width_mm: width,
+      height_mm: height
+    }
+    const supabase = createClient()
+
+    if (format.id) {
+      await supabase.from('formats').update(row).eq('id', format.id)
+    } else {
+      await supabase.from('formats').insert(row)
+    }
+
+    resetForms()
+    load()
+  }
+
   async function remove(table:string, id:string) {
     if (!isAdmin) return
     if (!confirm('Eintrag wirklich löschen?')) return
@@ -242,6 +276,11 @@ function MasterDataContent() {
     )
   }, [customers, q])
 
+  const filteredFormats = useMemo(() => {
+    const x = q.toLowerCase()
+    return formats.filter(f => `${f.name} ${f.width_mm} ${f.height_mm}`.toLowerCase().includes(x))
+  }, [formats, q])
+
   return (
     <main className="container">
       <button type="button" className="secondary" onClick={() => router.push(ordersHref(orderArea))}>
@@ -260,7 +299,10 @@ function MasterDataContent() {
           <label>Fertigungsbereich</label>
           <select value={orderArea} onChange={e => {
             const area = e.target.value as OrderArea
-            router.push(`/masterdata?bereich=${area}&type=${type}`)
+            const nextType = area === '2d-laser'
+              ? (TWO_D_LASER_TYPES.includes(type) ? type : 'formats')
+              : (ROHRLASER_TYPES.includes(type) ? type : 'customers')
+            router.push(`/masterdata?bereich=${area}&type=${nextType}`)
           }}>
             <option value="rohrlaser">Rohrlaser</option>
             <option value="2d-laser">2D-Laser</option>
@@ -270,14 +312,17 @@ function MasterDataContent() {
         <div>
           <label>Bereich</label>
           <select value={type} onChange={e => {
-            setType(e.target.value as TypeKey)
+            const nextType = e.target.value as TypeKey
+            setType(nextType)
+            router.replace(`/masterdata?bereich=${orderArea}&type=${nextType}`)
             resetForms()
           }}>
-            <option value="customers">Kunden</option>
+            {orderArea === 'rohrlaser' && <option value="customers">Kunden</option>}
             <option value="suppliers">Lieferanten</option>
             <option value="materials">Materialien</option>
-            <option value="cross_sections">Querschnitte</option>
-            <option value="work_preparations">AV</option>
+            {orderArea === 'rohrlaser' && <option value="cross_sections">Querschnitte</option>}
+            {orderArea === 'rohrlaser' && <option value="work_preparations">AV</option>}
+            {orderArea === '2d-laser' && <option value="formats">Formate</option>}
           </select>
         </div>
 
@@ -480,6 +525,67 @@ function MasterDataContent() {
                   {isAdmin && <td className="actions">
                     <button onClick={()=>setWorkPreparation(av)}>Bearbeiten</button>
                     <button className="danger" onClick={()=>remove('work_preparations', av.id)}>Löschen</button>
+                  </td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {type === 'formats' && orderArea === '2d-laser' && (
+        <>
+          <h2>Formate</h2>
+
+          <form className="card grid" onSubmit={saveFormat}>
+            <input
+              placeholder="Bezeichnung, z.B. Sonderformat (optional)"
+              value={format.name}
+              onChange={e=>setFormat({...format,name:e.target.value})}
+            />
+            <input
+              type="number"
+              min="1"
+              placeholder="Breite in mm"
+              value={format.width_mm}
+              onChange={e=>setFormat({...format,width_mm:e.target.value})}
+              required
+            />
+            <input
+              type="number"
+              min="1"
+              placeholder="Höhe in mm"
+              value={format.height_mm}
+              onChange={e=>setFormat({...format,height_mm:e.target.value})}
+              required
+            />
+            <button>{format.id ? 'Format ändern' : 'Format speichern'}</button>
+            {format.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
+          </form>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Bezeichnung</th>
+                <th>Breite</th>
+                <th>Höhe</th>
+                {isAdmin && <th>Aktionen</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredFormats.map(f=>(
+                <tr key={f.id}>
+                  <td><b>{f.name}</b></td>
+                  <td>{f.width_mm} mm</td>
+                  <td>{f.height_mm} mm</td>
+                  {isAdmin && <td className="actions">
+                    <button onClick={()=>setFormat({
+                      id:f.id,
+                      name:f.name,
+                      width_mm:String(f.width_mm),
+                      height_mm:String(f.height_mm)
+                    })}>Bearbeiten</button>
+                    <button className="danger" onClick={()=>remove('formats', f.id)}>Löschen</button>
                   </td>}
                 </tr>
               ))}

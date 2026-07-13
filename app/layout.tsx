@@ -18,23 +18,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="nav-left">
               <Link href="/">Portal</Link>
               <Link href="/orders">Bestellungen</Link>
+              <Link href="/masterdata">Stammdaten</Link>
               <LoginLogoutLink />
-            </div>
-
-            <div className="nav-right">
-              <div className="dropdown">
-                <Link href="/masterdata" className="dropdown-trigger">
-                  Stammdaten
-                </Link>
-
-                <div className="dropdown-menu">
-                  <Link href="/masterdata?type=customers">Kunden</Link>
-                  <Link href="/masterdata?type=suppliers">Lieferanten</Link>
-                  <Link href="/masterdata?type=materials">Materialien</Link>
-                  <Link href="/masterdata?type=cross_sections">Querschnitte</Link>
-                  <Link href="/masterdata?type=work_preparations">AV</Link>
-                </div>
-              </div>
             </div>
           </nav>
         </div>
