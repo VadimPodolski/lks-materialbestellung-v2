@@ -15,9 +15,13 @@ import {
   primaryOrderItem
 } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
+import { normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
+import { canDeleteOrder } from '@/lib/orderDeletion'
+import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
 
 type Order = {
   id: string
+  order_area: OrderArea
   order_number: string
   customer: string
   customer_delivery_date: string | null
@@ -36,6 +40,7 @@ type Order = {
   suppliers: { name: string; contact_person: string | null; email: string } | null
   order_items?: OrderItem[] | null
   ordered_at: string | null
+  created_at: string
   supplier_order_pdf_name: string | null
   supplier_order_pdf_url: string | null
   supplier_order_pdf_path: string | null
@@ -73,10 +78,19 @@ type Scrap = {
   created_at: string
 }
 
-type Supplier = { id: string; name: string; email: string }
-type MasterData = { id: string; name: string }
+type Supplier = { id: string; name: string; email: string; order_area: OrderArea }
+type MasterData = { id: string; name: string; order_area: OrderArea }
+type SheetFormat = { id: string; name: string; width_mm: number; height_mm: number }
 type ReceiptDraft = { quantity: string; deliveryNote: string; notes: string }
 type ScrapDraft = { quantity: string; reason: string }
+
+function formatLabel(format: SheetFormat) {
+  return `${format.name} ${format.width_mm}x${format.height_mm} mm`
+}
+
+function customFormatValue(value: string) {
+  return value.replace(/^Eigenes Format:\s*/i, '')
+}
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>()
@@ -91,6 +105,7 @@ export default function OrderDetailPage() {
   const [materials, setMaterials] = useState<MasterData[]>([])
   const [crossSections, setCrossSections] = useState<MasterData[]>([])
   const [workPreparations, setWorkPreparations] = useState<MasterData[]>([])
+  const [packagingDefaults, setPackagingDefaults] = useState<Record<string, number>>({})
   const [isAdmin, setIsAdmin] = useState(false)
 
   const [editing, setEditing] = useState(false)
@@ -119,9 +134,15 @@ export default function OrderDetailPage() {
   const [isPdfUploading, setIsPdfUploading] = useState(false)
   const [showDetailStatusMenu, setShowDetailStatusMenu] = useState(false)
   const [msg, setMsg] = useState('')
+  const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
 
   useEffect(() => {
     load()
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setDeleteCheckTime(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
   }, [])
 
   async function load() {
@@ -136,7 +157,9 @@ export default function OrderDetailPage() {
       { data: customerData },
       { data: materialData },
       { data: crossData },
-      { data: workPreparationData }
+      { data: workPreparationData },
+      { data: formatData },
+      { data: packagingData }
     ] = await Promise.all([
       supabase
         .from('material_orders')
@@ -162,11 +185,13 @@ export default function OrderDetailPage() {
         .eq('material_order_id', params.id)
         .order('created_at', { ascending: false }),
 
-      supabase.from('suppliers').select('id,name,email').order('name'),
-      supabase.from('customers').select('id,name').order('name'),
-      supabase.from('materials').select('id,name').order('name'),
-      supabase.from('cross_sections').select('id,name').order('name'),
-      supabase.from('work_preparations').select('id,name').order('name')
+      supabase.from('suppliers').select('id,name,email,order_area').order('name'),
+      supabase.from('customers').select('id,name,order_area').order('name'),
+      supabase.from('materials').select('id,name,order_area').order('name'),
+      supabase.from('cross_sections').select('id,name,order_area').order('name'),
+      supabase.from('work_preparations').select('id,name,order_area').order('name'),
+      supabase.from('formats').select('id,name,width_mm,height_mm').order('width_mm', { ascending: false }),
+      supabase.from('packaging_defaults').select('lookup_key,material,cross_section,pieces_per_package,order_area')
     ])
 
     const loadedOrder = orderData as any
@@ -175,11 +200,18 @@ export default function OrderDetailPage() {
     setOrderPdfs((pdfData as any) || [])
     setReceipts(receiptData || [])
     setScraps((scrapData as any) || [])
-    setSuppliers(supplierData || [])
-    setCustomers(customerData || [])
-    setMaterials(materialData || [])
-    setCrossSections(crossData || [])
-    setWorkPreparations(workPreparationData || [])
+    const area = normalizeOrderArea(loadedOrder?.order_area)
+    setSuppliers(((supplierData as Supplier[]) || []).filter(item => item.order_area === area))
+    setCustomers(((customerData as MasterData[]) || []).filter(item => item.order_area === area))
+    setMaterials(((materialData as MasterData[]) || []).filter(item => item.order_area === area))
+    setCrossSections(area === '2d-laser'
+      ? ((formatData as SheetFormat[]) || []).map(format => ({ id: format.id, name: formatLabel(format), order_area: area }))
+      : ((crossData as MasterData[]) || []).filter(item => item.order_area === area))
+    setWorkPreparations(((workPreparationData as MasterData[]) || []).filter(item => item.order_area === area))
+    setPackagingDefaults(packagingDefaultsMap(
+      ((packagingData as (PackagingDefault & { order_area: string })[]) || [])
+        .filter(item => item.order_area === area)
+    ))
 
     const { data: userData } = await supabase.auth.getUser()
     const user = userData.user
@@ -255,14 +287,15 @@ export default function OrderDetailPage() {
 
   async function ensureEditMasterData(customerName: string, cleanItems: OrderItem[]) {
     const supabase = createClient()
+    const orderArea = normalizeOrderArea(order?.order_area)
     const customer = customerName.trim()
     const knownCustomers = new Set(customers.map(item => item.name.trim().toLowerCase()).filter(Boolean))
     const knownMaterials = new Set(materials.map(item => item.name.trim().toLowerCase()).filter(Boolean))
     const knownCrossSections = new Set(crossSections.map(item => item.name.trim().toLowerCase()).filter(Boolean))
     const knownWorkPreparations = new Set(workPreparations.map(item => item.name.trim().toLowerCase()).filter(Boolean))
 
-    if (customer && !knownCustomers.has(customer.toLowerCase())) {
-      const { error } = await supabase.from('customers').insert({ name: customer })
+    if (orderArea === 'rohrlaser' && customer && !knownCustomers.has(customer.toLowerCase())) {
+      const { error } = await supabase.from('customers').insert({ name: customer, order_area: orderArea })
 
       if (error && !error.message.includes('duplicate')) {
         throw new Error(error.message)
@@ -297,7 +330,8 @@ export default function OrderDetailPage() {
         newMaterials.map(name => ({
           name,
           material_name: name,
-          material_number: null
+          material_number: null,
+          order_area: orderArea
         }))
       )
 
@@ -306,9 +340,9 @@ export default function OrderDetailPage() {
       }
     }
 
-    if (newCrossSections.length > 0) {
+    if (orderArea === 'rohrlaser' && newCrossSections.length > 0) {
       const { error } = await supabase.from('cross_sections').insert(
-        newCrossSections.map(name => ({ name }))
+        newCrossSections.map(name => ({ name, order_area: orderArea }))
       )
 
       if (error && !error.message.includes('duplicate')) {
@@ -316,9 +350,9 @@ export default function OrderDetailPage() {
       }
     }
 
-    if (newWorkPreparations.length > 0) {
+    if (orderArea === 'rohrlaser' && newWorkPreparations.length > 0) {
       const { error } = await supabase.from('work_preparations').insert(
-        newWorkPreparations.map(name => ({ name }))
+        newWorkPreparations.map(name => ({ name, order_area: orderArea }))
       )
 
       if (error && !error.message.includes('duplicate')) {
@@ -332,7 +366,7 @@ export default function OrderDetailPage() {
     return currentOrder.status
   }
 
-  function setEditItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity', value: string) {
+  function setEditItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity' | 'order_unit' | 'pieces_per_package', value: string) {
     setEditItems(prev => prev.map((item, itemIndex) => {
       if (itemIndex !== index) return item
 
@@ -344,7 +378,30 @@ export default function OrderDetailPage() {
         return { ...item, quantity: Number(value || 0) }
       }
 
-      return { ...item, [key]: value }
+      if (key === 'pieces_per_package') {
+        return { ...item, pieces_per_package: value ? Number(value) : null }
+      }
+
+      if (key === 'order_unit') {
+        const orderUnit = value === 'paket' ? 'paket' : value === 'kg' ? 'kg' : 'stück'
+        return {
+          ...item,
+          order_unit: orderUnit,
+          pieces_per_package: orderUnit === 'paket'
+            ? packagingDefaults[packagingDefaultKey(order?.order_area || '2d-laser', item.material, item.cross_section)] || null
+            : null
+        }
+      }
+
+      const nextItem = { ...item, [key]: value }
+
+      if (order?.order_area === '2d-laser' && (key === 'material' || key === 'cross_section') && nextItem.order_unit === 'paket') {
+        nextItem.pieces_per_package = packagingDefaults[
+          packagingDefaultKey(order.order_area, nextItem.material, nextItem.cross_section)
+        ] || null
+      }
+
+      return nextItem
     }))
   }
 
@@ -361,7 +418,9 @@ export default function OrderDetailPage() {
         av_2: last.av_2,
         av_3: last.av_3,
         av_4: last.av_4,
-        length_mm: last.length_mm
+        length_mm: last.length_mm,
+        order_unit: last.order_unit,
+        pieces_per_package: last.pieces_per_package
       }
     ])
   }
@@ -553,7 +612,8 @@ LKS-Technik GmbH & Co. KG`
     if (!order) return
 
     const supabase = createClient()
-    const customerName = editForm.customer.trim()
+    const twoDLaser = normalizeOrderArea(order.order_area) === '2d-laser'
+    const customerName = twoDLaser ? '2D-Laser' : editForm.customer.trim()
     const cleanItems = mergeOrderItems(editItems.map(item => ({
       material: item.material.trim(),
       cross_section: item.cross_section.trim(),
@@ -562,15 +622,23 @@ LKS-Technik GmbH & Co. KG`
       av_3: (item.av_3 || '').trim(),
       av_4: (item.av_4 || '').trim(),
       length_mm: item.length_mm ? Number(item.length_mm) : null,
-      quantity: Number(item.quantity)
+      quantity: Number(item.quantity),
+      order_unit: item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück',
+      pieces_per_package: item.order_unit === 'paket' ? Number(item.pieces_per_package || 0) : null
     })))
 
-    if (!customerName) {
+    if (!twoDLaser && !customerName) {
       return setMsg('Bitte Kundennamen eintragen.')
     }
 
     if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
-      return setMsg('Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+      return setMsg(normalizeOrderArea(order.order_area) === '2d-laser'
+        ? 'Bitte jede Position mit Material, Format und Menge ausfüllen.'
+        : 'Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+    }
+
+    if (twoDLaser && cleanItems.some(item => item.order_unit === 'paket' && !item.pieces_per_package)) {
+      return setMsg('Bitte bei jeder Paket-Position die Stückzahl pro Paket angeben.')
     }
 
     try {
@@ -591,7 +659,7 @@ LKS-Technik GmbH & Co. KG`
         cross_section: firstItem.cross_section,
         length_mm: firstItem.length_mm,
         quantity: totalQuantity,
-        customer_delivery_date: editForm.customer_delivery_date || null,
+        customer_delivery_date: twoDLaser ? null : editForm.customer_delivery_date || null,
         desired_delivery_date: editForm.desired_delivery_date || null,
         notes: editForm.notes || null
       })
@@ -612,11 +680,18 @@ LKS-Technik GmbH & Co. KG`
         av_4: item.av_4 || null,
         length_mm: item.length_mm,
         quantity: item.quantity,
+        order_unit: item.order_unit || 'paket',
+        pieces_per_package: item.order_unit === 'paket' ? item.pieces_per_package : null,
         position: index + 1
       }))
     )
 
     if (itemError) return setMsg(itemError.message)
+
+    const defaultRows = packagingDefaultRows(order.order_area, cleanItems)
+    if (defaultRows.length > 0) {
+      await supabase.from('packaging_defaults').upsert(defaultRows)
+    }
 
     await recalculateStatus(order.id, totalQuantity)
     setEditing(false)
@@ -1136,6 +1211,11 @@ LKS-Technik GmbH & Co. KG`
   async function deleteOrder() {
     if (!order) return
 
+    if (!canDeleteOrder(order.created_at)) {
+      alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
+      return
+    }
+
     if (!isAdmin) {
       alert('Nur Administratoren dürfen Bestellungen löschen.')
       return
@@ -1167,7 +1247,7 @@ LKS-Technik GmbH & Co. KG`
       .delete()
       .eq('id', order.id)
 
-    router.push('/orders')
+    router.push(ordersHref(normalizeOrderArea(order?.order_area)))
   }
 
   if (!order) {
@@ -1178,16 +1258,21 @@ LKS-Technik GmbH & Co. KG`
     )
   }
 
+  const isTwoDLaser = normalizeOrderArea(order.order_area) === '2d-laser'
+
   return (
     <main className="container wide">
-      <button className="secondary" onClick={() => router.push('/orders')}>
+      <button className="secondary" onClick={() => router.push(ordersHref(normalizeOrderArea(order.order_area)))}>
         Zurück
       </button>
 
       <div className="actions" style={{ justifyContent: 'space-between' }}>
-        <h1>
-          Auftrag {order.order_number} — {order.customer}
-        </h1>
+        <div>
+          <span className="order-area-badge">{orderAreaLabel(normalizeOrderArea(order.order_area))}</span>
+          <h1>
+            Auftrag {order.order_number} — {order.customer}
+          </h1>
+        </div>
 
         <button
           type="button"
@@ -1239,10 +1324,12 @@ LKS-Technik GmbH & Co. KG`
                   <tr>
                     <th>Position</th>
                     <th>Material</th>
-                    <th>Querschnitt</th>
-                    <th>AV</th>
-                    <th>Länge</th>
-                    <th>Stückzahl</th>
+                    <th>{isTwoDLaser ? 'Format' : 'Querschnitt'}</th>
+                    {!isTwoDLaser && <th>AV</th>}
+                    {!isTwoDLaser && <th>Länge</th>}
+                    <th>{isTwoDLaser ? 'Menge' : 'Stückzahl'}</th>
+                    {isTwoDLaser && <th>Einheit</th>}
+                    {isTwoDLaser && <th>Stück/Paket</th>}
                     <th>Geliefert</th>
                     <th className="we-block">WE-Menge</th>
                     <th className="we-block">Lieferschein</th>
@@ -1262,9 +1349,11 @@ LKS-Technik GmbH & Co. KG`
                         <td>{index + 1}</td>
                         <td>{item.material}</td>
                         <td>{item.cross_section}</td>
-                        <td>{orderItemAvText(item) || '-'}</td>
-                        <td>{item.length_mm || '-'} mm</td>
+                        {!isTwoDLaser && <td>{orderItemAvText(item) || '-'}</td>}
+                        {!isTwoDLaser && <td>{item.length_mm || '-'} mm</td>}
                         <td>{item.quantity}</td>
+                        {isTwoDLaser && <td>{item.order_unit === 'paket' ? 'Paket' : item.order_unit === 'kg' ? 'kg' : 'Stück'}</td>}
+                        {isTwoDLaser && <td>{item.order_unit === 'paket' ? item.pieces_per_package || '-' : '-'}</td>}
                         <td className={receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}>
                           {receivedQtyForItem(item)}
                         </td>
@@ -1272,6 +1361,7 @@ LKS-Technik GmbH & Co. KG`
                           <input
                             type="number"
                             min="1"
+                            step={item.order_unit === 'kg' ? '0.01' : '1'}
                             value={receiptDraft.quantity}
                             onChange={e => setReceiptDraft(item, index, 'quantity', e.target.value)}
                             className="table-input small-number"
@@ -1298,6 +1388,7 @@ LKS-Technik GmbH & Co. KG`
                           <input
                             type="number"
                             min="1"
+                            step={item.order_unit === 'kg' ? '0.01' : '1'}
                             value={draft.quantity}
                             onChange={e => setScrapDraft(item, index, 'quantity', e.target.value)}
                             className="table-input small-number"
@@ -1328,11 +1419,11 @@ LKS-Technik GmbH & Co. KG`
             </div>
 
             <div className="grid order-summary-grid">
-              <p><b>Gesamtstückzahl:</b><br />{orderItemsTotal(orderItems)}</p>
+              <p><b>Gesamtmenge:</b><br />{orderItemsTotal(orderItems)}</p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
-              <p><b>Kunde:</b><br />{order.customer}</p>
-              <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>
+              {!isTwoDLaser && <p><b>Kunde:</b><br />{order.customer}</p>}
+              {!isTwoDLaser && <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>}
               <p>
                 <b>Lieferant:</b>
                 <br />
@@ -1358,7 +1449,7 @@ LKS-Technik GmbH & Co. KG`
                 Stornieren
               </button>
 
-              {isAdmin && (
+              {isAdmin && canDeleteOrder(order.created_at, new Date(deleteCheckTime)) && (
                 <button
                   type="button"
                   className="danger"
@@ -1429,45 +1520,49 @@ LKS-Technik GmbH & Co. KG`
           </>
         ) : (
           <form className="grid" onSubmit={saveEdit}>
-            <div>
-              <label>Kunde</label>
-              <div className="combo-box">
-                <input
-                  value={editForm.customer}
-                  onFocus={() => setActiveCustomerSuggestions(true)}
-                  onBlur={() => window.setTimeout(() => setActiveCustomerSuggestions(false), 120)}
-                  onChange={e => setEdit('customer', e.target.value)}
-                  placeholder="Kunde wählen oder eingeben"
-                  required
-                />
-                {activeCustomerSuggestions && customerSuggestions.length > 0 && (
-                  <div className="combo-options">
-                    {customerSuggestions.map(customer => (
-                      <button
-                        type="button"
-                        key={customer.id}
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => {
-                          setEdit('customer', customer.name)
-                          setActiveCustomerSuggestions(false)
-                        }}
-                      >
-                        {customer.name}
-                      </button>
-                    ))}
-                  </div>
-                )}
+            {!isTwoDLaser && (
+              <div>
+                <label>Kunde</label>
+                <div className="combo-box">
+                  <input
+                    value={editForm.customer}
+                    onFocus={() => setActiveCustomerSuggestions(true)}
+                    onBlur={() => window.setTimeout(() => setActiveCustomerSuggestions(false), 120)}
+                    onChange={e => setEdit('customer', e.target.value)}
+                    placeholder="Kunde wählen oder eingeben"
+                    required
+                  />
+                  {activeCustomerSuggestions && customerSuggestions.length > 0 && (
+                    <div className="combo-options">
+                      {customerSuggestions.map(customer => (
+                        <button
+                          type="button"
+                          key={customer.id}
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => {
+                            setEdit('customer', customer.name)
+                            setActiveCustomerSuggestions(false)
+                          }}
+                        >
+                          {customer.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label>K-Liefertermin</label>
-              <input
-                type="date"
-                value={editForm.customer_delivery_date}
-                onChange={e => setEdit('customer_delivery_date', e.target.value)}
-              />
-            </div>
+            {!isTwoDLaser && (
+              <div>
+                <label>K-Liefertermin</label>
+                <input
+                  type="date"
+                  value={editForm.customer_delivery_date}
+                  onChange={e => setEdit('customer_delivery_date', e.target.value)}
+                />
+              </div>
+            )}
 
             <div>
               <label>Lieferant</label>
@@ -1499,16 +1594,18 @@ LKS-Technik GmbH & Co. KG`
                 <button type="button" onClick={addEditItem}>+ Position</button>
               </div>
 
-              <datalist id="edit-work-preparation-options">
-                {workPreparations.map(av => (
-                  <option key={av.id} value={av.name} />
-                ))}
-              </datalist>
+              {!isTwoDLaser && (
+                <datalist id="edit-work-preparation-options">
+                  {workPreparations.map(av => (
+                    <option key={av.id} value={av.name} />
+                  ))}
+                </datalist>
+              )}
 
               <div className="order-items">
                 {editItems.map((item, index) => (
                   <div className="order-item" key={index}>
-                    <div className="order-item-row">
+                    <div className={`order-item-row${isTwoDLaser ? ' two-d-order-item-row' : ''}`}>
                       <div className="order-item-title">
                         <b>Position {index + 1}</b>
                       </div>
@@ -1544,38 +1641,59 @@ LKS-Technik GmbH & Co. KG`
                         </div>
                       </div>
 
-                      <div>
-                        <label>Querschnitt</label>
-                        <div className="combo-box">
-                          <input
-                            value={item.cross_section}
-                            onFocus={() => setActiveEditCrossIndex(index)}
-                            onBlur={() => window.setTimeout(() => setActiveEditCrossIndex(null), 120)}
-                            onChange={e => setEditItem(index, 'cross_section', e.target.value)}
-                            placeholder="Querschnitt wählen oder eingeben"
-                            required
-                          />
-                          {activeEditCrossIndex === index && masterDataOptions(crossSections, item.cross_section).length > 0 && (
-                            <div className="combo-options">
-                              {masterDataOptions(crossSections, item.cross_section).map(crossSection => (
-                                <button
-                                  type="button"
-                                  key={crossSection.id}
-                                  onMouseDown={e => e.preventDefault()}
-                                  onClick={() => {
-                                    setEditItem(index, 'cross_section', crossSection.name)
-                                    setActiveEditCrossIndex(null)
-                                  }}
-                                >
-                                  {crossSection.name}
-                                </button>
+                      <div className={isTwoDLaser ? 'order-item-format' : undefined}>
+                        <label>{isTwoDLaser ? 'Format' : 'Querschnitt'}</label>
+                        {isTwoDLaser ? (
+                          <div className="format-entry-row">
+                            <select
+                              value={crossSections.some(format => format.name === item.cross_section) ? item.cross_section : '__custom__'}
+                              onChange={e => setEditItem(index, 'cross_section', e.target.value === '__custom__' ? 'Eigenes Format: ' : e.target.value)}
+                            >
+                              {crossSections.map(format => (
+                                <option key={format.id} value={format.name}>{format.name}</option>
                               ))}
-                            </div>
-                          )}
-                        </div>
+                              <option value="__custom__">Eigenes Format</option>
+                            </select>
+                            <input
+                              value={crossSections.some(format => format.name === item.cross_section) ? '' : customFormatValue(item.cross_section)}
+                              onChange={e => setEditItem(index, 'cross_section', `Eigenes Format: ${e.target.value}`)}
+                              placeholder="Eigenes Maß, z.B. 2800x1400 mm"
+                              disabled={crossSections.some(format => format.name === item.cross_section)}
+                              required={!crossSections.some(format => format.name === item.cross_section)}
+                            />
+                          </div>
+                        ) : (
+                          <div className="combo-box">
+                            <input
+                              value={item.cross_section}
+                              onFocus={() => setActiveEditCrossIndex(index)}
+                              onBlur={() => window.setTimeout(() => setActiveEditCrossIndex(null), 120)}
+                              onChange={e => setEditItem(index, 'cross_section', e.target.value)}
+                              placeholder="Querschnitt wählen oder eingeben"
+                              required
+                            />
+                            {activeEditCrossIndex === index && masterDataOptions(crossSections, item.cross_section).length > 0 && (
+                              <div className="combo-options">
+                                {masterDataOptions(crossSections, item.cross_section).map(crossSection => (
+                                  <button
+                                    type="button"
+                                    key={crossSection.id}
+                                    onMouseDown={e => e.preventDefault()}
+                                    onClick={() => {
+                                      setEditItem(index, 'cross_section', crossSection.name)
+                                      setActiveEditCrossIndex(null)
+                                    }}
+                                  >
+                                    {crossSection.name}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
-                      {(['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
+                      {!isTwoDLaser && (['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
                         <div key={key}>
                           <label>AV {avIndex + 1}</label>
                           <input
@@ -1587,25 +1705,53 @@ LKS-Technik GmbH & Co. KG`
                         </div>
                       ))}
 
-                      <div>
-                        <label>Länge mm</label>
-                        <input
-                          type="number"
-                          value={item.length_mm || ''}
-                          onChange={e => setEditItem(index, 'length_mm', e.target.value)}
-                        />
-                      </div>
+                      {!isTwoDLaser && (
+                        <div>
+                          <label>Länge mm</label>
+                          <input
+                            type="number"
+                            value={item.length_mm || ''}
+                            onChange={e => setEditItem(index, 'length_mm', e.target.value)}
+                          />
+                        </div>
+                      )}
+
+                      {isTwoDLaser && (
+                        <div>
+                          <label>Einheit</label>
+                          <select value={item.order_unit || 'paket'} onChange={e => setEditItem(index, 'order_unit', e.target.value)}>
+                            <option value="paket">Paket</option>
+                            <option value="stück">Stück</option>
+                            <option value="kg">kg</option>
+                          </select>
+                        </div>
+                      )}
 
                       <div>
-                        <label>Stückzahl</label>
+                        <label>{isTwoDLaser ? 'Menge' : 'Stückzahl'}</label>
                         <input
                           type="number"
                           min="1"
+                          step={item.order_unit === 'kg' ? '0.01' : '1'}
                           value={item.quantity || ''}
                           onChange={e => setEditItem(index, 'quantity', e.target.value)}
                           required
                         />
                       </div>
+
+                      {isTwoDLaser && (
+                        <div>
+                          <label>Stück pro Paket</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.pieces_per_package || ''}
+                            onChange={e => setEditItem(index, 'pieces_per_package', e.target.value)}
+                            disabled={item.order_unit !== 'paket'}
+                            required={item.order_unit === 'paket'}
+                          />
+                        </div>
+                      )}
 
                       <div className="order-item-remove">
                         {editItems.length > 1 && (
@@ -1619,7 +1765,7 @@ LKS-Technik GmbH & Co. KG`
                 ))}
               </div>
 
-              <p className="small">Gesamtstückzahl: {orderItemsTotal(editItems)}</p>
+              <p className="small">Gesamtmenge: {orderItemsTotal(editItems)}</p>
             </div>
 
 

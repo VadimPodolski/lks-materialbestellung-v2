@@ -5,21 +5,34 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { OrderItem, emptyOrderItem, mergeOrderItems, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
+import { newOrderHref, normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
+import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
 
 type Supplier = { id: string; name: string }
 type Customer = { id: string; name: string }
 type Material = { id: string; name: string; material_name: string | null; material_number: string | null }
 type CrossSection = { id: string; name: string }
 type WorkPreparation = { id: string; name: string }
+type SheetFormat = { id: string; name: string; width_mm: number; height_mm: number }
+
+function formatLabel(format: SheetFormat) {
+  return `${format.name} ${format.width_mm}x${format.height_mm} mm`
+}
+
+function customFormatValue(value: string) {
+  return value.replace(/^Eigenes Format:\s*/i, '')
+}
 
 export default function NewOrderPage() {
   const router = useRouter()
+  const [orderArea, setOrderArea] = useState<OrderArea>('rohrlaser')
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [customers, setCustomers] = useState<Customer[]>([])
   const [materials, setMaterials] = useState<Material[]>([])
   const [crossSections, setCrossSections] = useState<CrossSection[]>([])
   const [workPreparations, setWorkPreparations] = useState<WorkPreparation[]>([])
+  const [packagingDefaults, setPackagingDefaults] = useState<Record<string, number>>({})
 
   const [form, setForm] = useState({
     order_number: 'AB-',
@@ -36,37 +49,55 @@ export default function NewOrderPage() {
   const [msg, setMsg] = useState('')
 
   useEffect(() => {
-    loadMasterData()
+    const area = normalizeOrderArea(new URLSearchParams(window.location.search).get('bereich'))
+    setOrderArea(area)
+    loadMasterData(area)
   }, [])
 
-  async function loadMasterData() {
+  async function loadMasterData(area: OrderArea) {
     const supabase = createClient()
 
-    const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }, { data: workPreparationData }] =
+    const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }, { data: workPreparationData }, { data: packagingData }] =
       await Promise.all([
-        supabase.from('suppliers').select('id,name').order('name'),
-        supabase.from('customers').select('id,name').order('name'),
-        supabase.from('materials').select('id,name,material_name,material_number').order('name'),
-        supabase.from('cross_sections').select('id,name').order('name'),
-        supabase.from('work_preparations').select('id,name').order('name')
+        supabase.from('suppliers').select('id,name').eq('order_area', area).order('name'),
+        supabase.from('customers').select('id,name').eq('order_area', area).order('name'),
+        supabase.from('materials').select('id,name,material_name,material_number').eq('order_area', area).order('name'),
+        area === '2d-laser'
+          ? supabase.from('formats').select('id,name,width_mm,height_mm').order('width_mm', { ascending: false })
+          : supabase.from('cross_sections').select('id,name').eq('order_area', area).order('name'),
+        supabase.from('work_preparations').select('id,name').eq('order_area', area).order('name'),
+        area === '2d-laser'
+          ? supabase.from('packaging_defaults').select('lookup_key,material,cross_section,pieces_per_package').eq('order_area', area)
+          : Promise.resolve({ data: [] as PackagingDefault[] })
       ])
 
     const supplierList = supplierData || []
     const materialList = materialData || []
-    const crossSectionList = crossSectionData || []
+    const crossSectionList: CrossSection[] = area === '2d-laser'
+      ? ((crossSectionData as SheetFormat[] | null) || []).map(format => ({ id: format.id, name: formatLabel(format) }))
+      : (crossSectionData || []) as CrossSection[]
 
     setSuppliers(supplierList)
     setCustomers(customerData || [])
     setMaterials(materialList)
     setCrossSections(crossSectionList)
     setWorkPreparations(workPreparationData || [])
+    const loadedPackagingDefaults = packagingDefaultsMap(packagingData as PackagingDefault[] | null)
+    setPackagingDefaults(loadedPackagingDefaults)
 
-    const lastSupplier = localStorage.getItem('last_supplier_id')
-    const lastMaterial = localStorage.getItem('last_material')
-    const lastCrossSection = localStorage.getItem('last_cross_section')
+    const { data: tafelNumber } = area === '2d-laser'
+      ? await supabase.rpc('peek_next_tafel_order_number')
+      : { data: null }
+
+    const lastSupplier = localStorage.getItem(`${area}_last_supplier_id`)
+    const lastMaterial = localStorage.getItem(`${area}_last_material`)
+    const lastCrossSection = localStorage.getItem(`${area}_last_cross_section`)
 
     setForm(prev => ({
       ...prev,
+      order_number: area === '2d-laser' && tafelNumber ? tafelNumber : prev.order_number,
+      customer: area === '2d-laser' ? '2D-Laser' : prev.customer,
+      customer_delivery_date: area === '2d-laser' ? '' : prev.customer_delivery_date,
       supplier_id: lastSupplier && supplierList.some(s => s.id === lastSupplier)
         ? lastSupplier
         : prev.supplier_id || supplierList[0]?.id || ''
@@ -79,7 +110,11 @@ export default function NewOrderPage() {
       return prev.map((item, index) => index === 0 ? {
         ...item,
         material: item.material || material,
-        cross_section: item.cross_section || crossSection
+        cross_section: item.cross_section || crossSection,
+        pieces_per_package: area === '2d-laser'
+          ? loadedPackagingDefaults[packagingDefaultKey(area, item.material || material, item.cross_section || crossSection)] || null
+          : item.pieces_per_package,
+        length_mm: area === '2d-laser' ? null : item.length_mm
       } : item)
     })
   }
@@ -92,6 +127,7 @@ export default function NewOrderPage() {
 
   function set(k: string, v: string) {
     if (k === 'order_number') {
+      if (orderArea === '2d-laser') return
       const rest = v.startsWith('AB-') ? v.slice(3) : v.replace(/^AB-?/, '')
       setForm(prev => ({ ...prev, order_number: 'AB-' + rest }))
       return
@@ -151,7 +187,8 @@ export default function NewOrderPage() {
         newMaterials.map(name => ({
           name,
           material_name: name,
-          material_number: null
+          material_number: null,
+          order_area: orderArea
         }))
       )
 
@@ -160,9 +197,9 @@ export default function NewOrderPage() {
       }
     }
 
-    if (newCrossSections.length > 0) {
+    if (orderArea === 'rohrlaser' && newCrossSections.length > 0) {
       const { error } = await supabase.from('cross_sections').insert(
-        newCrossSections.map(name => ({ name }))
+        newCrossSections.map(name => ({ name, order_area: orderArea }))
       )
 
       if (error && !error.message.includes('duplicate')) {
@@ -170,9 +207,9 @@ export default function NewOrderPage() {
       }
     }
 
-    if (newWorkPreparations.length > 0) {
+    if (orderArea === 'rohrlaser' && newWorkPreparations.length > 0) {
       const { error } = await supabase.from('work_preparations').insert(
-        newWorkPreparations.map(name => ({ name }))
+        newWorkPreparations.map(name => ({ name, order_area: orderArea }))
       )
 
       if (error && !error.message.includes('duplicate')) {
@@ -182,6 +219,8 @@ export default function NewOrderPage() {
   }
 
   async function ensureCustomerMasterData(customerName: string) {
+    if (orderArea === '2d-laser') return
+
     const name = customerName.trim()
     if (!name) return
 
@@ -192,14 +231,14 @@ export default function NewOrderPage() {
     if (knownCustomers.has(name.toLowerCase())) return
 
     const supabase = createClient()
-    const { error } = await supabase.from('customers').insert({ name })
+    const { error } = await supabase.from('customers').insert({ name, order_area: orderArea })
 
     if (error && !error.message.includes('duplicate')) {
       throw new Error(error.message)
     }
   }
 
-  function setItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity', value: string) {
+  function setItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity' | 'order_unit' | 'pieces_per_package', value: string) {
     setItems(prev => prev.map((item, itemIndex) => {
       if (itemIndex !== index) return item
 
@@ -211,7 +250,30 @@ export default function NewOrderPage() {
         return { ...item, quantity: Number(value || 0) }
       }
 
-      return { ...item, [key]: value }
+      if (key === 'pieces_per_package') {
+        return { ...item, pieces_per_package: value ? Number(value) : null }
+      }
+
+      if (key === 'order_unit') {
+        const orderUnit = value === 'paket' ? 'paket' : value === 'kg' ? 'kg' : 'stück'
+        return {
+          ...item,
+          order_unit: orderUnit,
+          pieces_per_package: orderUnit === 'paket'
+            ? packagingDefaults[packagingDefaultKey(orderArea, item.material, item.cross_section)] || null
+            : null
+        }
+      }
+
+      const nextItem = { ...item, [key]: value }
+
+      if (orderArea === '2d-laser' && (key === 'material' || key === 'cross_section') && nextItem.order_unit === 'paket') {
+        nextItem.pieces_per_package = packagingDefaults[
+          packagingDefaultKey(orderArea, nextItem.material, nextItem.cross_section)
+        ] || null
+      }
+
+      return nextItem
     }))
   }
 
@@ -228,7 +290,9 @@ export default function NewOrderPage() {
         av_2: last.av_2,
         av_3: last.av_3,
         av_4: last.av_4,
-        length_mm: last.length_mm
+        length_mm: last.length_mm,
+        order_unit: last.order_unit,
+        pieces_per_package: last.pieces_per_package
       }
     ])
   }
@@ -242,13 +306,13 @@ export default function NewOrderPage() {
     setMsg('')
 
     const orderNumberSuffix = form.order_number.replace(/^AB-/, '').trim()
-    const customerName = form.customer.trim()
+    const customerName = orderArea === '2d-laser' ? '2D-Laser' : form.customer.trim()
 
-    if (!orderNumberSuffix) {
+    if (orderArea === 'rohrlaser' && !orderNumberSuffix) {
       return setMsg('Bitte eine AB-Nummer eintragen.')
     }
 
-    if (!customerName) {
+    if (orderArea === 'rohrlaser' && !customerName) {
       return setMsg('Bitte Kundennamen eintragen.')
     }
 
@@ -260,11 +324,19 @@ export default function NewOrderPage() {
       av_3: (item.av_3 || '').trim(),
       av_4: (item.av_4 || '').trim(),
       length_mm: item.length_mm ? Number(item.length_mm) : null,
-      quantity: Number(item.quantity)
+      quantity: Number(item.quantity),
+      order_unit: item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück',
+      pieces_per_package: item.order_unit === 'paket' ? Number(item.pieces_per_package || 0) : null
     })))
 
     if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
-      return setMsg('Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+      return setMsg(orderArea === '2d-laser'
+        ? 'Bitte jede Position mit Material, Format und Menge ausfüllen.'
+        : 'Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+    }
+
+    if (orderArea === '2d-laser' && cleanItems.some(item => item.order_unit === 'paket' && !item.pieces_per_package)) {
+      return setMsg('Bitte bei jeder Paket-Position die Stückzahl pro Paket angeben.')
     }
 
     try {
@@ -277,33 +349,66 @@ export default function NewOrderPage() {
     const firstItem = primaryOrderItem(cleanItems)
     const totalQuantity = orderItemsTotal(cleanItems)
 
-    if (form.supplier_id) localStorage.setItem('last_supplier_id', form.supplier_id)
-    if (firstItem.material) localStorage.setItem('last_material', firstItem.material)
-    if (firstItem.cross_section) localStorage.setItem('last_cross_section', firstItem.cross_section)
+    if (form.supplier_id) localStorage.setItem(`${orderArea}_last_supplier_id`, form.supplier_id)
+    if (firstItem.material) localStorage.setItem(`${orderArea}_last_material`, firstItem.material)
+    if (firstItem.cross_section) localStorage.setItem(`${orderArea}_last_cross_section`, firstItem.cross_section)
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
     await ensureCurrentUserProfile(supabase)
 
+    let orderNumber = form.order_number
+
+    if (orderArea === '2d-laser') {
+      const { data: nextNumber, error: numberError } = await supabase.rpc('next_tafel_order_number')
+
+      if (numberError || !nextNumber) {
+        return setMsg(numberError?.message || 'Die nächste TAFEL-Auftragsnummer konnte nicht ermittelt werden.')
+      }
+
+      orderNumber = nextNumber
+      setForm(prev => ({ ...prev, order_number: nextNumber }))
+    }
+
     const orderRow = {
       ...form,
       customer: customerName,
+      order_number: orderNumber,
       supplier_id: form.supplier_id || null,
       material: firstItem.material,
       cross_section: firstItem.cross_section,
       length_mm: firstItem.length_mm,
       quantity: totalQuantity,
       status: 'offen',
-      customer_delivery_date: form.customer_delivery_date || null,
+      order_area: orderArea,
+      customer_delivery_date: orderArea === '2d-laser' ? null : form.customer_delivery_date || null,
       desired_delivery_date: form.desired_delivery_date || null,
       created_by: userData.user?.id || null
     }
 
-    const { data, error } = await supabase
+    let insertResult = await supabase
       .from('material_orders')
       .insert(orderRow)
       .select('id')
       .single()
+
+    if (orderArea === '2d-laser' && insertResult.error?.message.toLowerCase().includes('duplicate')) {
+      const { data: retryNumber, error: retryNumberError } = await supabase.rpc('next_tafel_order_number')
+
+      if (retryNumberError || !retryNumber) {
+        return setMsg(retryNumberError?.message || 'Die nächste TAFEL-Auftragsnummer konnte nicht ermittelt werden.')
+      }
+
+      orderNumber = retryNumber
+      setForm(prev => ({ ...prev, order_number: retryNumber }))
+      insertResult = await supabase
+        .from('material_orders')
+        .insert({ ...orderRow, order_number: retryNumber })
+        .select('id')
+        .single()
+    }
+
+    const { data, error } = insertResult
 
     if (error) {
       if (error.message.includes('customer_delivery_date')) {
@@ -324,48 +429,75 @@ export default function NewOrderPage() {
         av_4: item.av_4 || null,
         length_mm: item.length_mm,
         quantity: item.quantity,
+        order_unit: item.order_unit || 'paket',
+        pieces_per_package: item.order_unit === 'paket' ? item.pieces_per_package : null,
         position: index + 1
       }))
     )
 
     if (itemError) return setMsg(itemError.message)
 
+    const defaultRows = packagingDefaultRows(orderArea, cleanItems)
+    if (defaultRows.length > 0) {
+      await supabase.from('packaging_defaults').upsert(defaultRows)
+    }
+
     router.push(`/orders/${data.id}`)
   }
 
   return (
     <main className="container">
-      <button type="button" className="secondary" onClick={() => router.push('/orders')}>
+      <button type="button" className="secondary" onClick={() => router.push(ordersHref(orderArea))}>
         Zurück
       </button>
 
-      <h1>Neue Materialbestellung</h1>
+      <div className="order-page-heading">
+        <div>
+          <a
+            className="order-area-badge order-area-switch"
+            href={newOrderHref(orderArea === '2d-laser' ? 'rohrlaser' : '2d-laser')}
+            title={`Zu ${orderAreaLabel(orderArea === '2d-laser' ? 'rohrlaser' : '2d-laser')} wechseln`}
+          >
+            {orderAreaLabel(orderArea)}
+          </a>
+          <h1>Neue Materialbestellung</h1>
+        </div>
+      </div>
 
       <form className="card grid" onSubmit={save}>
         <div>
           <label>Auftragsnummer</label>
-          <input value={form.order_number} onChange={e => set('order_number', e.target.value)} required />
+          <input
+            value={form.order_number}
+            onChange={e => set('order_number', e.target.value)}
+            readOnly={orderArea === '2d-laser'}
+            required
+          />
         </div>
 
-        <div style={{ position: 'relative' }}>
-          <label>Kunde</label>
-          <input value={form.customer} onChange={e => set('customer', e.target.value)} required />
+        {orderArea === 'rohrlaser' && (
+          <div style={{ position: 'relative' }}>
+            <label>Kunde</label>
+            <input value={form.customer} onChange={e => set('customer', e.target.value)} required />
 
-          {customerSuggestions.length > 0 && (
-            <div className="suggestions">
-              {customerSuggestions.map(c => (
-                <button type="button" key={c.id} onClick={() => set('customer', c.name)}>
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+            {customerSuggestions.length > 0 && (
+              <div className="suggestions">
+                {customerSuggestions.map(c => (
+                  <button type="button" key={c.id} onClick={() => set('customer', c.name)}>
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-        <div>
-          <label>K-Liefertermin</label>
-          <input type="date" value={form.customer_delivery_date} onChange={e => set('customer_delivery_date', e.target.value)} />
-        </div>
+        {orderArea === 'rohrlaser' && (
+          <div>
+            <label>K-Liefertermin</label>
+            <input type="date" value={form.customer_delivery_date} onChange={e => set('customer_delivery_date', e.target.value)} />
+          </div>
+        )}
 
         <div>
           <label>Lieferant</label>
@@ -388,16 +520,18 @@ export default function NewOrderPage() {
             </div>
           </div>
 
-          <datalist id="work-preparation-options">
-            {workPreparations.map(av => (
-              <option key={av.id} value={av.name} />
-            ))}
-          </datalist>
+          {orderArea === 'rohrlaser' && (
+            <datalist id="work-preparation-options">
+              {workPreparations.map(av => (
+                <option key={av.id} value={av.name} />
+              ))}
+            </datalist>
+          )}
 
           <div className="order-items">
             {items.map((item, index) => (
               <div className="order-item" key={index}>
-                <div className="order-item-row">
+                <div className={`order-item-row${orderArea === '2d-laser' ? ' two-d-order-item-row' : ''}`}>
                   <div className="order-item-title">
                     <b>Position {index + 1}</b>
                   </div>
@@ -433,47 +567,70 @@ export default function NewOrderPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label>Rohrquerschnitt</label>
-                    <div className="combo-box">
-                      <input
-                        value={item.cross_section}
-                        onFocus={() => setActiveCrossIndex(index)}
-                        onBlur={() => window.setTimeout(() => setActiveCrossIndex(null), 120)}
-                        onChange={e => setItem(index, 'cross_section', e.target.value)}
-                        placeholder="Querschnitt wählen oder eingeben"
-                        required
-                      />
-                      {activeCrossIndex === index && crossSectionOptions(item.cross_section).length > 0 && (
-                        <div className="combo-options">
-                          {crossSectionOptions(item.cross_section).map(q => (
-                            <button
-                              type="button"
-                              key={q.id}
-                              onMouseDown={e => e.preventDefault()}
-                              onClick={() => {
-                                setItem(index, 'cross_section', q.name)
-                                setActiveCrossIndex(null)
-                              }}
-                            >
-                              {q.name}
-                            </button>
+                  <div className={orderArea === '2d-laser' ? 'order-item-format' : undefined}>
+                    <label>{orderArea === '2d-laser' ? 'Format' : 'Rohrquerschnitt'}</label>
+                    {orderArea === '2d-laser' ? (
+                      <div className="format-entry-row">
+                        <select
+                          value={crossSections.some(format => format.name === item.cross_section) ? item.cross_section : '__custom__'}
+                          onChange={e => setItem(index, 'cross_section', e.target.value === '__custom__' ? 'Eigenes Format: ' : e.target.value)}
+                        >
+                          {crossSections.map(format => (
+                            <option key={format.id} value={format.name}>{format.name}</option>
                           ))}
-                        </div>
-                      )}
+                          <option value="__custom__">Eigenes Format</option>
+                        </select>
+                        <input
+                          value={crossSections.some(format => format.name === item.cross_section) ? '' : customFormatValue(item.cross_section)}
+                          onChange={e => setItem(index, 'cross_section', `Eigenes Format: ${e.target.value}`)}
+                          placeholder="Eigenes Maß, z.B. 2800x1400 mm"
+                          disabled={crossSections.some(format => format.name === item.cross_section)}
+                          required={!crossSections.some(format => format.name === item.cross_section)}
+                        />
+                      </div>
+                    ) : (
+                      <div className="combo-box">
+                        <input
+                          value={item.cross_section}
+                          onFocus={() => setActiveCrossIndex(index)}
+                          onBlur={() => window.setTimeout(() => setActiveCrossIndex(null), 120)}
+                          onChange={e => setItem(index, 'cross_section', e.target.value)}
+                          placeholder="Querschnitt wählen oder eingeben"
+                          required
+                        />
+                        {activeCrossIndex === index && crossSectionOptions(item.cross_section).length > 0 && (
+                          <div className="combo-options">
+                            {crossSectionOptions(item.cross_section).map(q => (
+                              <button
+                                type="button"
+                                key={q.id}
+                                onMouseDown={e => e.preventDefault()}
+                                onClick={() => {
+                                  setItem(index, 'cross_section', q.name)
+                                  setActiveCrossIndex(null)
+                                }}
+                              >
+                                {q.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {orderArea === 'rohrlaser' && (
+                    <div>
+                      <label>Länge mm</label>
+                      <input
+                        type="number"
+                        value={item.length_mm || ''}
+                        onChange={e => setItem(index, 'length_mm', e.target.value)}
+                      />
                     </div>
-                  </div>
+                  )}
 
-                  <div>
-                    <label>Länge mm</label>
-                    <input
-                      type="number"
-                      value={item.length_mm || ''}
-                      onChange={e => setItem(index, 'length_mm', e.target.value)}
-                    />
-                  </div>
-
-                  {(['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
+                  {orderArea === 'rohrlaser' && (['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
                     <div key={key}>
                       <label>AV {avIndex + 1}</label>
                       <input
@@ -485,16 +642,42 @@ export default function NewOrderPage() {
                     </div>
                   ))}
 
+                  {orderArea === '2d-laser' && (
+                    <div>
+                      <label>Einheit</label>
+                      <select value={item.order_unit || 'paket'} onChange={e => setItem(index, 'order_unit', e.target.value)}>
+                        <option value="paket">Paket</option>
+                        <option value="stück">Stück</option>
+                        <option value="kg">kg</option>
+                      </select>
+                    </div>
+                  )}
+
                   <div>
-                    <label>Stückzahl</label>
+                    <label>{orderArea === '2d-laser' ? 'Menge' : 'Stückzahl'}</label>
                     <input
                       type="number"
                       min="1"
+                      step={item.order_unit === 'kg' ? '0.01' : '1'}
                       value={item.quantity || ''}
                       onChange={e => setItem(index, 'quantity', e.target.value)}
                       required
                     />
                   </div>
+
+                  {orderArea === '2d-laser' && (
+                    <div>
+                      <label>Stück pro Paket</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={item.pieces_per_package || ''}
+                        onChange={e => setItem(index, 'pieces_per_package', e.target.value)}
+                        disabled={item.order_unit !== 'paket'}
+                        required={item.order_unit === 'paket'}
+                      />
+                    </div>
+                  )}
 
                   <div className="order-item-remove">
                     {items.length > 1 && (
@@ -508,7 +691,7 @@ export default function NewOrderPage() {
             ))}
           </div>
 
-          <p className="small">Gesamtstückzahl: {orderItemsTotal(items)}</p>
+          <p className="small">Gesamtmenge: {orderItemsTotal(items)}</p>
         </div>
 
 

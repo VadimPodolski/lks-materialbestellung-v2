@@ -27,7 +27,7 @@ create table if not exists material_orders (
   material text not null,
   cross_section text not null,
   length_mm integer,
-  quantity integer not null check (quantity > 0),
+  quantity numeric(12,2) not null check (quantity > 0),
   customer_delivery_date date,
   desired_delivery_date date,
   status text not null default 'offen' check (status in ('offen','bestellt','teilweise_geliefert','geliefert','storniert')),
@@ -49,7 +49,9 @@ create table if not exists order_items (
   av_3 text,
   av_4 text,
   length_mm integer,
-  quantity integer not null check (quantity > 0),
+  quantity numeric(12,2) not null check (quantity > 0),
+  order_unit text not null default 'stück' check (order_unit in ('stück', 'paket', 'kg')),
+  pieces_per_package integer,
   created_at timestamptz default now()
 );
 
@@ -60,7 +62,7 @@ create table if not exists goods_receipts (
   material text,
   cross_section text,
   length_mm integer,
-  received_quantity integer not null check (received_quantity > 0),
+  received_quantity numeric(12,2) not null check (received_quantity > 0),
   delivery_note_number text,
   notes text,
   received_by uuid references auth.users(id),
@@ -74,7 +76,7 @@ create table if not exists scrap_items (
   material text,
   cross_section text,
   length_mm integer,
-  quantity integer not null check (quantity > 0),
+  quantity numeric(12,2) not null check (quantity > 0),
   reason text,
   reordered boolean default false,
   created_by uuid references auth.users(id),

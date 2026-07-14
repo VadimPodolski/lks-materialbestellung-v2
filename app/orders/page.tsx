@@ -4,12 +4,15 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
-import { OrderItem, normalizeOrderItems, orderItemAvText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
+import { OrderItem, normalizeOrderItems, orderItemAvText, orderItemQuantityText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
+import { newOrderHref, normalizeOrderArea, orderAreaLabel, ordersHref } from '@/lib/orderAreas'
+import { canDeleteOrder } from '@/lib/orderDeletion'
 
 type Order = {
   id: string
+  order_area: string
   order_number: string
   customer: string
   customer_delivery_date: string | null
@@ -60,9 +63,17 @@ type SortDirection = 'asc' | 'desc'
 type SortMode = 'latest_order' | SortKey
 type ActiveStatusMenu = { orderId: string; top: number; left: number; placement: 'top' | 'bottom' }
 
+function formatSortValue(value: string) {
+  const dimensions = value.match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i)
+  if (!dimensions) return 0
+
+  return Number(dimensions[1].replace(',', '.')) * Number(dimensions[2].replace(',', '.'))
+}
+
 function OrdersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const orderArea = normalizeOrderArea(searchParams.get('bereich'))
 
   const [orders, setOrders] = useState<Order[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -75,6 +86,7 @@ function OrdersContent() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
   const [activeStatusMenu, setActiveStatusMenu] = useState<ActiveStatusMenu | null>(null)
+  const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
   const statusMenuCloseTimer = useRef<number | null>(null)
 
   useEffect(() => {
@@ -85,6 +97,11 @@ function OrdersContent() {
 
   useEffect(() => {
     return () => clearStatusMenuCloseTimer()
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setDeleteCheckTime(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
   }, [])
 
   function clearStatusMenuCloseTimer() {
@@ -173,6 +190,7 @@ function OrdersContent() {
 
     const ordersSelect = `
           id,
+          order_area,
           order_number,
           customer,
           customer_delivery_date,
@@ -196,6 +214,7 @@ function OrdersContent() {
         `
     const ordersSelectWithoutPdfs = `
           id,
+          order_area,
           order_number,
           customer,
           material,
@@ -220,6 +239,7 @@ function OrdersContent() {
       supabase
         .from('material_orders')
         .select(ordersSelect)
+        .eq('order_area', orderArea)
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id,full_name,email,role')
     ])
@@ -228,6 +248,7 @@ function OrdersContent() {
       const { data: fallbackOrderData } = await supabase
         .from('material_orders')
         .select(ordersSelectWithoutPdfs)
+        .eq('order_area', orderArea)
         .order('created_at', { ascending: false })
 
       setOrders((fallbackOrderData as any) || [])
@@ -365,6 +386,11 @@ function OrdersContent() {
   }
 
   async function deleteOrder(order: Order) {
+    if (!canDeleteOrder(order.created_at)) {
+      alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
+      return
+    }
+
     if (!confirm(`Bestellung ${order.order_number} wirklich löschen?`)) {
       return
     }
@@ -436,7 +462,7 @@ function OrdersContent() {
       const deliveryNotes = (o.goods_receipts || [])
         .map(receipt => receipt.delivery_note_number || '')
         .join(' ')
-      const text = `${o.order_number} ${o.customer} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${deliveryNotes} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
+      const text = `${o.order_number} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${deliveryNotes} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
       const matchesSearch = text.includes(q.toLowerCase())
       const matchesStatus = !status || visibleStatus(o) === status
       const matchesOverdue =
@@ -458,6 +484,48 @@ function OrdersContent() {
       return counts
     }, {})
   }, [orders])
+
+  const formatCards = useMemo(() => {
+    if (orderArea !== '2d-laser') return []
+
+    const formats = new Map<string, {
+      format: string
+      sheets: number
+      kilograms: number
+      orderIds: Set<string>
+    }>()
+
+    for (const order of orders) {
+      if (order.status === 'storniert') continue
+
+      for (const item of normalizeOrderItems(order)) {
+        const format = item.cross_section.trim() || 'Ohne Format'
+        const key = format.toLocaleLowerCase('de-DE')
+        const current = formats.get(key) || {
+          format,
+          sheets: 0,
+          kilograms: 0,
+          orderIds: new Set<string>()
+        }
+
+        if (item.order_unit === 'kg') {
+          current.kilograms += Number(item.quantity || 0)
+        } else if (item.order_unit === 'paket') {
+          current.sheets += Number(item.quantity || 0) * Number(item.pieces_per_package || 0)
+        } else {
+          current.sheets += Number(item.quantity || 0)
+        }
+
+        current.orderIds.add(order.id)
+        formats.set(key, current)
+      }
+    }
+
+    return Array.from(formats.values()).sort((a, b) => (
+      formatSortValue(b.format) - formatSortValue(a.format) ||
+      a.format.localeCompare(b.format, 'de-DE')
+    ))
+  }, [orders, orderArea])
 
   function orderBaseNumber(orderNumber: string) {
     return orderNumber.replace(/(?:-NB)+$/, '')
@@ -517,16 +585,46 @@ function OrdersContent() {
 
   return (
     <main className="container wide">
-      <div className="actions" style={{ justifyContent: 'space-between' }}>
+      <div className="orders-page-heading">
         <div>
+          <a
+            className="order-area-badge order-area-switch"
+            href={ordersHref(orderArea === '2d-laser' ? 'rohrlaser' : '2d-laser')}
+            title={`Zu ${orderAreaLabel(orderArea === '2d-laser' ? 'rohrlaser' : '2d-laser')} wechseln`}
+          >
+            {orderAreaLabel(orderArea)}
+          </a>
           <h1>Bestellungen</h1>
           <p className="small">Admin: {isAdmin ? 'JA' : 'NEIN'}</p>
           <p className="small">{LOGIN_DISABLED ? currentUserEmail : `Eingeloggt als: ${currentUserEmail || 'nicht erkannt'}`}</p>
         </div>
 
-        <Link className="button" href="/orders/new">
-          Neue Bestellung
-        </Link>
+        {orderArea === '2d-laser' && (
+          <section className="format-summary" aria-label="Bestellte Tafeln nach Format">
+            <h2>Bestellte Tafeln nach Format</h2>
+            <div className="format-summary-cards">
+              {formatCards.length > 0 ? formatCards.map(card => (
+                <article className="format-summary-card" key={card.format}>
+                  <strong>{card.format}</strong>
+                  <span>
+                    {card.sheets > 0 && `${card.sheets.toLocaleString('de-DE')} Tafeln`}
+                    {card.sheets > 0 && card.kilograms > 0 && ' · '}
+                    {card.kilograms > 0 && `${card.kilograms.toLocaleString('de-DE')} kg`}
+                  </span>
+                  <small>{card.orderIds.size} {card.orderIds.size === 1 ? 'Auftrag' : 'Aufträge'}</small>
+                </article>
+              )) : (
+                <p className="small">Noch keine Tafeln bestellt.</p>
+              )}
+            </div>
+          </section>
+        )}
+
+        <div className="actions">
+          <Link className="button" href={newOrderHref(orderArea)}>
+            Neue Bestellung
+          </Link>
+        </div>
       </div>
 
       <div className="card grid">
@@ -535,7 +633,7 @@ function OrdersContent() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Auftrag, Kunde, Material, Lieferschein..."
+            placeholder="Auftrag, Material, Lieferschein..."
           />
         </div>
 
@@ -579,8 +677,8 @@ function OrdersContent() {
             <option value="latest_order">Letzter Auftrag</option>
             <option value="order_number">Auftragsnummer</option>
             <option value="status">Status</option>
-            <option value="customer">Kunde</option>
-            <option value="customer_delivery_date">K-Liefertermin</option>
+            {orderArea === 'rohrlaser' && <option value="customer">Kunde</option>}
+            {orderArea === 'rohrlaser' && <option value="customer_delivery_date">K-Liefertermin</option>}
             <option value="material">Material</option>
             <option value="supplier">Lieferant</option>
             <option value="desired_delivery_date">Liefertermin</option>
@@ -594,11 +692,11 @@ function OrdersContent() {
         <colgroup>
           <col className="orders-col-status" />
           <col className="orders-col-order" />
-          <col className="orders-col-customer" />
-          <col className="orders-col-date" />
+          {orderArea === 'rohrlaser' && <col className="orders-col-customer" />}
+          {orderArea === 'rohrlaser' && <col className="orders-col-date" />}
           <col className="orders-col-material" />
           <col className="orders-col-positions" />
-          <col className="orders-col-av" />
+          {orderArea === 'rohrlaser' && <col className="orders-col-av" />}
           <col className="orders-col-qty" />
           <col className="orders-col-qty" />
           <col className="orders-col-qty" />
@@ -614,11 +712,11 @@ function OrdersContent() {
           <tr>
             <th>{sortButton('status', 'Status')}</th>
             <th>{sortButton('order_number', 'Auftrag')}</th>
-            <th>{sortButton('customer', 'Kunde')}</th>
-            <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>
+            {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
+            {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
             <th>{sortButton('material', 'Material')}</th>
             <th>{sortButton('positions', 'Positionen')}</th>
-            <th>AV</th>
+            {orderArea === 'rohrlaser' && <th>AV</th>}
             <th>{sortButton('quantity', 'Menge')}</th>
             <th>{sortButton('delivered', 'Geliefert')}</th>
             <th>{sortButton('open', 'Offen')}</th>
@@ -690,8 +788,8 @@ function OrdersContent() {
                 <td>
                   <b>{o.order_number}</b>
                 </td>
-                <td>{o.customer}</td>
-                <td>{formatDateShort(o.customer_delivery_date)}</td>
+                {orderArea === 'rohrlaser' && <td>{o.customer}</td>}
+                {orderArea === 'rohrlaser' && <td>{formatDateShort(o.customer_delivery_date)}</td>}
                 <td className="order-positions-cell">
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (
@@ -705,12 +803,12 @@ function OrdersContent() {
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (
                       <div key={`${item.cross_section}-${item.length_mm}-${index}`}>
-                        {item.cross_section} ({item.quantity} Stk.)
+                        {item.cross_section} ({orderItemQuantityText(item)})
                       </div>
                     ))}
                   </div>
                 </td>
-                <td className="av-cell">
+                {orderArea === 'rohrlaser' && <td className="av-cell">
                   <div className="av-lines">
                     {orderItems.some(item => orderItemAvText(item)) ? (
                       orderItems.map((item, index) => (
@@ -731,7 +829,7 @@ function OrdersContent() {
                       <span className="av-empty-line">-</span>
                     )}
                   </div>
-                </td>
+                </td>}
                 <td>{o.quantity}</td>
                <td
   className={
@@ -781,7 +879,7 @@ function OrdersContent() {
                   )}
                 </td>
                 <td className="row-actions">
-                  {(isAdmin || orderStatus === 'offen') && (
+                  {(isAdmin || orderStatus === 'offen') && canDeleteOrder(o.created_at, new Date(deleteCheckTime)) && (
                     <button
                       type="button"
                       className="danger"

@@ -25,7 +25,7 @@ do $$
 declare
   table_name text;
 begin
-  foreach table_name in array array['customers', 'suppliers', 'materials', 'cross_sections', 'work_preparations']
+  foreach table_name in array array['customers', 'suppliers', 'materials', 'cross_sections', 'work_preparations', 'formats']
   loop
     if to_regclass('public.' || table_name) is not null then
       execute format('alter table public.%I enable row level security', table_name);

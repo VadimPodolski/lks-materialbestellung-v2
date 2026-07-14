@@ -8,6 +8,8 @@ export type OrderItem = {
   av_4?: string | null
   length_mm: number | null
   quantity: number
+  order_unit?: 'stück' | 'paket' | 'kg' | null
+  pieces_per_package?: number | null
   position?: number | null
 }
 
@@ -23,7 +25,7 @@ export type LegacyOrderFields = {
   order_items?: OrderItem[] | null
 }
 
-export const orderItemsSelect = 'id,material,cross_section,av_1,av_2,av_3,av_4,length_mm,quantity,position'
+export const orderItemsSelect = 'id,material,cross_section,av_1,av_2,av_3,av_4,length_mm,quantity,order_unit,pieces_per_package,position'
 
 export function emptyOrderItem(): OrderItem {
   return {
@@ -34,7 +36,9 @@ export function emptyOrderItem(): OrderItem {
     av_3: '',
     av_4: '',
     length_mm: 6000,
-    quantity: 1
+    quantity: 1,
+    order_unit: 'paket',
+    pieces_per_package: null
   }
 }
 
@@ -57,6 +61,8 @@ export function normalizeOrderItems(order: LegacyOrderFields | null | undefined)
       av_4: order.av_4 || '',
       length_mm: order.length_mm,
       quantity: order.quantity,
+      order_unit: 'stück',
+      pieces_per_package: null,
       position: 1
     }
   ])
@@ -74,6 +80,8 @@ export function mergeOrderItems(items: OrderItem[]) {
     const av4 = (item.av_4 || '').trim()
     const lengthMm = item.length_mm ? Number(item.length_mm) : null
     const quantity = Number(item.quantity || 0)
+    const orderUnit = item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück'
+    const piecesPerPackage = orderUnit === 'paket' ? Number(item.pieces_per_package || 0) : null
     const key = [
       material.toLowerCase(),
       crossSection.toLowerCase(),
@@ -81,7 +89,9 @@ export function mergeOrderItems(items: OrderItem[]) {
       av2.toLowerCase(),
       av3.toLowerCase(),
       av4.toLowerCase(),
-      lengthMm ?? ''
+      lengthMm ?? '',
+      orderUnit,
+      piecesPerPackage ?? ''
     ].join('|')
     const existing = merged.get(key)
 
@@ -99,7 +109,9 @@ export function mergeOrderItems(items: OrderItem[]) {
       av_3: av3 || null,
       av_4: av4 || null,
       length_mm: lengthMm,
-      quantity
+      quantity,
+      order_unit: orderUnit,
+      pieces_per_package: piecesPerPackage
     })
   }
 
@@ -117,7 +129,7 @@ export function orderItemsSummary(items: OrderItem[]) {
   return items
     .map(item => {
       const av = orderItemAvText(item)
-      return `${item.material} - ${item.cross_section}${av ? ` - AV: ${av}` : ''} (${item.quantity} Stk.)`
+      return `${item.material} - ${item.cross_section}${av ? ` - AV: ${av}` : ''} (${orderItemQuantityText(item)})`
     })
     .join(', ')
 }
@@ -132,6 +144,18 @@ export function orderItemAvText(item: OrderItem) {
   return orderItemAvValues(item).join(', ')
 }
 
+export function orderItemQuantityText(item: OrderItem) {
+  if (item.order_unit === 'paket') {
+    return `${item.quantity} Paket${item.quantity === 1 ? '' : 'e'} à ${item.pieces_per_package || '-'} Stück`
+  }
+
+  if (item.order_unit === 'kg') {
+    return `${item.quantity} kg`
+  }
+
+  return `${item.quantity} Stück`
+}
+
 export function orderItemsMailText(items: OrderItem[]) {
   return items
     .map((item, index) => (
@@ -139,7 +163,7 @@ export function orderItemsMailText(items: OrderItem[]) {
    Querschnitt: ${item.cross_section}
    AV: ${orderItemAvText(item) || '-'}
    Länge: ${item.length_mm || '-'} mm
-   Stückzahl: ${item.quantity}`
+   Menge: ${orderItemQuantityText(item)}`
     ))
     .join('\n\n')
 }
