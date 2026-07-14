@@ -64,7 +64,7 @@ function MasterDataContent() {
       supabase.auth.getSession(),
       supabase.auth.getUser(),
       supabase.from('customers').select('*').eq('order_area', orderArea).order('name'),
-      supabase.from('suppliers').select('*').eq('order_area', orderArea).order('name'),
+      supabase.from('suppliers').select('*').order('name'),
       supabase.from('materials').select('*').eq('order_area', orderArea).order('name'),
       supabase.from('cross_sections').select('*').eq('order_area', orderArea).order('name'),
       supabase.from('work_preparations').select('*').eq('order_area', orderArea).order('name'),
@@ -123,7 +123,7 @@ function MasterDataContent() {
       email: customer.email || null,
       phone: customer.phone || null,
       notes: customer.notes || null,
-      order_area: orderArea
+      order_area: 'rohrlaser'
     }
 
     if (customer.id) {
@@ -382,7 +382,7 @@ function MasterDataContent() {
 
       {type === 'suppliers' && (
         <>
-          <h2>Lieferanten</h2>
+          <h2>Lieferanten (Rohrlaser und 2D-Laser)</h2>
 
           <form className="card grid" onSubmit={saveSupplier}>
             <input placeholder="Lieferantenname" value={supplier.name} onChange={e=>setSupplier({...supplier,name:e.target.value})} required />

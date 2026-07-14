@@ -59,7 +59,7 @@ export default function NewOrderPage() {
 
     const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }, { data: workPreparationData }, { data: packagingData }] =
       await Promise.all([
-        supabase.from('suppliers').select('id,name').eq('order_area', area).order('name'),
+        supabase.from('suppliers').select('id,name').order('name'),
         supabase.from('customers').select('id,name').eq('order_area', area).order('name'),
         supabase.from('materials').select('id,name,material_name,material_number').eq('order_area', area).order('name'),
         area === '2d-laser'
