@@ -9,6 +9,7 @@ import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { newOrderHref, normalizeOrderArea, orderAreaLabel, ordersHref } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
+import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 
 type Order = {
   id: string
@@ -400,7 +401,17 @@ function OrdersContent() {
     await supabase.from('goods_receipts').delete().eq('material_order_id', order.id)
     await supabase.from('order_history').delete().eq('material_order_id', order.id)
     await supabase.from('scrap_items').delete().eq('material_order_id', order.id)
-    await supabase.from('material_orders').delete().eq('id', order.id)
+    const deleteError = await deleteMaterialOrder(
+      supabase,
+      order.id,
+      order.created_at,
+      isAdmin
+    )
+
+    if (deleteError) {
+      alert(`Bestellung konnte nicht gelöscht werden: ${deleteError.message}`)
+      return
+    }
 
     await load()
   }
