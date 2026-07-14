@@ -280,15 +280,11 @@ export default function NewOrderPage() {
     e.preventDefault()
     setMsg('')
 
-    const orderNumberSuffix = orderArea === '2d-laser'
-      ? form.order_number.replace(/^TAFEL-/, '').trim()
-      : form.order_number.replace(/^AB-/, '').trim()
+    const orderNumberSuffix = form.order_number.replace(/^AB-/, '').trim()
     const customerName = orderArea === '2d-laser' ? '2D-Laser' : form.customer.trim()
 
-    if (!orderNumberSuffix) {
-      return setMsg(orderArea === '2d-laser'
-        ? 'Die TAFEL-Auftragsnummer konnte nicht erzeugt werden.'
-        : 'Bitte eine AB-Nummer eintragen.')
+    if (orderArea === 'rohrlaser' && !orderNumberSuffix) {
+      return setMsg('Bitte eine AB-Nummer eintragen.')
     }
 
     if (orderArea === 'rohrlaser' && !customerName) {
@@ -336,10 +332,23 @@ export default function NewOrderPage() {
     const { data: userData } = await supabase.auth.getUser()
     await ensureCurrentUserProfile(supabase)
 
+    let orderNumber = form.order_number
+
+    if (orderArea === '2d-laser') {
+      const { data: nextNumber, error: numberError } = await supabase.rpc('next_tafel_order_number')
+
+      if (numberError || !nextNumber) {
+        return setMsg(numberError?.message || 'Die nächste freie TAFEL-Auftragsnummer konnte nicht ermittelt werden.')
+      }
+
+      orderNumber = nextNumber
+      setForm(prev => ({ ...prev, order_number: nextNumber }))
+    }
+
     const orderRow = {
       ...form,
       customer: customerName,
-      order_number: form.order_number,
+      order_number: orderNumber,
       supplier_id: form.supplier_id || null,
       material: firstItem.material,
       cross_section: firstItem.cross_section,
@@ -352,11 +361,29 @@ export default function NewOrderPage() {
       created_by: userData.user?.id || null
     }
 
-    const { data, error } = await supabase
+    let insertResult = await supabase
       .from('material_orders')
       .insert(orderRow)
       .select('id')
       .single()
+
+    if (orderArea === '2d-laser' && insertResult.error?.message.toLowerCase().includes('duplicate')) {
+      const { data: retryNumber, error: retryNumberError } = await supabase.rpc('next_tafel_order_number')
+
+      if (retryNumberError || !retryNumber) {
+        return setMsg(retryNumberError?.message || 'Die nächste freie TAFEL-Auftragsnummer konnte nicht ermittelt werden.')
+      }
+
+      orderNumber = retryNumber
+      setForm(prev => ({ ...prev, order_number: retryNumber }))
+      insertResult = await supabase
+        .from('material_orders')
+        .insert({ ...orderRow, order_number: retryNumber })
+        .select('id')
+        .single()
+    }
+
+    const { data, error } = insertResult
 
     if (error) {
       if (error.message.includes('customer_delivery_date')) {
