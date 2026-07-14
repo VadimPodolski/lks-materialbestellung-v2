@@ -132,7 +132,12 @@ export default function NewOrderPage() {
   const customerSuggestions = useMemo(() => {
     const q = form.customer.trim().toLowerCase()
     if (q.length < 1) return []
-    return customers.filter(c => c.name.toLowerCase().includes(q)).slice(0, 8)
+    return customers
+      .filter(c => {
+        const customerName = c.name.trim().toLowerCase()
+        return customerName.includes(q) && customerName !== q
+      })
+      .slice(0, 8)
   }, [customers, form.customer])
 
   function set(k: string, v: string) {
