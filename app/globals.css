@@ -986,6 +986,7 @@ a.card:hover {
 }
 
 .orders-page-heading > .actions {
+  grid-column: 3;
   justify-self: end;
 }
 
@@ -1032,6 +1033,7 @@ a.card:hover {
   }
 
   .orders-page-heading > .actions {
+    grid-column: 1;
     justify-self: start;
   }
 }
