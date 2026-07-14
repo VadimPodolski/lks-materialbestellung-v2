@@ -53,10 +53,6 @@ export default function Home() {
           </Link>
         ))}
       </section>
-
-      <Link className="portal-orders-link" href="/orders">
-        Bereits angelegte Bestellungen ansehen
-      </Link>
     </main>
   )
 }

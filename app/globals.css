@@ -205,6 +205,19 @@ a {
   letter-spacing: .04em;
 }
 
+.order-area-switch {
+  cursor: pointer;
+  transition: background .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.order-area-switch:hover,
+.order-area-switch:focus-visible {
+  background: #dbe8ff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .14);
+  transform: translateY(-1px);
+  outline: none;
+}
+
 /* Header */
 .header {
   background: #17202a;
