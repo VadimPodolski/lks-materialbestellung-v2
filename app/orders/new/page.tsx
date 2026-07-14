@@ -545,14 +545,13 @@ export default function NewOrderPage() {
                           ))}
                           <option value="__custom__">Eigenes Format</option>
                         </select>
-                        {!crossSections.some(format => format.name === item.cross_section) && (
-                          <input
-                            value={customFormatValue(item.cross_section)}
-                            onChange={e => setItem(index, 'cross_section', `Eigenes Format: ${e.target.value}`)}
-                            placeholder="Eigenes Maß, z.B. 2800x1400 mm"
-                            required
-                          />
-                        )}
+                        <input
+                          value={crossSections.some(format => format.name === item.cross_section) ? '' : customFormatValue(item.cross_section)}
+                          onChange={e => setItem(index, 'cross_section', `Eigenes Format: ${e.target.value}`)}
+                          placeholder="Eigenes Maß, z.B. 2800x1400 mm"
+                          disabled={crossSections.some(format => format.name === item.cross_section)}
+                          required={!crossSections.some(format => format.name === item.cross_section)}
+                        />
                       </div>
                     ) : (
                       <div className="combo-box">
@@ -629,7 +628,7 @@ export default function NewOrderPage() {
                     />
                   </div>
 
-                  {orderArea === '2d-laser' && item.order_unit === 'paket' && (
+                  {orderArea === '2d-laser' && (
                     <div>
                       <label>Stück pro Paket</label>
                       <input
@@ -637,7 +636,8 @@ export default function NewOrderPage() {
                         min="1"
                         value={item.pieces_per_package || ''}
                         onChange={e => setItem(index, 'pieces_per_package', e.target.value)}
-                        required
+                        disabled={item.order_unit !== 'paket'}
+                        required={item.order_unit === 'paket'}
                       />
                     </div>
                   )}

@@ -989,6 +989,13 @@ a.card:hover {
   width: 100%;
 }
 
+.two-d-order-item-row input:disabled {
+  background: #eef1f5;
+  border-color: #d8dee8;
+  color: #8a94a3;
+  cursor: not-allowed;
+}
+
 .two-d-order-item-row .order-item-title {
   align-self: end;
   padding-bottom: 10px;
