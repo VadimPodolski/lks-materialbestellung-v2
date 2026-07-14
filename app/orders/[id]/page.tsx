@@ -17,6 +17,7 @@ import {
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
+import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
 
 type Order = {
@@ -1211,7 +1212,7 @@ LKS-Technik GmbH & Co. KG`
   async function deleteOrder() {
     if (!order) return
 
-    if (!canDeleteOrder(order.created_at)) {
+    if (!isAdmin && !canDeleteOrder(order.created_at)) {
       alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
       return
     }
@@ -1242,10 +1243,17 @@ LKS-Technik GmbH & Co. KG`
       .delete()
       .eq('material_order_id', order.id)
 
-    await supabase
-      .from('material_orders')
-      .delete()
-      .eq('id', order.id)
+    const deleteError = await deleteMaterialOrder(
+      supabase,
+      order.id,
+      order.created_at,
+      isAdmin
+    )
+
+    if (deleteError) {
+      alert(`Bestellung konnte nicht gelöscht werden: ${deleteError.message}`)
+      return
+    }
 
     router.push(ordersHref(normalizeOrderArea(order?.order_area)))
   }
@@ -1449,7 +1457,7 @@ LKS-Technik GmbH & Co. KG`
                 Stornieren
               </button>
 
-              {isAdmin && canDeleteOrder(order.created_at, new Date(deleteCheckTime)) && (
+              {isAdmin && (
                 <button
                   type="button"
                   className="danger"
