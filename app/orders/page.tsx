@@ -462,7 +462,7 @@ function OrdersContent() {
       const deliveryNotes = (o.goods_receipts || [])
         .map(receipt => receipt.delivery_note_number || '')
         .join(' ')
-      const text = `${o.order_number} ${o.customer} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${deliveryNotes} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
+      const text = `${o.order_number} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${deliveryNotes} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
       const matchesSearch = text.includes(q.toLowerCase())
       const matchesStatus = !status || visibleStatus(o) === status
       const matchesOverdue =
@@ -627,7 +627,7 @@ function OrdersContent() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Auftrag, Kunde, Material, Lieferschein..."
+            placeholder="Auftrag, Material, Lieferschein..."
           />
         </div>
 

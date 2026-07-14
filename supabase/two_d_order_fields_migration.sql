@@ -33,6 +33,24 @@ $$;
 revoke all on function public.next_tafel_order_number() from public;
 grant execute on function public.next_tafel_order_number() to authenticated;
 
+create or replace function public.peek_next_tafel_order_number()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select 'TAFEL-' || lpad(
+    (case when is_called then last_value + 1 else last_value end)::text,
+    5,
+    '0'
+  )
+  from public.tafel_order_number_seq;
+$$;
+
+revoke all on function public.peek_next_tafel_order_number() from public;
+grant execute on function public.peek_next_tafel_order_number() to authenticated;
+
 alter table public.order_items
   add column if not exists order_unit text not null default 'stück',
   add column if not exists pieces_per_package integer;

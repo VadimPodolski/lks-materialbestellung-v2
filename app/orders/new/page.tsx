@@ -78,13 +78,17 @@ export default function NewOrderPage() {
     setCrossSections(crossSectionList)
     setWorkPreparations(workPreparationData || [])
 
+    const { data: tafelNumber } = area === '2d-laser'
+      ? await supabase.rpc('peek_next_tafel_order_number')
+      : { data: null }
+
     const lastSupplier = localStorage.getItem(`${area}_last_supplier_id`)
     const lastMaterial = localStorage.getItem(`${area}_last_material`)
     const lastCrossSection = localStorage.getItem(`${area}_last_cross_section`)
 
     setForm(prev => ({
       ...prev,
-      order_number: area === '2d-laser' ? 'Wird beim Speichern vergeben' : prev.order_number,
+      order_number: area === '2d-laser' && tafelNumber ? tafelNumber : prev.order_number,
       customer: area === '2d-laser' ? '2D-Laser' : prev.customer,
       customer_delivery_date: area === '2d-laser' ? '' : prev.customer_delivery_date,
       supplier_id: lastSupplier && supplierList.some(s => s.id === lastSupplier)
