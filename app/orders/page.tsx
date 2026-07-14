@@ -63,6 +63,13 @@ type SortDirection = 'asc' | 'desc'
 type SortMode = 'latest_order' | SortKey
 type ActiveStatusMenu = { orderId: string; top: number; left: number; placement: 'top' | 'bottom' }
 
+function formatSortValue(value: string) {
+  const dimensions = value.match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i)
+  if (!dimensions) return 0
+
+  return Number(dimensions[1].replace(',', '.')) * Number(dimensions[2].replace(',', '.'))
+}
+
 function OrdersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -478,6 +485,48 @@ function OrdersContent() {
     }, {})
   }, [orders])
 
+  const formatCards = useMemo(() => {
+    if (orderArea !== '2d-laser') return []
+
+    const formats = new Map<string, {
+      format: string
+      sheets: number
+      kilograms: number
+      orderIds: Set<string>
+    }>()
+
+    for (const order of orders) {
+      if (order.status === 'storniert') continue
+
+      for (const item of normalizeOrderItems(order)) {
+        const format = item.cross_section.trim() || 'Ohne Format'
+        const key = format.toLocaleLowerCase('de-DE')
+        const current = formats.get(key) || {
+          format,
+          sheets: 0,
+          kilograms: 0,
+          orderIds: new Set<string>()
+        }
+
+        if (item.order_unit === 'kg') {
+          current.kilograms += Number(item.quantity || 0)
+        } else if (item.order_unit === 'paket') {
+          current.sheets += Number(item.quantity || 0) * Number(item.pieces_per_package || 0)
+        } else {
+          current.sheets += Number(item.quantity || 0)
+        }
+
+        current.orderIds.add(order.id)
+        formats.set(key, current)
+      }
+    }
+
+    return Array.from(formats.values()).sort((a, b) => (
+      formatSortValue(b.format) - formatSortValue(a.format) ||
+      a.format.localeCompare(b.format, 'de-DE')
+    ))
+  }, [orders, orderArea])
+
   function orderBaseNumber(orderNumber: string) {
     return orderNumber.replace(/(?:-NB)+$/, '')
   }
@@ -536,13 +585,34 @@ function OrdersContent() {
 
   return (
     <main className="container wide">
-      <div className="actions" style={{ justifyContent: 'space-between' }}>
+      <div className="orders-page-heading">
         <div>
           <span className="order-area-badge">{orderAreaLabel(orderArea)}</span>
           <h1>Bestellungen</h1>
           <p className="small">Admin: {isAdmin ? 'JA' : 'NEIN'}</p>
           <p className="small">{LOGIN_DISABLED ? currentUserEmail : `Eingeloggt als: ${currentUserEmail || 'nicht erkannt'}`}</p>
         </div>
+
+        {orderArea === '2d-laser' && (
+          <section className="format-summary" aria-label="Bestellte Tafeln nach Format">
+            <h2>Bestellte Tafeln nach Format</h2>
+            <div className="format-summary-cards">
+              {formatCards.length > 0 ? formatCards.map(card => (
+                <article className="format-summary-card" key={card.format}>
+                  <strong>{card.format}</strong>
+                  <span>
+                    {card.sheets > 0 && `${card.sheets.toLocaleString('de-DE')} Tafeln`}
+                    {card.sheets > 0 && card.kilograms > 0 && ' · '}
+                    {card.kilograms > 0 && `${card.kilograms.toLocaleString('de-DE')} kg`}
+                  </span>
+                  <small>{card.orderIds.size} {card.orderIds.size === 1 ? 'Auftrag' : 'Aufträge'}</small>
+                </article>
+              )) : (
+                <p className="small">Noch keine Tafeln bestellt.</p>
+              )}
+            </div>
+          </section>
+        )}
 
         <div className="actions">
           <Link className="button" href={newOrderHref(orderArea)}>

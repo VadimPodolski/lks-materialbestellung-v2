@@ -375,7 +375,8 @@ export default function OrderDetailPage() {
       }
 
       if (key === 'order_unit') {
-        return { ...item, order_unit: value === 'paket' ? 'paket' : 'stück', pieces_per_package: null }
+        const orderUnit = value === 'paket' ? 'paket' : value === 'kg' ? 'kg' : 'stück'
+        return { ...item, order_unit: orderUnit, pieces_per_package: null }
       }
 
       return { ...item, [key]: value }
@@ -600,7 +601,7 @@ LKS-Technik GmbH & Co. KG`
       av_4: (item.av_4 || '').trim(),
       length_mm: item.length_mm ? Number(item.length_mm) : null,
       quantity: Number(item.quantity),
-      order_unit: item.order_unit === 'paket' ? 'paket' : 'stück',
+      order_unit: item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück',
       pieces_per_package: item.order_unit === 'paket' ? Number(item.pieces_per_package || 0) : null
     })))
 
@@ -610,7 +611,7 @@ LKS-Technik GmbH & Co. KG`
 
     if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
       return setMsg(normalizeOrderArea(order.order_area) === '2d-laser'
-        ? 'Bitte jede Position mit Material, Format und Stückzahl ausfüllen.'
+        ? 'Bitte jede Position mit Material, Format und Menge ausfüllen.'
         : 'Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
     }
 
@@ -657,7 +658,7 @@ LKS-Technik GmbH & Co. KG`
         av_4: item.av_4 || null,
         length_mm: item.length_mm,
         quantity: item.quantity,
-        order_unit: item.order_unit || 'stück',
+        order_unit: item.order_unit || 'paket',
         pieces_per_package: item.order_unit === 'paket' ? item.pieces_per_package : null,
         position: index + 1
       }))
@@ -1324,7 +1325,7 @@ LKS-Technik GmbH & Co. KG`
                         {!isTwoDLaser && <td>{orderItemAvText(item) || '-'}</td>}
                         {!isTwoDLaser && <td>{item.length_mm || '-'} mm</td>}
                         <td>{item.quantity}</td>
-                        {isTwoDLaser && <td>{item.order_unit === 'paket' ? 'Paket' : 'Stück'}</td>}
+                        {isTwoDLaser && <td>{item.order_unit === 'paket' ? 'Paket' : item.order_unit === 'kg' ? 'kg' : 'Stück'}</td>}
                         {isTwoDLaser && <td>{item.order_unit === 'paket' ? item.pieces_per_package || '-' : '-'}</td>}
                         <td className={receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}>
                           {receivedQtyForItem(item)}
@@ -1333,6 +1334,7 @@ LKS-Technik GmbH & Co. KG`
                           <input
                             type="number"
                             min="1"
+                            step={item.order_unit === 'kg' ? '0.01' : '1'}
                             value={receiptDraft.quantity}
                             onChange={e => setReceiptDraft(item, index, 'quantity', e.target.value)}
                             className="table-input small-number"
@@ -1359,6 +1361,7 @@ LKS-Technik GmbH & Co. KG`
                           <input
                             type="number"
                             min="1"
+                            step={item.order_unit === 'kg' ? '0.01' : '1'}
                             value={draft.quantity}
                             onChange={e => setScrapDraft(item, index, 'quantity', e.target.value)}
                             className="table-input small-number"
@@ -1689,9 +1692,10 @@ LKS-Technik GmbH & Co. KG`
                       {isTwoDLaser && (
                         <div>
                           <label>Einheit</label>
-                          <select value={item.order_unit || 'stück'} onChange={e => setEditItem(index, 'order_unit', e.target.value)}>
-                            <option value="stück">Stück</option>
+                          <select value={item.order_unit || 'paket'} onChange={e => setEditItem(index, 'order_unit', e.target.value)}>
                             <option value="paket">Paket</option>
+                            <option value="stück">Stück</option>
+                            <option value="kg">kg</option>
                           </select>
                         </div>
                       )}
@@ -1701,6 +1705,7 @@ LKS-Technik GmbH & Co. KG`
                         <input
                           type="number"
                           min="1"
+                          step={item.order_unit === 'kg' ? '0.01' : '1'}
                           value={item.quantity || ''}
                           onChange={e => setEditItem(index, 'quantity', e.target.value)}
                           required

@@ -43,10 +43,10 @@ alter table public.order_items
 
 alter table public.order_items
   add constraint order_items_order_unit_check
-    check (order_unit in ('stück', 'paket')),
+    check (order_unit in ('stück', 'paket', 'kg')),
   add constraint order_items_pieces_per_package_check
     check (
-      (order_unit = 'stück' and pieces_per_package is null)
+      (order_unit in ('stück', 'kg') and pieces_per_package is null)
       or
       (order_unit = 'paket' and pieces_per_package > 0)
     );

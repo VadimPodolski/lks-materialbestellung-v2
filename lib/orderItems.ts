@@ -8,7 +8,7 @@ export type OrderItem = {
   av_4?: string | null
   length_mm: number | null
   quantity: number
-  order_unit?: 'stück' | 'paket' | null
+  order_unit?: 'stück' | 'paket' | 'kg' | null
   pieces_per_package?: number | null
   position?: number | null
 }
@@ -37,7 +37,7 @@ export function emptyOrderItem(): OrderItem {
     av_4: '',
     length_mm: 6000,
     quantity: 1,
-    order_unit: 'stück',
+    order_unit: 'paket',
     pieces_per_package: null
   }
 }
@@ -80,7 +80,7 @@ export function mergeOrderItems(items: OrderItem[]) {
     const av4 = (item.av_4 || '').trim()
     const lengthMm = item.length_mm ? Number(item.length_mm) : null
     const quantity = Number(item.quantity || 0)
-    const orderUnit = item.order_unit === 'paket' ? 'paket' : 'stück'
+    const orderUnit = item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück'
     const piecesPerPackage = orderUnit === 'paket' ? Number(item.pieces_per_package || 0) : null
     const key = [
       material.toLowerCase(),
@@ -147,6 +147,10 @@ export function orderItemAvText(item: OrderItem) {
 export function orderItemQuantityText(item: OrderItem) {
   if (item.order_unit === 'paket') {
     return `${item.quantity} Paket${item.quantity === 1 ? '' : 'e'} à ${item.pieces_per_package || '-'} Stück`
+  }
+
+  if (item.order_unit === 'kg') {
+    return `${item.quantity} kg`
   }
 
   return `${item.quantity} Stück`
