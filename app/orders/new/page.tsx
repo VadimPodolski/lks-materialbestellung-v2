@@ -15,6 +15,10 @@ type CrossSection = { id: string; name: string }
 type WorkPreparation = { id: string; name: string }
 type SheetFormat = { id: string; name: string; width_mm: number; height_mm: number }
 
+function isUllnerSupplier(supplier: Supplier) {
+  return supplier.name.trim().toLocaleLowerCase('de-DE').includes('ullner')
+}
+
 function formatLabel(format: SheetFormat) {
   return `${format.name} ${format.width_mm}x${format.height_mm} mm`
 }
@@ -71,7 +75,10 @@ export default function NewOrderPage() {
           : Promise.resolve({ data: [] as PackagingDefault[] })
       ])
 
-    const supplierList = supplierData || []
+    const supplierList = [...(supplierData || [])].sort((a, b) => {
+      const preferredOrder = Number(isUllnerSupplier(b)) - Number(isUllnerSupplier(a))
+      return preferredOrder || a.name.localeCompare(b.name, 'de')
+    })
     const materialList = materialData || []
     const crossSectionList: CrossSection[] = area === '2d-laser'
       ? ((crossSectionData as SheetFormat[] | null) || []).map(format => ({ id: format.id, name: formatLabel(format) }))
@@ -93,7 +100,7 @@ export default function NewOrderPage() {
     const lastMaterial = localStorage.getItem(`${area}_last_material`)
     const lastCrossSection = localStorage.getItem(`${area}_last_cross_section`)
     const preferred2DSupplier = area === '2d-laser'
-      ? supplierList.find(supplier => supplier.name.trim().toLocaleLowerCase('de-DE') === 'ullner')
+      ? supplierList.find(isUllnerSupplier)
       : null
 
     setForm(prev => ({
