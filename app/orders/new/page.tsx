@@ -78,17 +78,13 @@ export default function NewOrderPage() {
     setCrossSections(crossSectionList)
     setWorkPreparations(workPreparationData || [])
 
-    const { data: tafelNumber } = area === '2d-laser'
-      ? await supabase.rpc('next_tafel_order_number')
-      : { data: null }
-
     const lastSupplier = localStorage.getItem(`${area}_last_supplier_id`)
     const lastMaterial = localStorage.getItem(`${area}_last_material`)
     const lastCrossSection = localStorage.getItem(`${area}_last_cross_section`)
 
     setForm(prev => ({
       ...prev,
-      order_number: area === '2d-laser' && tafelNumber ? tafelNumber : prev.order_number,
+      order_number: area === '2d-laser' ? 'Wird beim Speichern vergeben' : prev.order_number,
       customer: area === '2d-laser' ? '2D-Laser' : prev.customer,
       customer_delivery_date: area === '2d-laser' ? '' : prev.customer_delivery_date,
       supplier_id: lastSupplier && supplierList.some(s => s.id === lastSupplier)
@@ -338,7 +334,7 @@ export default function NewOrderPage() {
       const { data: nextNumber, error: numberError } = await supabase.rpc('next_tafel_order_number')
 
       if (numberError || !nextNumber) {
-        return setMsg(numberError?.message || 'Die nächste freie TAFEL-Auftragsnummer konnte nicht ermittelt werden.')
+        return setMsg(numberError?.message || 'Die nächste TAFEL-Auftragsnummer konnte nicht ermittelt werden.')
       }
 
       orderNumber = nextNumber
@@ -371,7 +367,7 @@ export default function NewOrderPage() {
       const { data: retryNumber, error: retryNumberError } = await supabase.rpc('next_tafel_order_number')
 
       if (retryNumberError || !retryNumber) {
-        return setMsg(retryNumberError?.message || 'Die nächste freie TAFEL-Auftragsnummer konnte nicht ermittelt werden.')
+        return setMsg(retryNumberError?.message || 'Die nächste TAFEL-Auftragsnummer konnte nicht ermittelt werden.')
       }
 
       orderNumber = retryNumber

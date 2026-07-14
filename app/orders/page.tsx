@@ -8,6 +8,7 @@ import { OrderItem, normalizeOrderItems, orderItemAvText, orderItemQuantityText,
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { newOrderHref, normalizeOrderArea, orderAreaLabel } from '@/lib/orderAreas'
+import { canDeleteOrder } from '@/lib/orderDeletion'
 
 type Order = {
   id: string
@@ -78,6 +79,7 @@ function OrdersContent() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
   const [activeStatusMenu, setActiveStatusMenu] = useState<ActiveStatusMenu | null>(null)
+  const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
   const statusMenuCloseTimer = useRef<number | null>(null)
 
   useEffect(() => {
@@ -88,6 +90,11 @@ function OrdersContent() {
 
   useEffect(() => {
     return () => clearStatusMenuCloseTimer()
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setDeleteCheckTime(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
   }, [])
 
   function clearStatusMenuCloseTimer() {
@@ -372,6 +379,11 @@ function OrdersContent() {
   }
 
   async function deleteOrder(order: Order) {
+    if (!canDeleteOrder(order.created_at)) {
+      alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
+      return
+    }
+
     if (!confirm(`Bestellung ${order.order_number} wirklich löschen?`)) {
       return
     }
@@ -791,7 +803,7 @@ function OrdersContent() {
                   )}
                 </td>
                 <td className="row-actions">
-                  {(isAdmin || orderStatus === 'offen') && (
+                  {(isAdmin || orderStatus === 'offen') && canDeleteOrder(o.created_at, new Date(deleteCheckTime)) && (
                     <button
                       type="button"
                       className="danger"

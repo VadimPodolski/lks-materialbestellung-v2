@@ -16,6 +16,7 @@ import {
 } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
+import { canDeleteOrder } from '@/lib/orderDeletion'
 
 type Order = {
   id: string
@@ -38,6 +39,7 @@ type Order = {
   suppliers: { name: string; contact_person: string | null; email: string } | null
   order_items?: OrderItem[] | null
   ordered_at: string | null
+  created_at: string
   supplier_order_pdf_name: string | null
   supplier_order_pdf_url: string | null
   supplier_order_pdf_path: string | null
@@ -130,9 +132,15 @@ export default function OrderDetailPage() {
   const [isPdfUploading, setIsPdfUploading] = useState(false)
   const [showDetailStatusMenu, setShowDetailStatusMenu] = useState(false)
   const [msg, setMsg] = useState('')
+  const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
 
   useEffect(() => {
     load()
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setDeleteCheckTime(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
   }, [])
 
   async function load() {
@@ -1175,6 +1183,11 @@ LKS-Technik GmbH & Co. KG`
   async function deleteOrder() {
     if (!order) return
 
+    if (!canDeleteOrder(order.created_at)) {
+      alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
+      return
+    }
+
     if (!isAdmin) {
       alert('Nur Administratoren dürfen Bestellungen löschen.')
       return
@@ -1406,7 +1419,7 @@ LKS-Technik GmbH & Co. KG`
                 Stornieren
               </button>
 
-              {isAdmin && (
+              {isAdmin && canDeleteOrder(order.created_at, new Date(deleteCheckTime)) && (
                 <button
                   type="button"
                   className="danger"
