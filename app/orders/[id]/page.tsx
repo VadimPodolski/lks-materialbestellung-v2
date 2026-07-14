@@ -78,7 +78,7 @@ type Scrap = {
   created_at: string
 }
 
-type Supplier = { id: string; name: string; email: string; order_area: OrderArea }
+type Supplier = { id: string; name: string; email: string }
 type MasterData = { id: string; name: string; order_area: OrderArea }
 type SheetFormat = { id: string; name: string; width_mm: number; height_mm: number }
 type ReceiptDraft = { quantity: string; deliveryNote: string; notes: string }
@@ -185,7 +185,7 @@ export default function OrderDetailPage() {
         .eq('material_order_id', params.id)
         .order('created_at', { ascending: false }),
 
-      supabase.from('suppliers').select('id,name,email,order_area').order('name'),
+      supabase.from('suppliers').select('id,name,email').order('name'),
       supabase.from('customers').select('id,name,order_area').order('name'),
       supabase.from('materials').select('id,name,order_area').order('name'),
       supabase.from('cross_sections').select('id,name,order_area').order('name'),
@@ -201,7 +201,7 @@ export default function OrderDetailPage() {
     setReceipts(receiptData || [])
     setScraps((scrapData as any) || [])
     const area = normalizeOrderArea(loadedOrder?.order_area)
-    setSuppliers(((supplierData as Supplier[]) || []).filter(item => item.order_area === area))
+    setSuppliers((supplierData as Supplier[]) || [])
     setCustomers(((customerData as MasterData[]) || []).filter(item => item.order_area === area))
     setMaterials(((materialData as MasterData[]) || []).filter(item => item.order_area === area))
     setCrossSections(area === '2d-laser'
