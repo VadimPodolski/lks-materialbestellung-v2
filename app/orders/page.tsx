@@ -386,7 +386,7 @@ function OrdersContent() {
   }
 
   async function deleteOrder(order: Order) {
-    if (!canDeleteOrder(order.created_at)) {
+    if (!isAdmin && !canDeleteOrder(order.created_at)) {
       alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
       return
     }
@@ -879,7 +879,7 @@ function OrdersContent() {
                   )}
                 </td>
                 <td className="row-actions">
-                  {(isAdmin || orderStatus === 'offen') && canDeleteOrder(o.created_at, new Date(deleteCheckTime)) && (
+                  {(isAdmin || (orderStatus === 'offen' && canDeleteOrder(o.created_at, new Date(deleteCheckTime)))) && (
                     <button
                       type="button"
                       className="danger"
