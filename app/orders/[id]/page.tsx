@@ -17,6 +17,7 @@ import {
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
+import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
 
 type Order = {
   id: string
@@ -104,6 +105,7 @@ export default function OrderDetailPage() {
   const [materials, setMaterials] = useState<MasterData[]>([])
   const [crossSections, setCrossSections] = useState<MasterData[]>([])
   const [workPreparations, setWorkPreparations] = useState<MasterData[]>([])
+  const [packagingDefaults, setPackagingDefaults] = useState<Record<string, number>>({})
   const [isAdmin, setIsAdmin] = useState(false)
 
   const [editing, setEditing] = useState(false)
@@ -156,7 +158,8 @@ export default function OrderDetailPage() {
       { data: materialData },
       { data: crossData },
       { data: workPreparationData },
-      { data: formatData }
+      { data: formatData },
+      { data: packagingData }
     ] = await Promise.all([
       supabase
         .from('material_orders')
@@ -187,7 +190,8 @@ export default function OrderDetailPage() {
       supabase.from('materials').select('id,name,order_area').order('name'),
       supabase.from('cross_sections').select('id,name,order_area').order('name'),
       supabase.from('work_preparations').select('id,name,order_area').order('name'),
-      supabase.from('formats').select('id,name,width_mm,height_mm').order('width_mm', { ascending: false })
+      supabase.from('formats').select('id,name,width_mm,height_mm').order('width_mm', { ascending: false }),
+      supabase.from('packaging_defaults').select('lookup_key,material,cross_section,pieces_per_package,order_area')
     ])
 
     const loadedOrder = orderData as any
@@ -204,6 +208,10 @@ export default function OrderDetailPage() {
       ? ((formatData as SheetFormat[]) || []).map(format => ({ id: format.id, name: formatLabel(format), order_area: area }))
       : ((crossData as MasterData[]) || []).filter(item => item.order_area === area))
     setWorkPreparations(((workPreparationData as MasterData[]) || []).filter(item => item.order_area === area))
+    setPackagingDefaults(packagingDefaultsMap(
+      ((packagingData as (PackagingDefault & { order_area: string })[]) || [])
+        .filter(item => item.order_area === area)
+    ))
 
     const { data: userData } = await supabase.auth.getUser()
     const user = userData.user
@@ -376,10 +384,24 @@ export default function OrderDetailPage() {
 
       if (key === 'order_unit') {
         const orderUnit = value === 'paket' ? 'paket' : value === 'kg' ? 'kg' : 'stück'
-        return { ...item, order_unit: orderUnit, pieces_per_package: null }
+        return {
+          ...item,
+          order_unit: orderUnit,
+          pieces_per_package: orderUnit === 'paket'
+            ? packagingDefaults[packagingDefaultKey(order?.order_area || '2d-laser', item.material, item.cross_section)] || null
+            : null
+        }
       }
 
-      return { ...item, [key]: value }
+      const nextItem = { ...item, [key]: value }
+
+      if (order?.order_area === '2d-laser' && (key === 'material' || key === 'cross_section') && nextItem.order_unit === 'paket') {
+        nextItem.pieces_per_package = packagingDefaults[
+          packagingDefaultKey(order.order_area, nextItem.material, nextItem.cross_section)
+        ] || null
+      }
+
+      return nextItem
     }))
   }
 
@@ -665,6 +687,11 @@ LKS-Technik GmbH & Co. KG`
     )
 
     if (itemError) return setMsg(itemError.message)
+
+    const defaultRows = packagingDefaultRows(order.order_area, cleanItems)
+    if (defaultRows.length > 0) {
+      await supabase.from('packaging_defaults').upsert(defaultRows)
+    }
 
     await recalculateStatus(order.id, totalQuantity)
     setEditing(false)

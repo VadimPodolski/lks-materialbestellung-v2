@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { OrderItem, emptyOrderItem, mergeOrderItems, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
+import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
 
 type Supplier = { id: string; name: string }
 type Customer = { id: string; name: string }
@@ -31,6 +32,7 @@ export default function NewOrderPage() {
   const [materials, setMaterials] = useState<Material[]>([])
   const [crossSections, setCrossSections] = useState<CrossSection[]>([])
   const [workPreparations, setWorkPreparations] = useState<WorkPreparation[]>([])
+  const [packagingDefaults, setPackagingDefaults] = useState<Record<string, number>>({})
 
   const [form, setForm] = useState({
     order_number: 'AB-',
@@ -55,7 +57,7 @@ export default function NewOrderPage() {
   async function loadMasterData(area: OrderArea) {
     const supabase = createClient()
 
-    const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }, { data: workPreparationData }] =
+    const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }, { data: workPreparationData }, { data: packagingData }] =
       await Promise.all([
         supabase.from('suppliers').select('id,name').eq('order_area', area).order('name'),
         supabase.from('customers').select('id,name').eq('order_area', area).order('name'),
@@ -63,7 +65,10 @@ export default function NewOrderPage() {
         area === '2d-laser'
           ? supabase.from('formats').select('id,name,width_mm,height_mm').order('width_mm', { ascending: false })
           : supabase.from('cross_sections').select('id,name').eq('order_area', area).order('name'),
-        supabase.from('work_preparations').select('id,name').eq('order_area', area).order('name')
+        supabase.from('work_preparations').select('id,name').eq('order_area', area).order('name'),
+        area === '2d-laser'
+          ? supabase.from('packaging_defaults').select('lookup_key,material,cross_section,pieces_per_package').eq('order_area', area)
+          : Promise.resolve({ data: [] as PackagingDefault[] })
       ])
 
     const supplierList = supplierData || []
@@ -77,6 +82,8 @@ export default function NewOrderPage() {
     setMaterials(materialList)
     setCrossSections(crossSectionList)
     setWorkPreparations(workPreparationData || [])
+    const loadedPackagingDefaults = packagingDefaultsMap(packagingData as PackagingDefault[] | null)
+    setPackagingDefaults(loadedPackagingDefaults)
 
     const { data: tafelNumber } = area === '2d-laser'
       ? await supabase.rpc('peek_next_tafel_order_number')
@@ -104,6 +111,9 @@ export default function NewOrderPage() {
         ...item,
         material: item.material || material,
         cross_section: item.cross_section || crossSection,
+        pieces_per_package: area === '2d-laser'
+          ? loadedPackagingDefaults[packagingDefaultKey(area, item.material || material, item.cross_section || crossSection)] || null
+          : item.pieces_per_package,
         length_mm: area === '2d-laser' ? null : item.length_mm
       } : item)
     })
@@ -246,10 +256,24 @@ export default function NewOrderPage() {
 
       if (key === 'order_unit') {
         const orderUnit = value === 'paket' ? 'paket' : value === 'kg' ? 'kg' : 'stück'
-        return { ...item, order_unit: orderUnit, pieces_per_package: null }
+        return {
+          ...item,
+          order_unit: orderUnit,
+          pieces_per_package: orderUnit === 'paket'
+            ? packagingDefaults[packagingDefaultKey(orderArea, item.material, item.cross_section)] || null
+            : null
+        }
       }
 
-      return { ...item, [key]: value }
+      const nextItem = { ...item, [key]: value }
+
+      if (orderArea === '2d-laser' && (key === 'material' || key === 'cross_section') && nextItem.order_unit === 'paket') {
+        nextItem.pieces_per_package = packagingDefaults[
+          packagingDefaultKey(orderArea, nextItem.material, nextItem.cross_section)
+        ] || null
+      }
+
+      return nextItem
     }))
   }
 
@@ -412,6 +436,11 @@ export default function NewOrderPage() {
     )
 
     if (itemError) return setMsg(itemError.message)
+
+    const defaultRows = packagingDefaultRows(orderArea, cleanItems)
+    if (defaultRows.length > 0) {
+      await supabase.from('packaging_defaults').upsert(defaultRows)
+    }
 
     router.push(`/orders/${data.id}`)
   }
