@@ -7,7 +7,7 @@ import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import { OrderItem, normalizeOrderItems, orderItemAvText, orderItemQuantityText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
-import { newOrderHref, normalizeOrderArea, orderAreaLabel } from '@/lib/orderAreas'
+import { newOrderHref, normalizeOrderArea, orderAreaLabel, ordersHref } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
 
 type Order = {
@@ -587,7 +587,13 @@ function OrdersContent() {
     <main className="container wide">
       <div className="orders-page-heading">
         <div>
-          <span className="order-area-badge">{orderAreaLabel(orderArea)}</span>
+          <a
+            className="order-area-badge order-area-switch"
+            href={ordersHref(orderArea === '2d-laser' ? 'rohrlaser' : '2d-laser')}
+            title={`Zu ${orderAreaLabel(orderArea === '2d-laser' ? 'rohrlaser' : '2d-laser')} wechseln`}
+          >
+            {orderAreaLabel(orderArea)}
+          </a>
           <h1>Bestellungen</h1>
           <p className="small">Admin: {isAdmin ? 'JA' : 'NEIN'}</p>
           <p className="small">{LOGIN_DISABLED ? currentUserEmail : `Eingeloggt als: ${currentUserEmail || 'nicht erkannt'}`}</p>
