@@ -99,16 +99,14 @@ export default function NewOrderPage() {
     const lastSupplier = localStorage.getItem(`${area}_last_supplier_id`)
     const lastMaterial = localStorage.getItem(`${area}_last_material`)
     const lastCrossSection = localStorage.getItem(`${area}_last_cross_section`)
-    const preferred2DSupplier = area === '2d-laser'
-      ? supplierList.find(isUllnerSupplier)
-      : null
+    const preferredUllnerSupplier = supplierList.find(isUllnerSupplier)
 
     setForm(prev => ({
       ...prev,
       order_number: area === '2d-laser' && tafelNumber ? tafelNumber : prev.order_number,
       customer: area === '2d-laser' ? '2D-Laser' : prev.customer,
       customer_delivery_date: area === '2d-laser' ? '' : prev.customer_delivery_date,
-      supplier_id: preferred2DSupplier?.id || (
+      supplier_id: preferredUllnerSupplier?.id || (
         lastSupplier && supplierList.some(s => s.id === lastSupplier)
           ? lastSupplier
           : prev.supplier_id || supplierList[0]?.id || ''
