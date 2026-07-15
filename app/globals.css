@@ -247,10 +247,17 @@ a {
 }
 
 .nav-left,
-.nav-right {
+.nav-right,
+.nav-center {
   display: flex;
   align-items: center;
   gap: 20px;
+}
+
+.nav-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .main-nav a,
@@ -633,9 +640,18 @@ a.card:hover {
   }
 
   .nav-left,
-  .nav-right {
+  .nav-right,
+  .nav-center {
     flex-wrap: wrap;
     gap: 14px;
+  }
+
+  .nav-center {
+    position: static;
+    transform: none;
+    justify-content: center;
+    order: -1;
+    width: 100%;
   }
 
   table {
