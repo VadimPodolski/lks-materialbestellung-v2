@@ -884,10 +884,17 @@ a.card:hover {
 .orders-col-positions { width: 13%; }
 .orders-col-av { width: 4%; }
 .orders-col-qty { width: 4%; }
+.orders-col-price { width: 7%; }
 .orders-col-supplier { width: 8%; }
 .orders-col-person { width: 8%; }
 .orders-col-pdf { width: 4%; }
 .orders-col-action { width: 4%; }
+
+.order-total-price {
+  white-space: nowrap;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
 
 .table-person-cell {
   display: grid;

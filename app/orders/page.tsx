@@ -57,6 +57,7 @@ type SortKey =
   | 'delivered'
   | 'open'
   | 'scrap'
+  | 'total_price'
   | 'supplier'
   | 'desired_delivery_date'
   | 'created_at'
@@ -81,6 +82,25 @@ function formatMeters(value: number) {
 
 function formatEuro(value: number) {
   return value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' })
+}
+
+function orderTotalPrice(items: OrderItem[]) {
+  let hasPrice = false
+  const total = items.reduce((sum, item) => {
+    if (item.line_total_eur != null) {
+      hasPrice = true
+      return sum + Number(item.line_total_eur)
+    }
+
+    if (item.unit_price_eur != null && item.price_quantity != null) {
+      hasPrice = true
+      return sum + Number(item.unit_price_eur) * Number(item.price_quantity)
+    }
+
+    return sum
+  }, 0)
+
+  return hasPrice ? total : null
 }
 
 function OrdersContent() {
@@ -345,6 +365,8 @@ function OrdersContent() {
         return openQty(order)
       case 'scrap':
         return scrapQty(order)
+      case 'total_price':
+        return orderTotalPrice(items)
       case 'supplier':
         return order.suppliers?.name || ''
       case 'desired_delivery_date':
@@ -889,6 +911,7 @@ function OrdersContent() {
             {orderArea === 'rohrlaser' && <option value="customer_delivery_date">K-Liefertermin</option>}
             <option value="material">Material</option>
             {orderArea === '2d-laser' && <option value="material_thickness">Materialstärke</option>}
+            <option value="total_price">Gesamtsumme</option>
             <option value="supplier">Lieferant</option>
             <option value="desired_delivery_date">Liefertermin</option>
             <option value="created_at">Erstellt am</option>
@@ -901,16 +924,16 @@ function OrdersContent() {
         <colgroup>
           <col className="orders-col-status" />
           <col className="orders-col-order" />
-          {orderArea === 'rohrlaser' && <col className="orders-col-customer" />}
-          {orderArea === 'rohrlaser' && <col className="orders-col-date" />}
           <col className="orders-col-material" />
           {orderArea === '2d-laser' && <col className="orders-col-material" />}
           <col className="orders-col-positions" />
           {orderArea === 'rohrlaser' && <col className="orders-col-av" />}
+          {orderArea === 'rohrlaser' && <col className="orders-col-customer" />}
           <col className="orders-col-qty" />
           <col className="orders-col-qty" />
           <col className="orders-col-qty" />
-          <col className="orders-col-qty" />
+          {orderArea === 'rohrlaser' && <col className="orders-col-date" />}
+          <col className="orders-col-price" />
           <col className="orders-col-supplier" />
           <col className="orders-col-date" />
           <col className="orders-col-person" />
@@ -922,16 +945,16 @@ function OrdersContent() {
           <tr>
             <th>{sortButton('status', 'Status')}</th>
             <th>{sortButton('order_number', 'Auftrag')}</th>
-            {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
-            {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
             <th>{sortButton('material', 'Material')}</th>
             {orderArea === '2d-laser' && <th>{sortButton('material_thickness', 'Materialstärke')}</th>}
             <th>{sortButton('positions', 'Positionen')}</th>
             {orderArea === 'rohrlaser' && <th>AV</th>}
-            <th>{sortButton('quantity', 'Menge')}</th>
+            {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
+            <th>{sortButton('quantity', 'Gesamtmenge')}</th>
             <th>{sortButton('delivered', 'Geliefert')}</th>
-            <th>{sortButton('open', 'Offen')}</th>
             <th>{sortButton('scrap', 'Ausschuss')}</th>
+            {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
+            <th>{sortButton('total_price', 'Gesamtsumme')}</th>
             <th>{sortButton('supplier', 'Lieferant')}</th>
             <th>{sortButton('desired_delivery_date', 'Liefertermin')}</th>
             <th>{sortButton('created_by', 'Erstellt von')}</th>
@@ -946,7 +969,7 @@ function OrdersContent() {
             const orderItems = normalizeOrderItems(o)
             const delivered = deliveredQty(o)
             const scrap = scrapQty(o)
-            const open = openQty(o)
+            const totalPrice = orderTotalPrice(orderItems)
             const orderStatus = visibleStatus(o)
             const pdf = o.order_pdfs?.[0]
             const pdfUrl = pdf?.file_url || o.supplier_order_pdf_url
@@ -999,8 +1022,6 @@ function OrdersContent() {
                 <td>
                   <b>{o.order_number}</b>
                 </td>
-                {orderArea === 'rohrlaser' && <td>{o.customer}</td>}
-                {orderArea === 'rohrlaser' && <td>{formatDateShort(o.customer_delivery_date)}</td>}
                 <td className="order-positions-cell">
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (
@@ -1050,6 +1071,7 @@ function OrdersContent() {
                     )}
                   </div>
                 </td>}
+                {orderArea === 'rohrlaser' && <td>{o.customer}</td>}
                 <td>{o.quantity}</td>
                <td
   className={
@@ -1063,13 +1085,11 @@ function OrdersContent() {
   {delivered}
 </td>
 
-<td className={open === 0 ? 'qty-open complete' : 'qty-open open'}>
-  {open}
-</td>
-
 <td className="qty-scrap">
   {scrap}
 </td>
+                {orderArea === 'rohrlaser' && <td>{formatDateShort(o.customer_delivery_date)}</td>}
+                <td className="order-total-price">{totalPrice == null ? '-' : formatEuro(totalPrice)}</td>
                 <td>{o.suppliers?.name || '-'}</td>
                 <td>{formatDateShort(o.desired_delivery_date)}</td>
                 <td>
