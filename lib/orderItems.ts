@@ -11,6 +11,10 @@ export type OrderItem = {
   quantity: number
   order_unit?: 'stück' | 'paket' | 'kg' | null
   pieces_per_package?: number | null
+  price_quantity?: number | null
+  price_unit?: string | null
+  unit_price_eur?: number | null
+  line_total_eur?: number | null
   position?: number | null
 }
 
@@ -26,7 +30,7 @@ export type LegacyOrderFields = {
   order_items?: OrderItem[] | null
 }
 
-export const orderItemsSelect = 'id,material,material_thickness_mm,cross_section,av_1,av_2,av_3,av_4,length_mm,quantity,order_unit,pieces_per_package,position'
+export const orderItemsSelect = 'id,material,material_thickness_mm,cross_section,av_1,av_2,av_3,av_4,length_mm,quantity,order_unit,pieces_per_package,price_quantity,price_unit,unit_price_eur,line_total_eur,position'
 
 export function emptyOrderItem(): OrderItem {
   return {
@@ -85,6 +89,10 @@ export function mergeOrderItems(items: OrderItem[]) {
     const quantity = Number(item.quantity || 0)
     const orderUnit = item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück'
     const piecesPerPackage = orderUnit === 'paket' ? Number(item.pieces_per_package || 0) : null
+    const priceQuantity = item.price_quantity == null ? null : Number(item.price_quantity)
+    const priceUnit = (item.price_unit || '').trim() || null
+    const unitPriceEur = item.unit_price_eur == null ? null : Number(item.unit_price_eur)
+    const lineTotalEur = item.line_total_eur == null ? null : Number(item.line_total_eur)
     const key = [
       material.toLowerCase(),
       materialThicknessMm ?? '',
@@ -95,7 +103,11 @@ export function mergeOrderItems(items: OrderItem[]) {
       av4.toLowerCase(),
       lengthMm ?? '',
       orderUnit,
-      piecesPerPackage ?? ''
+      piecesPerPackage ?? '',
+      priceQuantity ?? '',
+      priceUnit ?? '',
+      unitPriceEur ?? '',
+      lineTotalEur ?? ''
     ].join('|')
     const existing = merged.get(key)
 
@@ -116,7 +128,11 @@ export function mergeOrderItems(items: OrderItem[]) {
       length_mm: lengthMm,
       quantity,
       order_unit: orderUnit,
-      pieces_per_package: piecesPerPackage
+      pieces_per_package: piecesPerPackage,
+      price_quantity: priceQuantity,
+      price_unit: priceUnit,
+      unit_price_eur: unitPriceEur,
+      line_total_eur: lineTotalEur
     })
   }
 

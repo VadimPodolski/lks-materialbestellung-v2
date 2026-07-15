@@ -97,6 +97,21 @@ function customFormatValue(value: string) {
   return value.replace(/^(?:Eigenes Format|Sonderformat):\s*/i, '')
 }
 
+function formatEuro(value: number | null | undefined, maximumFractionDigits = 2) {
+  if (value == null) return '-'
+
+  return `${new Intl.NumberFormat('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits
+  }).format(Number(value))} €`
+}
+
+function formatPriceQuantity(value: number | null | undefined, unit: string | null | undefined) {
+  if (value == null || !unit) return ''
+
+  return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(Number(value))} ${unit}`
+}
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -139,6 +154,7 @@ export default function OrderDetailPage() {
 
   const [isPdfDragging, setIsPdfDragging] = useState(false)
   const [isPdfUploading, setIsPdfUploading] = useState(false)
+  const [extractingPricePdfId, setExtractingPricePdfId] = useState('')
   const [showDetailStatusMenu, setShowDetailStatusMenu] = useState(false)
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
   const [msg, setMsg] = useState('')
@@ -717,6 +733,10 @@ LKS-Technik GmbH & Co. KG`
         quantity: item.quantity,
         order_unit: twoDLaser ? (item.order_unit || 'paket') : 'stück',
         pieces_per_package: twoDLaser && item.order_unit === 'paket' ? item.pieces_per_package : null,
+        price_quantity: item.price_quantity,
+        price_unit: item.price_unit,
+        unit_price_eur: item.unit_price_eur,
+        line_total_eur: item.line_total_eur,
         position: index + 1
       }))
     )
@@ -1178,6 +1198,81 @@ LKS-Technik GmbH & Co. KG`
     setMsg('AB-PDF wurde gelöscht.')
   }
 
+  async function applyUllnerPrices(pdfFile: OrderPdf) {
+    if (!order) return
+
+    setExtractingPricePdfId(pdfFile.id)
+    setMsg('Ullner-Auftragsbestätigung wird ausgewertet...')
+
+    try {
+      const response = await fetch(`/api/orders/${order.id}/extract-ullner-prices`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileUrl: pdfFile.file_url,
+          orderNumber: order.order_number
+        })
+      })
+      const result = await response.json()
+
+      if (!response.ok) {
+        setMsg(result.error || 'Positionspreise konnten nicht ausgelesen werden.')
+        return
+      }
+
+      const extractedPositions = (result.positions || []) as {
+        position: number
+        priceQuantity: number
+        priceUnit: string
+        unitPriceEur: number
+        lineTotalEur: number
+      }[]
+      const updates = extractedPositions.map(price => {
+        const item = orderItems.find((candidate, index) => (
+          Number(candidate.position || index + 1) === Number(price.position)
+        ))
+
+        return { price, item }
+      })
+      const unmatched = updates.filter(update => !update.item?.id)
+
+      if (unmatched.length > 0 || updates.length !== orderItems.length) {
+        setMsg('Die PDF-Positionen passen nicht eindeutig zu den Auftragspositionen. Es wurden keine Preise gespeichert.')
+        return
+      }
+
+      const supabase = createClient()
+      const updateResults = await Promise.all(updates.map(({ price, item }) => (
+        supabase
+          .from('order_items')
+          .update({
+            price_quantity: price.priceQuantity,
+            price_unit: price.priceUnit,
+            unit_price_eur: price.unitPriceEur,
+            line_total_eur: price.lineTotalEur
+          })
+          .eq('id', item!.id!)
+          .eq('material_order_id', order.id)
+      )))
+      const updateError = updateResults.find(update => update.error)?.error
+
+      if (updateError) {
+        setMsg(updateError.message)
+        return
+      }
+
+      await load()
+      setMsg(
+        `${updates.length} Positionspreis${updates.length === 1 ? '' : 'e'} aus ` +
+        `${result.confirmationNumber ? `KAB ${result.confirmationNumber}` : pdfFile.file_name} übernommen.`
+      )
+    } catch (error: any) {
+      setMsg(error.message || 'Ullner-Auftragsbestätigung konnte nicht ausgewertet werden.')
+    } finally {
+      setExtractingPricePdfId('')
+    }
+  }
+
   function handlePdfDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault()
     setIsPdfDragging(false)
@@ -1305,6 +1400,7 @@ LKS-Technik GmbH & Co. KG`
   }
 
   const isTwoDLaser = normalizeOrderArea(order.order_area) === '2d-laser'
+  const isUllnerOrder = order.suppliers?.name.toLocaleLowerCase('de-DE').includes('ullner') || false
   const canDeletePdfs = isAdminUser || canDeleteOrder(order.created_at, new Date(deleteCheckTime))
 
   return (
@@ -1386,6 +1482,8 @@ LKS-Technik GmbH & Co. KG`
                     {!isTwoDLaser && <th>AV</th>}
                     {!isTwoDLaser && <th>Länge</th>}
                     <th>{isTwoDLaser ? 'Menge' : 'Stückzahl'}</th>
+                    {!isTwoDLaser && <th>Preis</th>}
+                    {!isTwoDLaser && <th>Betrag</th>}
                     {isTwoDLaser && <th>Einheit</th>}
                     {isTwoDLaser && <th>Stück/Paket</th>}
                     <th>Geliefert</th>
@@ -1411,6 +1509,17 @@ LKS-Technik GmbH & Co. KG`
                         {!isTwoDLaser && <td>{orderItemAvText(item) || '-'}</td>}
                         {!isTwoDLaser && <td>{item.length_mm || '-'} mm</td>}
                         <td>{item.quantity}</td>
+                        {!isTwoDLaser && (
+                          <td className="order-position-price">
+                            {item.unit_price_eur == null ? '-' : (
+                              <>
+                                <strong>{formatEuro(item.unit_price_eur, 4)} / {item.price_unit || 'Einheit'}</strong>
+                                <small>{formatPriceQuantity(item.price_quantity, item.price_unit)}</small>
+                              </>
+                            )}
+                          </td>
+                        )}
+                        {!isTwoDLaser && <td><strong>{formatEuro(item.line_total_eur)}</strong></td>}
                         {isTwoDLaser && <td>{item.order_unit === 'paket' ? 'Paket' : item.order_unit === 'kg' ? 'kg' : 'Stück'}</td>}
                         {isTwoDLaser && <td>{item.order_unit === 'paket' ? item.pieces_per_package || '-' : '-'}</td>}
                         <td className={receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}>
@@ -1568,6 +1677,16 @@ LKS-Technik GmbH & Co. KG`
                         </span>
                         <span>{pdf.file_name}</span>
                       </a>
+                      {isUllnerOrder && (
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={Boolean(extractingPricePdfId)}
+                          onClick={() => applyUllnerPrices(pdf)}
+                        >
+                          {extractingPricePdfId === pdf.id ? 'Preise werden gelesen...' : 'Preise übernehmen'}
+                        </button>
+                      )}
                       {canDeletePdfs && (
                         <button type="button" className="danger" onClick={() => deleteSupplierOrderPdf(pdf)}>
                           PDF löschen

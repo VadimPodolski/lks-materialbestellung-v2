@@ -1813,6 +1813,21 @@ table td {
   width: 100%;
 }
 
+.order-position-price {
+  min-width: 125px;
+}
+
+.order-position-price strong,
+.order-position-price small {
+  display: block;
+}
+
+.order-position-price small {
+  margin-top: 3px;
+  color: #64748b;
+  white-space: nowrap;
+}
+
 .pdf-preview {
   display: grid;
   gap: 10px;
