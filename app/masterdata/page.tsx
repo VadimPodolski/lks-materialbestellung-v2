@@ -308,7 +308,7 @@ function MasterDataContent() {
   }, [materialThicknesses, q])
 
   return (
-    <main className="container">
+    <main className="container masterdata-page">
       <button type="button" className="secondary" onClick={() => router.push(ordersHref(orderArea))}>
         Zurück
       </button>

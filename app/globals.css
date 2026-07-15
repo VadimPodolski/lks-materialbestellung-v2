@@ -335,6 +335,15 @@ a {
   align-items: center;
 }
 
+.masterdata-page table:has(td.actions) th:last-child {
+  text-align: right !important;
+}
+
+.masterdata-page td.actions {
+  justify-content: flex-end;
+  text-align: right !important;
+}
+
 /* Forms */
 label {
   display: block;
