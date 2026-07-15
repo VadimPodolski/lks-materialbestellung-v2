@@ -65,6 +65,7 @@ type SortKey =
 
 type SortDirection = 'asc' | 'desc'
 type SortMode = 'latest_order' | SortKey
+type TubeStatisticsSortKey = 'material' | 'crossSection' | 'pieces' | 'orders'
 type ActiveStatusMenu = { orderId: string; top: number; left: number; placement: 'top' | 'bottom' }
 
 function formatSortValue(value: string) {
@@ -90,6 +91,10 @@ function OrdersContent() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
   const [showTubeStatistics, setShowTubeStatistics] = useState(false)
+  const [tubeStatisticsSearch, setTubeStatisticsSearch] = useState('')
+  const [tubeStatisticsMaterial, setTubeStatisticsMaterial] = useState('')
+  const [tubeStatisticsSortKey, setTubeStatisticsSortKey] = useState<TubeStatisticsSortKey>('pieces')
+  const [tubeStatisticsSortDirection, setTubeStatisticsSortDirection] = useState<SortDirection>('desc')
   const [activeStatusMenu, setActiveStatusMenu] = useState<ActiveStatusMenu | null>(null)
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null)
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
@@ -610,6 +615,67 @@ function OrdersContent() {
     }
   }, [orders, orderArea, loadedOrderArea])
 
+  const tubeStatisticsMaterials = useMemo(() => (
+    Array.from(new Set(tubeStatistics.rows.map(row => row.material))).sort((a, b) => (
+      a.localeCompare(b, 'de-DE', { numeric: true, sensitivity: 'base' })
+    ))
+  ), [tubeStatistics.rows])
+
+  const visibleTubeStatistics = useMemo(() => {
+    const search = tubeStatisticsSearch.trim().toLocaleLowerCase('de-DE')
+    const rows = tubeStatistics.rows
+      .filter(row => !tubeStatisticsMaterial || row.material === tubeStatisticsMaterial)
+      .filter(row => !search || `${row.material} ${row.crossSection}`.toLocaleLowerCase('de-DE').includes(search))
+      .sort((a, b) => {
+        const direction = tubeStatisticsSortDirection === 'asc' ? 1 : -1
+
+        if (tubeStatisticsSortKey === 'pieces') return (a.pieces - b.pieces) * direction
+        if (tubeStatisticsSortKey === 'orders') return (a.orderIds.size - b.orderIds.size) * direction
+
+        const aValue = tubeStatisticsSortKey === 'material' ? a.material : a.crossSection
+        const bValue = tubeStatisticsSortKey === 'material' ? b.material : b.crossSection
+        return aValue.localeCompare(bValue, 'de-DE', { numeric: true, sensitivity: 'base' }) * direction
+      })
+    const orderIds = new Set<string>()
+
+    for (const row of rows) {
+      for (const orderId of row.orderIds) orderIds.add(orderId)
+    }
+
+    return {
+      rows,
+      totalPieces: rows.reduce((sum, row) => sum + row.pieces, 0),
+      orderCount: orderIds.size
+    }
+  }, [tubeStatistics, tubeStatisticsSearch, tubeStatisticsMaterial, tubeStatisticsSortKey, tubeStatisticsSortDirection])
+
+  function toggleTubeStatisticsSort(key: TubeStatisticsSortKey) {
+    if (tubeStatisticsSortKey === key) {
+      setTubeStatisticsSortDirection(current => current === 'asc' ? 'desc' : 'asc')
+      return
+    }
+
+    setTubeStatisticsSortKey(key)
+    setTubeStatisticsSortDirection(key === 'pieces' || key === 'orders' ? 'desc' : 'asc')
+  }
+
+  function tubeStatisticsSortButton(key: TubeStatisticsSortKey, label: string) {
+    const active = tubeStatisticsSortKey === key
+
+    return (
+      <button
+        type="button"
+        className={`tube-statistics-sort${active ? ' active' : ''}`}
+        onClick={() => toggleTubeStatisticsSort(key)}
+      >
+        <span>{label}</span>
+        <span className="tube-statistics-sort-arrow" aria-hidden="true">
+          {active ? (tubeStatisticsSortDirection === 'asc' ? '↑' : '↓') : '↕'}
+        </span>
+      </button>
+    )
+  }
+
   function orderBaseNumber(orderNumber: string) {
     return orderNumber.replace(/(?:-NB)+$/, '')
   }
@@ -1031,36 +1097,62 @@ function OrdersContent() {
               </button>
             </header>
 
+            <div className="tube-statistics-controls">
+              <div>
+                <label htmlFor="tube-statistics-search">Suche</label>
+                <input
+                  id="tube-statistics-search"
+                  type="search"
+                  value={tubeStatisticsSearch}
+                  onChange={event => setTubeStatisticsSearch(event.target.value)}
+                  placeholder="Material oder Querschnitt suchen..."
+                />
+              </div>
+              <div>
+                <label htmlFor="tube-statistics-material">Filter</label>
+                <select
+                  id="tube-statistics-material"
+                  value={tubeStatisticsMaterial}
+                  onChange={event => setTubeStatisticsMaterial(event.target.value)}
+                >
+                  <option value="">Alle Materialien</option>
+                  {tubeStatisticsMaterials.map(material => (
+                    <option key={material} value={material}>{material}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="tube-statistics-totals">
               <div>
-                <span>Varianten</span>
-                <strong>{tubeStatistics.rows.length.toLocaleString('de-DE')}</strong>
+                <span>Gefundene Varianten</span>
+                <strong>{visibleTubeStatistics.rows.length.toLocaleString('de-DE')}</strong>
               </div>
               <div>
                 <span>Stück gesamt</span>
-                <strong>{tubeStatistics.totalPieces.toLocaleString('de-DE')}</strong>
+                <strong>{visibleTubeStatistics.totalPieces.toLocaleString('de-DE')}</strong>
               </div>
               <div>
                 <span>Aufträge</span>
-                <strong>{tubeStatistics.orderCount.toLocaleString('de-DE')}</strong>
+                <strong>{visibleTubeStatistics.orderCount.toLocaleString('de-DE')}</strong>
               </div>
             </div>
 
             <div className="tube-statistics-table-shell">
               {loadedOrderArea !== orderArea ? (
                 <p className="small">Statistik wird geladen...</p>
-              ) : tubeStatistics.rows.length > 0 ? (
+              ) : visibleTubeStatistics.rows.length > 0 ? (
                 <table className="tube-statistics-table">
                   <thead>
                     <tr>
-                      <th>Material</th>
-                      <th>Querschnitt</th>
-                      <th className="number">Stück</th>
-                      <th className="number">Aufträge</th>
+                      <th>{tubeStatisticsSortButton('material', 'Material')}</th>
+                      <th>{tubeStatisticsSortButton('crossSection', 'Querschnitt')}</th>
+                      <th className="number">{tubeStatisticsSortButton('pieces', 'Stück')}</th>
+                      <th className="number">{tubeStatisticsSortButton('orders', 'Aufträge')}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {tubeStatistics.rows.map(row => (
+                    {visibleTubeStatistics.rows.map(row => (
                       <tr key={`${row.material}|${row.crossSection}`}>
                         <td><strong>{row.material}</strong></td>
                         <td>{row.crossSection}</td>
@@ -1071,7 +1163,11 @@ function OrdersContent() {
                   </tbody>
                 </table>
               ) : (
-                <div className="tube-statistics-empty">Noch keine Rohrlaser-Bestellungen vorhanden.</div>
+                <div className="tube-statistics-empty">
+                  {tubeStatistics.rows.length > 0
+                    ? 'Keine passenden Einträge gefunden.'
+                    : 'Noch keine Rohrlaser-Bestellungen vorhanden.'}
+                </div>
               )}
             </div>
           </section>
