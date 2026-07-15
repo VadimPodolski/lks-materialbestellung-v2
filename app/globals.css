@@ -198,11 +198,11 @@ a {
 .header {
   background: #17202a;
   color: white;
-  padding: 10px 22px;
+  padding: 16px 22px;
   display: flex;
   align-items: center;
   gap: 28px;
-  min-height: 56px;
+  min-height: 78px;
   position: sticky;
   top: 0;
   z-index: 1000;
