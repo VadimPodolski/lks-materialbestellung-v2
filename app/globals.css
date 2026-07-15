@@ -1260,7 +1260,7 @@ a.card:hover {
 }
 
 .tube-statistics-modal {
-  width: min(900px, 94vw);
+  width: min(1280px, 96vw);
   max-height: calc(100vh - 88px);
   padding: 0;
   overflow: hidden;
@@ -1308,7 +1308,7 @@ button.tube-statistics-close {
 
 .tube-statistics-totals {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   padding: 0 26px 18px;
   background: #f8fafc;
@@ -1374,7 +1374,7 @@ button.tube-statistics-close {
 }
 
 .tube-statistics-table .number {
-  width: 120px;
+  min-width: 130px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
