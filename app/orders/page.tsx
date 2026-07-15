@@ -90,6 +90,7 @@ function OrdersContent() {
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
   const statusMenuCloseTimer = useRef<number | null>(null)
   const loadRequestId = useRef(0)
+  const ordersByAreaCache = useRef<Partial<Record<OrderArea, Order[]>>>({})
 
   useEffect(() => {
     setStatus(searchParams.get('status') || '')
@@ -97,6 +98,12 @@ function OrdersContent() {
   }, [searchParams])
 
   useEffect(() => {
+    const cachedOrders = ordersByAreaCache.current[orderArea]
+    if (cachedOrders) {
+      setOrders(cachedOrders)
+      setLoadedOrderArea(orderArea)
+    }
+
     const requestId = ++loadRequestId.current
     setActiveStatusMenu(null)
     load(orderArea, requestId)
@@ -160,35 +167,16 @@ function OrdersContent() {
   async function load(area: OrderArea, requestId: number) {
     const supabase = createClient()
 
-    const { data: sessionData } = await supabase.auth.getSession()
     const { data: userData } = await supabase.auth.getUser()
 
-    const user = userData.user || sessionData.session?.user || null
+    const user = userData.user || null
     const email = user?.email?.toLowerCase() || ''
-
-    if (!LOGIN_DISABLED && user) {
-      await ensureCurrentUserProfile(supabase)
-    }
 
     let admin = !LOGIN_DISABLED && email === 'v.podolski@lks-technik.de'
 
     if (!LOGIN_DISABLED && user) {
-      const { data: profileById } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      const { data: profileByEmail } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('email', email)
-        .maybeSingle()
-
-      admin =
-        admin ||
-        profileById?.role === 'admin' ||
-        profileByEmail?.role === 'admin'
+      const profile = await ensureCurrentUserProfile(supabase, user)
+      admin = admin || profile?.role === 'admin'
     }
 
     const ordersSelect = `
@@ -261,6 +249,7 @@ function OrdersContent() {
 
     if (requestId !== loadRequestId.current) return
 
+    ordersByAreaCache.current[area] = nextOrders
     setIsAdmin(admin)
     setOrders(nextOrders)
     setProfiles(profileData || [])
@@ -429,7 +418,7 @@ function OrdersContent() {
     const update: Record<string, string | null> = { status: nextStatus }
 
     if (nextStatus === 'bestellt' && !order.ordered_at) {
-      await ensureCurrentUserProfile(supabase)
+      await ensureCurrentUserProfile(supabase, userData.user)
       update.ordered_at = new Date().toISOString()
       update.ordered_by = userData.user?.id || null
     }

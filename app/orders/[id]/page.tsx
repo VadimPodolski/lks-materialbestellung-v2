@@ -226,24 +226,8 @@ export default function OrderDetailPage() {
     const user = userData.user
 
     if (user) {
-      await ensureCurrentUserProfile(supabase)
-
-      const { data: profileById } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      const { data: profileByEmail } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('email', user.email)
-        .maybeSingle()
-
-      setIsAdmin(
-        profileById?.role === 'admin' ||
-        profileByEmail?.role === 'admin'
-      )
+      const profile = await ensureCurrentUserProfile(supabase, user)
+      setIsAdmin(profile?.role === 'admin')
     } else {
       setIsAdmin(false)
     }
@@ -738,7 +722,7 @@ LKS-Technik GmbH & Co. KG`
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
-    await ensureCurrentUserProfile(supabase)
+    await ensureCurrentUserProfile(supabase, userData.user)
 
     await supabase
       .from('material_orders')
@@ -761,7 +745,7 @@ LKS-Technik GmbH & Co. KG`
     const update: Record<string, string | null> = { status: nextStatus }
 
     if (nextStatus === 'bestellt' && !order.ordered_at) {
-      await ensureCurrentUserProfile(supabase)
+      await ensureCurrentUserProfile(supabase, userData.user)
       update.ordered_at = new Date().toISOString()
       update.ordered_by = userData.user?.id || null
     }
@@ -863,7 +847,7 @@ LKS-Technik GmbH & Co. KG`
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
-    await ensureCurrentUserProfile(supabase)
+    await ensureCurrentUserProfile(supabase, userData.user)
 
     const { error } = await supabase.from('scrap_items').insert(
       entries.map(({ item, draft, qty }) => ({
@@ -940,7 +924,7 @@ LKS-Technik GmbH & Co. KG`
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
-    await ensureCurrentUserProfile(supabase)
+    await ensureCurrentUserProfile(supabase, userData.user)
     const orderedBy = await currentUserDisplayName()
 
     const { data, error } = await supabase

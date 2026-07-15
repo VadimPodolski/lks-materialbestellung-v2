@@ -406,7 +406,7 @@ export default function NewOrderPage() {
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
-    await ensureCurrentUserProfile(supabase)
+    await ensureCurrentUserProfile(supabase, userData.user)
 
     let orderNumber = form.order_number
 

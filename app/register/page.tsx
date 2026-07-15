@@ -48,7 +48,7 @@ export default function RegisterPage() {
     }
 
     if (data.session) {
-      await ensureCurrentUserProfile(supabase)
+      await ensureCurrentUserProfile(supabase, data.user)
       router.push('/orders')
       router.refresh()
       return

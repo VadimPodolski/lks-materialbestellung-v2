@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
+import { ensureCurrentUserProfile } from '@/lib/profiles'
 
 type Customer = { id:string; name:string; contact_person:string|null; email:string|null; phone:string|null; notes:string|null }
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
@@ -55,7 +56,6 @@ function MasterDataContent() {
     const supabase = createClient()
 
     const [
-      { data: sessionData },
       { data: userData },
       {data:c},
       {data:s},
@@ -65,7 +65,6 @@ function MasterDataContent() {
       {data:f},
       {data:mt}
     ] = await Promise.all([
-      supabase.auth.getSession(),
       supabase.auth.getUser(),
       supabase.from('customers').select('*').eq('order_area', orderArea).order('name'),
       supabase.from('suppliers').select('*').order('name'),
@@ -76,27 +75,13 @@ function MasterDataContent() {
       supabase.from('material_thicknesses').select('id,material,thickness_mm').eq('order_area', '2d-laser').order('material').order('thickness_mm')
     ])
 
-    const user = userData.user || sessionData.session?.user || null
+    const user = userData.user || null
     const email = user?.email?.toLowerCase() || ''
     let admin = !LOGIN_DISABLED && email === 'v.podolski@lks-technik.de'
 
     if (!LOGIN_DISABLED && user) {
-      const { data: profileById } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      const { data: profileByEmail } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('email', email)
-        .maybeSingle()
-
-      admin =
-        admin ||
-        profileById?.role === 'admin' ||
-        profileByEmail?.role === 'admin'
+      const profile = await ensureCurrentUserProfile(supabase, user)
+      admin = admin || profile?.role === 'admin'
     }
 
     setIsAdmin(admin)

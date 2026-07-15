@@ -1,6 +1,5 @@
-export async function ensureCurrentUserProfile(supabase: any) {
-  const { data: userData } = await supabase.auth.getUser()
-  const user = userData.user
+export async function ensureCurrentUserProfile(supabase: any, currentUser?: any) {
+  const user = currentUser || (await supabase.auth.getUser()).data.user
 
   if (!user?.id) return null
 

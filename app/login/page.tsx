@@ -19,7 +19,7 @@ export default function LoginPage() {
 
     const supabase = createClient()
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
@@ -29,7 +29,7 @@ export default function LoginPage() {
       return
     }
 
-    await ensureCurrentUserProfile(supabase)
+    await ensureCurrentUserProfile(supabase, data.user)
 
     router.push('/')
     router.refresh()
