@@ -825,15 +825,15 @@ a.card:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   background: #16a34a;
   color: white;
-  font-size: 10px;
+  font-size: 7px;
   font-weight: 700;
   line-height: 1;
-  box-shadow: 0 0 0 2px #dff3e5;
+  box-shadow: 0 0 0 1px #dff3e5;
   vertical-align: middle;
 }
 
@@ -844,7 +844,7 @@ a.card:hover {
 .av-lines {
   display: grid;
   justify-items: center;
-  gap: 5px;
+  gap: 3px;
 }
 
 .av-empty-line {
