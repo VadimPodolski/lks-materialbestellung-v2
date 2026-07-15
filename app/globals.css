@@ -236,6 +236,75 @@ a {
   transform: translateX(-50%);
 }
 
+.order-area-switch {
+  --switch-color: #2563eb;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(108px, 1fr));
+  gap: 0;
+  padding: 3px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .13);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .07);
+  isolation: isolate;
+}
+
+.order-area-switch.is-2d-laser {
+  --switch-color: #ea580c;
+}
+
+.order-area-slider {
+  position: absolute;
+  z-index: -1;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc(50% - 3px);
+  border-radius: 9px;
+  background: var(--switch-color);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--switch-color) 42%, transparent);
+  opacity: 0;
+  transform: translateX(0);
+  transition: transform .28s cubic-bezier(.22, 1, .36, 1), background-color .28s ease, opacity .18s ease;
+}
+
+.order-area-switch.is-rohrlaser .order-area-slider,
+.order-area-switch.is-2d-laser .order-area-slider {
+  opacity: 1;
+}
+
+.order-area-switch.is-2d-laser .order-area-slider {
+  transform: translateX(100%);
+}
+
+.main-nav .order-area-switch a {
+  position: relative;
+  z-index: 1;
+  justify-content: center;
+  height: 34px;
+  padding: 0 15px;
+  border-radius: 9px;
+  color: #cbd5e1;
+  transition: color .2s ease, transform .2s ease;
+}
+
+.main-nav .order-area-switch a:hover {
+  color: white;
+  transform: translateY(-1px);
+}
+
+.main-nav .order-area-switch a.active {
+  color: white;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-area-slider,
+  .main-nav .order-area-switch a {
+    transition: none;
+  }
+}
+
 .nav-right {
   margin-left: auto;
 }

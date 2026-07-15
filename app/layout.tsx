@@ -1,6 +1,8 @@
 import './globals.css'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import LoginLogoutLink from './LoginLogoutLink'
+import OrderAreaNav from './OrderAreaNav'
 
 export const metadata = {
   title: 'LKS Materialbestellung',
@@ -18,10 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="nav-left">
               <Link href="/masterdata">Stammdaten</Link>
             </div>
-            <div className="nav-center" aria-label="Bestelllisten nach Fertigungsbereich">
-              <Link href="/orders?bereich=rohrlaser">Rohrlaser</Link>
-              <Link href="/orders?bereich=2d-laser">2D-Laser</Link>
-            </div>
+            <Suspense fallback={<div className="nav-center order-area-switch" aria-hidden="true" />}>
+              <OrderAreaNav />
+            </Suspense>
             <div className="nav-right">
               <LoginLogoutLink />
             </div>
