@@ -50,6 +50,7 @@ type SortKey =
   | 'customer'
   | 'customer_delivery_date'
   | 'material'
+  | 'material_thickness'
   | 'positions'
   | 'quantity'
   | 'delivered'
@@ -301,6 +302,13 @@ function OrdersContent() {
         return order.customer_delivery_date || ''
       case 'material':
         return items.map(item => item.material).join(' ')
+      case 'material_thickness': {
+        const thicknesses = items
+          .map(item => Number(item.material_thickness_mm))
+          .filter(value => Number.isFinite(value) && value > 0)
+
+        return thicknesses.length > 0 ? Math.min(...thicknesses) : null
+      }
       case 'positions':
         return orderItemsSummary(items)
       case 'quantity':
@@ -328,6 +336,10 @@ function OrdersContent() {
     const aValue = orderSortValue(a, sortKey)
     const bValue = orderSortValue(b, sortKey)
     const direction = sortDirection === 'asc' ? 1 : -1
+
+    if (aValue === null && bValue === null) return 0
+    if (aValue === null) return 1
+    if (bValue === null) return -1
 
     if (typeof aValue === 'number' && typeof bValue === 'number') {
       return (aValue - bValue) * direction
@@ -678,6 +690,7 @@ function OrdersContent() {
             {orderArea === 'rohrlaser' && <option value="customer">Kunde</option>}
             {orderArea === 'rohrlaser' && <option value="customer_delivery_date">K-Liefertermin</option>}
             <option value="material">Material</option>
+            {orderArea === '2d-laser' && <option value="material_thickness">Materialstärke</option>}
             <option value="supplier">Lieferant</option>
             <option value="desired_delivery_date">Liefertermin</option>
             <option value="created_at">Erstellt am</option>
@@ -714,7 +727,7 @@ function OrdersContent() {
             {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
             {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
             <th>{sortButton('material', 'Material')}</th>
-            {orderArea === '2d-laser' && <th>Materialstärke</th>}
+            {orderArea === '2d-laser' && <th>{sortButton('material_thickness', 'Materialstärke')}</th>}
             <th>{sortButton('positions', 'Positionen')}</th>
             {orderArea === 'rohrlaser' && <th>AV</th>}
             <th>{sortButton('quantity', 'Menge')}</th>
