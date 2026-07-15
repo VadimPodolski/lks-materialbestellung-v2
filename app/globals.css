@@ -795,6 +795,11 @@ a.card:hover {
     width: 100%;
   }
 
+  .nav-center.order-area-switch {
+    position: relative;
+    left: auto;
+  }
+
   table {
     display: block;
     overflow-x: auto;
