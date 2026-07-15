@@ -1761,6 +1761,31 @@ LKS-Technik GmbH & Co. KG`
                         )}
                       </div>
 
+                      {!isTwoDLaser && (
+                        <div>
+                          <label>Länge mm</label>
+                          <input
+                            type="number"
+                            value={item.length_mm || ''}
+                            onChange={e => setEditItem(index, 'length_mm', e.target.value)}
+                          />
+                        </div>
+                      )}
+
+                      {!isTwoDLaser && (
+                        <div>
+                          <label>Stückzahl</label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={item.quantity || ''}
+                            onChange={e => setEditItem(index, 'quantity', e.target.value)}
+                            required
+                          />
+                        </div>
+                      )}
+
                       {!isTwoDLaser && (['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
                         <div key={key}>
                           <label>AV {avIndex + 1}</label>
@@ -1773,17 +1798,6 @@ LKS-Technik GmbH & Co. KG`
                         </div>
                       ))}
 
-                      {!isTwoDLaser && (
-                        <div>
-                          <label>Länge mm</label>
-                          <input
-                            type="number"
-                            value={item.length_mm || ''}
-                            onChange={e => setEditItem(index, 'length_mm', e.target.value)}
-                          />
-                        </div>
-                      )}
-
                       {isTwoDLaser && (
                         <div>
                           <label>Einheit</label>
@@ -1795,17 +1809,19 @@ LKS-Technik GmbH & Co. KG`
                         </div>
                       )}
 
-                      <div>
-                        <label>{isTwoDLaser ? 'Menge' : 'Stückzahl'}</label>
-                        <input
-                          type="number"
-                          min="1"
-                          step={item.order_unit === 'kg' ? '0.01' : '1'}
-                          value={item.quantity || ''}
-                          onChange={e => setEditItem(index, 'quantity', e.target.value)}
-                          required
-                        />
-                      </div>
+                      {isTwoDLaser && (
+                        <div>
+                          <label>Menge</label>
+                          <input
+                            type="number"
+                            min="1"
+                            step={item.order_unit === 'kg' ? '0.01' : '1'}
+                            value={item.quantity || ''}
+                            onChange={e => setEditItem(index, 'quantity', e.target.value)}
+                            required
+                          />
+                        </div>
+                      )}
 
                       {isTwoDLaser && (
                         <div>

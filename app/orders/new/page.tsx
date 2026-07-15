@@ -701,6 +701,20 @@ export default function NewOrderPage() {
                     </div>
                   )}
 
+                  {orderArea === 'rohrlaser' && (
+                    <div>
+                      <label>Stückzahl</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={item.quantity || ''}
+                        onChange={e => setItem(index, 'quantity', e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
+
                   {orderArea === 'rohrlaser' && (['av_1', 'av_2', 'av_3', 'av_4'] as const).map((key, avIndex) => (
                     <div key={key}>
                       <label>AV {avIndex + 1}</label>
@@ -724,17 +738,19 @@ export default function NewOrderPage() {
                     </div>
                   )}
 
-                  <div>
-                    <label>{orderArea === '2d-laser' ? 'Menge' : 'Stückzahl'}</label>
-                    <input
-                      type="number"
-                      min="1"
-                      step={item.order_unit === 'kg' ? '0.01' : '1'}
-                      value={item.quantity || ''}
-                      onChange={e => setItem(index, 'quantity', e.target.value)}
-                      required
-                    />
-                  </div>
+                  {orderArea === '2d-laser' && (
+                    <div>
+                      <label>Menge</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step={item.order_unit === 'kg' ? '0.01' : '1'}
+                        value={item.quantity || ''}
+                        onChange={e => setItem(index, 'quantity', e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
 
                   {orderArea === '2d-laser' && (
                     <div>
