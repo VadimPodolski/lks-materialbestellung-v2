@@ -113,6 +113,7 @@ export default function OrderDetailPage() {
   const [packagingDefaults, setPackagingDefaults] = useState<Record<string, number>>({})
   const [materialThicknesses, setMaterialThicknesses] = useState<MaterialThickness[]>([])
   const [canDeleteThisOrder, setCanDeleteThisOrder] = useState(false)
+  const [isAdminUser, setIsAdminUser] = useState(false)
 
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({
@@ -231,8 +232,10 @@ export default function OrderDetailPage() {
     if (user) {
       const profile = await ensureCurrentUserProfile(supabase, user)
       const admin = profile?.role === 'admin'
+      setIsAdminUser(admin)
       setCanDeleteThisOrder(canDeleteForOrderArea(user.email, admin, area))
     } else {
+      setIsAdminUser(false)
       setCanDeleteThisOrder(false)
     }
 
@@ -1147,6 +1150,12 @@ LKS-Technik GmbH & Co. KG`
 
   async function deleteSupplierOrderPdf(pdf: OrderPdf) {
     if (!order) return
+
+    if (!isAdminUser && !canDeleteOrder(order.created_at)) {
+      alert('PDFs können nach zwei Werktagen nur noch von Administratoren gelöscht werden.')
+      return
+    }
+
     if (!confirm('AB-PDF wirklich löschen?')) return
 
     const supabase = createClient()
@@ -1296,6 +1305,7 @@ LKS-Technik GmbH & Co. KG`
   }
 
   const isTwoDLaser = normalizeOrderArea(order.order_area) === '2d-laser'
+  const canDeletePdfs = isAdminUser || canDeleteOrder(order.created_at, new Date(deleteCheckTime))
 
   return (
     <main className="container wide">
@@ -1558,9 +1568,11 @@ LKS-Technik GmbH & Co. KG`
                         </span>
                         <span>{pdf.file_name}</span>
                       </a>
-                      <button type="button" className="danger" onClick={() => deleteSupplierOrderPdf(pdf)}>
-                        PDF löschen
-                      </button>
+                      {canDeletePdfs && (
+                        <button type="button" className="danger" onClick={() => deleteSupplierOrderPdf(pdf)}>
+                          PDF löschen
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
