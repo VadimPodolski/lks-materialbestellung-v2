@@ -66,7 +66,7 @@ type SortKey =
 
 type SortDirection = 'asc' | 'desc'
 type SortMode = 'latest_order' | SortKey
-type TubeStatisticsSortKey = 'material' | 'crossSection' | 'pieces' | 'meters' | 'runningMeters' | 'totalPrice' | 'runningPrice' | 'orders'
+type TubeStatisticsSortKey = 'material' | 'crossSection' | 'pieces' | 'meters' | 'totalPrice' | 'orders'
 type ActiveStatusMenu = { orderId: string; top: number; left: number; placement: 'top' | 'bottom' }
 
 function formatSortValue(value: string) {
@@ -598,28 +598,22 @@ function OrdersContent() {
       crossSection: string
       pieces: number
       meters: number
-      runningMeters: number
       totalPrice: number
-      runningPrice: number
       orderIds: Set<string>
     }>()
     const orderIds = new Set<string>()
     let totalPieces = 0
     let totalMeters = 0
-    let runningMeters = 0
     let totalPrice = 0
-    let runningPrice = 0
 
     if (orderArea !== 'rohrlaser' || loadedOrderArea !== orderArea) {
-      return { rows: [], totalPieces, totalMeters, runningMeters, totalPrice, runningPrice, orderCount: 0 }
+      return { rows: [], totalPieces, totalMeters, totalPrice, orderCount: 0 }
     }
 
     for (const order of orders) {
       if (order.status === 'storniert') continue
 
       orderIds.add(order.id)
-      const isRunningOrder = visibleStatus(order) === 'bestellt' || visibleStatus(order) === 'teilweise_geliefert'
-
       for (const item of normalizeOrderItems(order)) {
         const material = item.material.trim() || 'Ohne Materialangabe'
         const crossSection = item.cross_section.trim() || 'Ohne Querschnitt'
@@ -638,27 +632,17 @@ function OrdersContent() {
           crossSection,
           pieces: 0,
           meters: 0,
-          runningMeters: 0,
           totalPrice: 0,
-          runningPrice: 0,
           orderIds: new Set<string>()
         }
 
         current.pieces += pieces
         current.meters += meters
         current.totalPrice += itemPrice
-        if (isRunningOrder) {
-          current.runningMeters += meters
-          current.runningPrice += itemPrice
-        }
         current.orderIds.add(order.id)
         totalPieces += pieces
         totalMeters += meters
         totalPrice += itemPrice
-        if (isRunningOrder) {
-          runningMeters += meters
-          runningPrice += itemPrice
-        }
         tubes.set(key, current)
       }
     }
@@ -671,9 +655,7 @@ function OrdersContent() {
       )),
       totalPieces,
       totalMeters,
-      runningMeters,
       totalPrice,
-      runningPrice,
       orderCount: orderIds.size
     }
   }, [orders, orderArea, loadedOrderArea])
@@ -694,9 +676,7 @@ function OrdersContent() {
 
         if (tubeStatisticsSortKey === 'pieces') return (a.pieces - b.pieces) * direction
         if (tubeStatisticsSortKey === 'meters') return (a.meters - b.meters) * direction
-        if (tubeStatisticsSortKey === 'runningMeters') return (a.runningMeters - b.runningMeters) * direction
         if (tubeStatisticsSortKey === 'totalPrice') return (a.totalPrice - b.totalPrice) * direction
-        if (tubeStatisticsSortKey === 'runningPrice') return (a.runningPrice - b.runningPrice) * direction
         if (tubeStatisticsSortKey === 'orders') return (a.orderIds.size - b.orderIds.size) * direction
 
         const aValue = tubeStatisticsSortKey === 'material' ? a.material : a.crossSection
@@ -713,9 +693,7 @@ function OrdersContent() {
       rows,
       totalPieces: rows.reduce((sum, row) => sum + row.pieces, 0),
       totalMeters: rows.reduce((sum, row) => sum + row.meters, 0),
-      runningMeters: rows.reduce((sum, row) => sum + row.runningMeters, 0),
       totalPrice: rows.reduce((sum, row) => sum + row.totalPrice, 0),
-      runningPrice: rows.reduce((sum, row) => sum + row.runningPrice, 0),
       orderCount: orderIds.size
     }
   }, [tubeStatistics, tubeStatisticsSearch, tubeStatisticsMaterial, tubeStatisticsSortKey, tubeStatisticsSortDirection])
@@ -1204,16 +1182,8 @@ function OrdersContent() {
                 <strong>{formatMeters(visibleTubeStatistics.totalMeters)}</strong>
               </div>
               <div>
-                <span>Laufend bestellt</span>
-                <strong>{formatMeters(visibleTubeStatistics.runningMeters)}</strong>
-              </div>
-              <div>
                 <span>Gesamtpreis</span>
                 <strong>{formatEuro(visibleTubeStatistics.totalPrice)}</strong>
-              </div>
-              <div>
-                <span>Preis laufend bestellt</span>
-                <strong>{formatEuro(visibleTubeStatistics.runningPrice)}</strong>
               </div>
               <div>
                 <span>Aufträge</span>
@@ -1232,9 +1202,7 @@ function OrdersContent() {
                       <th>{tubeStatisticsSortButton('crossSection', 'Querschnitt')}</th>
                       <th className="number">{tubeStatisticsSortButton('pieces', 'Stück')}</th>
                       <th className="number">{tubeStatisticsSortButton('meters', 'Meter gesamt')}</th>
-                      <th className="number">{tubeStatisticsSortButton('runningMeters', 'Meter laufend')}</th>
                       <th className="number">{tubeStatisticsSortButton('totalPrice', 'Gesamtpreis')}</th>
-                      <th className="number">{tubeStatisticsSortButton('runningPrice', 'Preis laufend')}</th>
                       <th className="number">{tubeStatisticsSortButton('orders', 'Aufträge')}</th>
                     </tr>
                   </thead>
@@ -1245,9 +1213,7 @@ function OrdersContent() {
                         <td>{row.crossSection}</td>
                         <td className="number">{row.pieces.toLocaleString('de-DE')}</td>
                         <td className="number">{formatMeters(row.meters)}</td>
-                        <td className="number">{formatMeters(row.runningMeters)}</td>
                         <td className="number">{formatEuro(row.totalPrice)}</td>
-                        <td className="number">{formatEuro(row.runningPrice)}</td>
                         <td className="number">{row.orderIds.size.toLocaleString('de-DE')}</td>
                       </tr>
                     ))}
