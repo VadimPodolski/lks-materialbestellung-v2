@@ -775,9 +775,7 @@ function OrdersContent() {
             </span>
             <span className="tube-statistics-card-copy">
               <strong>Statistik</strong>
-              <small>Rohre nach Querschnitt</small>
             </span>
-            <span className="tube-statistics-card-arrow" aria-hidden="true">›</span>
           </button>
         )}
 

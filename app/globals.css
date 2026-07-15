@@ -1198,10 +1198,10 @@ a.card:hover {
   align-self: start;
   justify-self: center;
   display: grid;
-  grid-template-columns: 44px minmax(150px, 1fr) 18px;
+  grid-template-columns: 44px auto;
   align-items: center;
   gap: 12px;
-  min-width: 260px;
+  min-width: 180px;
   padding: 12px 14px;
   border: 1px solid #dbe3ef;
   border-radius: 12px;
@@ -1244,18 +1244,6 @@ a.card:hover {
 
 .tube-statistics-card-copy strong {
   font-size: 16px;
-}
-
-.tube-statistics-card-copy small {
-  color: #64748b;
-  font-size: 12px;
-}
-
-.tube-statistics-card-arrow {
-  color: #94a3b8;
-  font-size: 28px;
-  font-weight: 300;
-  line-height: 1;
 }
 
 .tube-statistics-backdrop {
