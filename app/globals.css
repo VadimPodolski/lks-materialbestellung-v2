@@ -1601,103 +1601,91 @@ table td {
   overflow-wrap: anywhere;
 }
 
+.tube-position-entry-table,
 .two-d-position-entry-table {
-  min-width: 1780px;
+  width: 100%;
 }
 
+.tube-position-entry-table {
+  min-width: 1870px;
+}
+
+.two-d-position-entry-table {
+  min-width: 2040px;
+}
+
+.tube-position-entry-table th,
+.tube-position-entry-table td,
 .two-d-position-entry-table th,
 .two-d-position-entry-table td {
-  padding: 11px 10px;
+  padding: 12px 11px;
   overflow-wrap: normal;
+  vertical-align: middle;
 }
 
+.tube-position-entry-table th,
 .two-d-position-entry-table th {
   white-space: nowrap;
 }
 
-.two-d-position-entry-table td {
-  white-space: normal;
-}
-
-.position-entry-table.two-d-position-entry-table th:nth-child(1),
-.position-entry-table.two-d-position-entry-table td:nth-child(1) { width: 80px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(2),
-.position-entry-table.two-d-position-entry-table td:nth-child(2) { width: 150px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(3),
-.position-entry-table.two-d-position-entry-table td:nth-child(3) { width: 145px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(4),
-.position-entry-table.two-d-position-entry-table td:nth-child(4) { width: 220px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(5),
-.position-entry-table.two-d-position-entry-table td:nth-child(5) { width: 90px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(6),
-.position-entry-table.two-d-position-entry-table td:nth-child(6) { width: 100px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(7),
-.position-entry-table.two-d-position-entry-table td:nth-child(7) { width: 120px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(8),
-.position-entry-table.two-d-position-entry-table td:nth-child(8) { width: 105px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(9),
-.position-entry-table.two-d-position-entry-table td:nth-child(9) { width: 125px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(10),
-.position-entry-table.two-d-position-entry-table td:nth-child(10) { width: 150px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(11),
-.position-entry-table.two-d-position-entry-table td:nth-child(11) { width: 180px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(12),
-.position-entry-table.two-d-position-entry-table td:nth-child(12) { width: 105px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(13),
-.position-entry-table.two-d-position-entry-table td:nth-child(13) { width: 125px; }
-.position-entry-table.two-d-position-entry-table th:nth-child(14),
-.position-entry-table.two-d-position-entry-table td:nth-child(14) { width: 265px; }
-
+.tube-position-entry-table .table-input,
 .two-d-position-entry-table .table-input {
   width: 100%;
   min-width: 0;
 }
 
-.position-entry-table th:nth-child(1),
-.position-entry-table td:nth-child(1) {
-  width: 70px;
+.tube-position-entry-table th:nth-child(1), .tube-position-entry-table td:nth-child(1) { width: 70px; }
+.tube-position-entry-table th:nth-child(2), .tube-position-entry-table td:nth-child(2) { width: 160px; }
+.tube-position-entry-table th:nth-child(3), .tube-position-entry-table td:nth-child(3) { width: 145px; }
+.tube-position-entry-table th:nth-child(4), .tube-position-entry-table td:nth-child(4) { width: 130px; }
+.tube-position-entry-table th:nth-child(5), .tube-position-entry-table td:nth-child(5) { width: 90px; }
+.tube-position-entry-table th:nth-child(6), .tube-position-entry-table td:nth-child(6) { width: 95px; }
+.tube-position-entry-table th:nth-child(7), .tube-position-entry-table td:nth-child(7) { width: 145px; }
+.tube-position-entry-table th:nth-child(8), .tube-position-entry-table td:nth-child(8) { width: 110px; }
+.tube-position-entry-table th:nth-child(9), .tube-position-entry-table td:nth-child(9) { width: 90px; }
+.tube-position-entry-table th:nth-child(10), .tube-position-entry-table td:nth-child(10) { width: 110px; }
+.tube-position-entry-table th:nth-child(11), .tube-position-entry-table td:nth-child(11) { width: 135px; }
+.tube-position-entry-table th:nth-child(12), .tube-position-entry-table td:nth-child(12) { width: 175px; }
+.tube-position-entry-table th:nth-child(13), .tube-position-entry-table td:nth-child(13) { width: 90px; }
+.tube-position-entry-table th:nth-child(14), .tube-position-entry-table td:nth-child(14) { width: 115px; }
+.tube-position-entry-table th:nth-child(15), .tube-position-entry-table td:nth-child(15) { width: 210px; }
+
+.two-d-position-entry-table th:nth-child(1), .two-d-position-entry-table td:nth-child(1) { width: 80px; }
+.two-d-position-entry-table th:nth-child(2), .two-d-position-entry-table td:nth-child(2) { width: 160px; }
+.two-d-position-entry-table th:nth-child(3), .two-d-position-entry-table td:nth-child(3) { width: 135px; }
+.two-d-position-entry-table th:nth-child(4), .two-d-position-entry-table td:nth-child(4) { width: 165px; }
+.two-d-position-entry-table th:nth-child(5), .two-d-position-entry-table td:nth-child(5) { width: 90px; }
+.two-d-position-entry-table th:nth-child(6), .two-d-position-entry-table td:nth-child(6) { width: 145px; }
+.two-d-position-entry-table th:nth-child(7), .two-d-position-entry-table td:nth-child(7) { width: 110px; }
+.two-d-position-entry-table th:nth-child(8), .two-d-position-entry-table td:nth-child(8) { width: 95px; }
+.two-d-position-entry-table th:nth-child(9), .two-d-position-entry-table td:nth-child(9) { width: 120px; }
+.two-d-position-entry-table th:nth-child(10), .two-d-position-entry-table td:nth-child(10) { width: 90px; }
+.two-d-position-entry-table th:nth-child(11), .two-d-position-entry-table td:nth-child(11) { width: 110px; }
+.two-d-position-entry-table th:nth-child(12), .two-d-position-entry-table td:nth-child(12) { width: 135px; }
+.two-d-position-entry-table th:nth-child(13), .two-d-position-entry-table td:nth-child(13) { width: 175px; }
+.two-d-position-entry-table th:nth-child(14), .two-d-position-entry-table td:nth-child(14) { width: 90px; }
+.two-d-position-entry-table th:nth-child(15), .two-d-position-entry-table td:nth-child(15) { width: 115px; }
+.two-d-position-entry-table th:nth-child(16), .two-d-position-entry-table td:nth-child(16) { width: 220px; }
+
+.tube-position-entry-table th:nth-child(10),
+.tube-position-entry-table td:nth-child(10),
+.tube-position-entry-table th:nth-child(13),
+.tube-position-entry-table td:nth-child(13),
+.two-d-position-entry-table th:nth-child(11),
+.two-d-position-entry-table td:nth-child(11),
+.two-d-position-entry-table th:nth-child(14),
+.two-d-position-entry-table td:nth-child(14) {
+  border-left: 3px solid #cbd5e1;
 }
 
-.position-entry-table th:nth-child(2),
-.position-entry-table td:nth-child(2) {
-  width: 150px;
+.tube-position-entry-table th:nth-child(n+10):nth-child(-n+12),
+.two-d-position-entry-table th:nth-child(n+11):nth-child(-n+13) {
+  background: #eaf4ff;
 }
 
-.position-entry-table th:nth-child(3),
-.position-entry-table td:nth-child(3) {
-  width: 130px;
-}
-
-.position-entry-table th:nth-child(4),
-.position-entry-table td:nth-child(4) {
-  width: 150px;
-}
-
-.position-entry-table th:nth-child(5),
-.position-entry-table td:nth-child(5) {
-  width: 72px;
-}
-
-.position-entry-table th:nth-child(6),
-.position-entry-table td:nth-child(6),
-.position-entry-table th:nth-child(7),
-.position-entry-table td:nth-child(7),
-.position-entry-table th:nth-child(8),
-.position-entry-table td:nth-child(8),
-.position-entry-table th:nth-child(11),
-.position-entry-table td:nth-child(11),
-.position-entry-table th:nth-child(12),
-.position-entry-table td:nth-child(12) {
-  width: 82px;
-}
-
-.position-entry-table th:nth-child(9),
-.position-entry-table td:nth-child(9),
-.position-entry-table th:nth-child(10),
-.position-entry-table td:nth-child(10),
-.position-entry-table th:nth-child(13),
-.position-entry-table td:nth-child(13) {
-  width: 130px;
+.tube-position-entry-table th:nth-child(n+13):nth-child(-n+15),
+.two-d-position-entry-table th:nth-child(n+14):nth-child(-n+16) {
+  background: #fff4e6;
 }
 
 .status-control {
