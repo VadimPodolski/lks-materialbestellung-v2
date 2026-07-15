@@ -25,7 +25,7 @@ function formatLabel(format: SheetFormat) {
 }
 
 function customFormatValue(value: string) {
-  return value.replace(/^Eigenes Format:\s*/i, '')
+  return value.replace(/^(?:Eigenes Format|Sonderformat):\s*/i, '')
 }
 
 export default function NewOrderPage() {
@@ -644,17 +644,17 @@ export default function NewOrderPage() {
                       <div className="format-entry-row">
                         <select
                           value={crossSections.some(format => format.name === item.cross_section) ? item.cross_section : '__custom__'}
-                          onChange={e => setItem(index, 'cross_section', e.target.value === '__custom__' ? 'Eigenes Format: ' : e.target.value)}
+                          onChange={e => setItem(index, 'cross_section', e.target.value === '__custom__' ? 'Sonderformat: ' : e.target.value)}
                         >
                           {crossSections.map(format => (
                             <option key={format.id} value={format.name}>{format.name}</option>
                           ))}
-                          <option value="__custom__">Eigenes Format</option>
+                          <option value="__custom__">Sonderformat</option>
                         </select>
                         <input
                           value={crossSections.some(format => format.name === item.cross_section) ? '' : customFormatValue(item.cross_section)}
-                          onChange={e => setItem(index, 'cross_section', `Eigenes Format: ${e.target.value}`)}
-                          placeholder="Eigenes Maß, z.B. 2800x1400 mm"
+                          onChange={e => setItem(index, 'cross_section', `Sonderformat: ${e.target.value}`)}
+                          placeholder="Sondermaß, z.B. 2800x1400 mm"
                           disabled={crossSections.some(format => format.name === item.cross_section)}
                           required={!crossSections.some(format => format.name === item.cross_section)}
                         />
