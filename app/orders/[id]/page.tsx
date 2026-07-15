@@ -1362,7 +1362,7 @@ LKS-Technik GmbH & Co. KG`
             </div>
 
             <div className="order-items-table">
-              <table className="position-entry-table">
+              <table className={`position-entry-table${isTwoDLaser ? ' two-d-position-entry-table' : ''}`}>
                 <thead>
                   <tr>
                     <th>Position</th>
