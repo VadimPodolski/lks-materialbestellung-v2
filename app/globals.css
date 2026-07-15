@@ -456,8 +456,13 @@ textarea {
   padding: 9px 10px;
   border: 1px solid #d0d7de;
   border-radius: 8px;
+  font-family: inherit;
   font-size: 14px;
   background: white;
+}
+
+input[type='date']::-webkit-datetime-edit {
+  font-family: inherit;
 }
 
 input:focus,
