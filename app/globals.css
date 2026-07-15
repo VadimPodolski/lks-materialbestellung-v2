@@ -236,6 +236,19 @@ a {
   transform: translateX(-50%);
 }
 
+.nav-right {
+  margin-left: auto;
+}
+
+.nav-user {
+  color: #dfe6ed;
+  font-size: 14px;
+  white-space: nowrap;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .main-nav a,
 .dropdown-trigger,
 .nav-link-button {

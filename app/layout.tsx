@@ -18,11 +18,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="nav-left">
               <Link href="/">Bestellungen</Link>
               <Link href="/masterdata">Stammdaten</Link>
-              <LoginLogoutLink />
             </div>
             <div className="nav-center" aria-label="Bestelllisten nach Fertigungsbereich">
               <Link href="/orders?bereich=rohrlaser">Rohrlaser</Link>
               <Link href="/orders?bereich=2d-laser">2D-Laser</Link>
+            </div>
+            <div className="nav-right">
+              <LoginLogoutLink />
             </div>
           </nav>
         </div>

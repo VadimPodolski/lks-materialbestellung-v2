@@ -6,11 +6,11 @@ import { createClient } from '@/lib/supabase'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 
 export default function LoginLogoutLink() {
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null | undefined>(undefined)
 
   useEffect(() => {
     if (LOGIN_DISABLED) {
-      setLoggedIn(false)
+      setUserEmail(null)
       return
     }
 
@@ -21,7 +21,7 @@ export default function LoginLogoutLink() {
         data: { session }
       } = await supabase.auth.getSession()
 
-      setLoggedIn(!!session)
+      setUserEmail(session?.user.email || null)
     }
 
     init()
@@ -29,7 +29,7 @@ export default function LoginLogoutLink() {
     const {
       data: { subscription }
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setLoggedIn(!!session)
+      setUserEmail(session?.user.email || null)
     })
 
     return () => subscription.unsubscribe()
@@ -45,17 +45,20 @@ export default function LoginLogoutLink() {
     return null
   }
 
-  if (loggedIn === null) {
+  if (userEmail === undefined) {
     return null
   }
 
-  if (!loggedIn) {
+  if (!userEmail) {
     return <Link href="/login">Login</Link>
   }
 
   return (
-    <button type="button" className="nav-link-button" onClick={logout}>
-      Logout
-    </button>
+    <>
+      <span className="nav-user" title={userEmail}>{userEmail}</span>
+      <button type="button" className="nav-link-button" onClick={logout}>
+        Logout
+      </button>
+    </>
   )
 }
