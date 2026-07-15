@@ -14,6 +14,7 @@ type Material = { id: string; name: string; material_name: string | null; materi
 type CrossSection = { id: string; name: string }
 type WorkPreparation = { id: string; name: string }
 type SheetFormat = { id: string; name: string; width_mm: number; height_mm: number }
+type MaterialThickness = { id: string; material: string; thickness_mm: number }
 
 function isUllnerSupplier(supplier: Supplier) {
   return supplier.name.trim().toLocaleLowerCase('de-DE').includes('ullner')
@@ -37,6 +38,7 @@ export default function NewOrderPage() {
   const [crossSections, setCrossSections] = useState<CrossSection[]>([])
   const [workPreparations, setWorkPreparations] = useState<WorkPreparation[]>([])
   const [packagingDefaults, setPackagingDefaults] = useState<Record<string, number>>({})
+  const [materialThicknesses, setMaterialThicknesses] = useState<MaterialThickness[]>([])
 
   const [form, setForm] = useState({
     order_number: 'AB-',
@@ -61,7 +63,7 @@ export default function NewOrderPage() {
   async function loadMasterData(area: OrderArea) {
     const supabase = createClient()
 
-    const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }, { data: workPreparationData }, { data: packagingData }] =
+    const [{ data: supplierData }, { data: customerData }, { data: materialData }, { data: crossSectionData }, { data: workPreparationData }, { data: packagingData }, { data: thicknessData }] =
       await Promise.all([
         supabase.from('suppliers').select('id,name').order('name'),
         supabase.from('customers').select('id,name').eq('order_area', area).order('name'),
@@ -72,7 +74,10 @@ export default function NewOrderPage() {
         supabase.from('work_preparations').select('id,name').eq('order_area', area).order('name'),
         area === '2d-laser'
           ? supabase.from('packaging_defaults').select('lookup_key,material,cross_section,pieces_per_package').eq('order_area', area)
-          : Promise.resolve({ data: [] as PackagingDefault[] })
+          : Promise.resolve({ data: [] as PackagingDefault[] }),
+        area === '2d-laser'
+          ? supabase.from('material_thicknesses').select('id,material,thickness_mm').eq('order_area', area).order('thickness_mm')
+          : Promise.resolve({ data: [] as MaterialThickness[] })
       ])
 
     const supplierList = [...(supplierData || [])].sort((a, b) => {
@@ -91,6 +96,7 @@ export default function NewOrderPage() {
     setWorkPreparations(workPreparationData || [])
     const loadedPackagingDefaults = packagingDefaultsMap(packagingData as PackagingDefault[] | null)
     setPackagingDefaults(loadedPackagingDefaults)
+    setMaterialThicknesses((thicknessData as MaterialThickness[] | null) || [])
 
     const { data: tafelNumber } = area === '2d-laser'
       ? await supabase.rpc('peek_next_tafel_order_number')
@@ -163,6 +169,11 @@ export default function NewOrderPage() {
     return crossSections
   }
 
+  function thicknessOptions(material: string) {
+    const normalizedMaterial = material.trim().toLocaleLowerCase('de-DE')
+    return materialThicknesses.filter(item => item.material.trim().toLocaleLowerCase('de-DE') === normalizedMaterial)
+  }
+
   async function ensureMasterData(cleanItems: OrderItem[]) {
     const supabase = createClient()
     const knownMaterials = new Set(
@@ -231,6 +242,25 @@ export default function NewOrderPage() {
         throw new Error(error.message)
       }
     }
+
+    if (orderArea === '2d-laser') {
+      const thicknessRows = cleanItems
+        .filter(item => item.material && item.material_thickness_mm)
+        .map(item => ({
+          order_area: orderArea,
+          material: item.material,
+          thickness_mm: item.material_thickness_mm
+        }))
+
+      if (thicknessRows.length > 0) {
+        const { error } = await supabase.from('material_thicknesses').upsert(thicknessRows, {
+          onConflict: 'order_area,material,thickness_mm',
+          ignoreDuplicates: true
+        })
+
+        if (error) throw new Error(error.message)
+      }
+    }
   }
 
   async function ensureCustomerMasterData(customerName: string) {
@@ -253,7 +283,7 @@ export default function NewOrderPage() {
     }
   }
 
-  function setItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity' | 'order_unit' | 'pieces_per_package', value: string) {
+  function setItem(index: number, key: 'material' | 'material_thickness_mm' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity' | 'order_unit' | 'pieces_per_package', value: string) {
     setItems(prev => prev.map((item, itemIndex) => {
       if (itemIndex !== index) return item
 
@@ -300,6 +330,7 @@ export default function NewOrderPage() {
       {
         ...emptyOrderItem(),
         material: last.material,
+        material_thickness_mm: last.material_thickness_mm,
         cross_section: last.cross_section,
         av_1: last.av_1,
         av_2: last.av_2,
@@ -333,6 +364,7 @@ export default function NewOrderPage() {
 
     const cleanItems = mergeOrderItems(items.map(item => ({
       material: item.material.trim(),
+      material_thickness_mm: item.material_thickness_mm ? Number(item.material_thickness_mm) : null,
       cross_section: item.cross_section.trim(),
       av_1: (item.av_1 || '').trim(),
       av_2: (item.av_2 || '').trim(),
@@ -348,6 +380,10 @@ export default function NewOrderPage() {
       return setMsg(orderArea === '2d-laser'
         ? 'Bitte jede Position mit Material, Format und Menge ausfüllen.'
         : 'Bitte jede Position mit Material, Querschnitt und Stückzahl ausfüllen.')
+    }
+
+    if (orderArea === '2d-laser' && cleanItems.some(item => !item.material_thickness_mm || item.material_thickness_mm <= 0)) {
+      return setMsg('Bitte bei jeder Position eine Materialstärke eingeben.')
     }
 
     if (orderArea === '2d-laser' && cleanItems.some(item => item.order_unit === 'paket' && !item.pieces_per_package)) {
@@ -437,6 +473,7 @@ export default function NewOrderPage() {
       cleanItems.map((item, index) => ({
         material_order_id: data.id,
         material: item.material,
+        material_thickness_mm: item.material_thickness_mm,
         cross_section: item.cross_section,
         av_1: item.av_1 || null,
         av_2: item.av_2 || null,
@@ -581,6 +618,27 @@ export default function NewOrderPage() {
                       )}
                     </div>
                   </div>
+
+                  {orderArea === '2d-laser' && (
+                    <div>
+                      <label>Materialstärke (mm)</label>
+                      <input
+                        type="number"
+                        min="0.001"
+                        step="0.001"
+                        list={`material-thickness-options-${index}`}
+                        value={item.material_thickness_mm || ''}
+                        onChange={e => setItem(index, 'material_thickness_mm', e.target.value)}
+                        placeholder="z.B. 1,5"
+                        required
+                      />
+                      <datalist id={`material-thickness-options-${index}`}>
+                        {thicknessOptions(item.material).map(thickness => (
+                          <option key={thickness.id} value={thickness.thickness_mm} />
+                        ))}
+                      </datalist>
+                    </div>
+                  )}
 
                   <div className={orderArea === '2d-laser' ? 'order-item-format' : undefined}>
                     <label>{orderArea === '2d-laser' ? 'Format' : 'Rohrquerschnitt'}</label>

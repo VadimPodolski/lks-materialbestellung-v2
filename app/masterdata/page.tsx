@@ -12,11 +12,12 @@ type Material = { id:string; name:string; material_name:string|null; material_nu
 type CrossSection = { id:string; name:string }
 type WorkPreparation = { id:string; name:string }
 type SheetFormat = { id:string; name:string; width_mm:number; height_mm:number }
+type MaterialThickness = { id:string; material:string; thickness_mm:number }
 
-type TypeKey = 'customers' | 'suppliers' | 'materials' | 'cross_sections' | 'work_preparations' | 'formats'
+type TypeKey = 'customers' | 'suppliers' | 'materials' | 'material_thicknesses' | 'cross_sections' | 'work_preparations' | 'formats'
 
 const ROHRLASER_TYPES: TypeKey[] = ['customers', 'suppliers', 'materials', 'cross_sections', 'work_preparations']
-const TWO_D_LASER_TYPES: TypeKey[] = ['suppliers', 'materials', 'formats']
+const TWO_D_LASER_TYPES: TypeKey[] = ['suppliers', 'materials', 'material_thicknesses', 'formats']
 
 function MasterDataContent() {
   const router = useRouter()
@@ -33,6 +34,7 @@ function MasterDataContent() {
   const [crossSections, setCrossSections] = useState<CrossSection[]>([])
   const [workPreparations, setWorkPreparations] = useState<WorkPreparation[]>([])
   const [formats, setFormats] = useState<SheetFormat[]>([])
+  const [materialThicknesses, setMaterialThicknesses] = useState<MaterialThickness[]>([])
 
   const [customer, setCustomer] = useState({ id:'', name:'', contact_person:'', email:'', phone:'', notes:'' })
   const [supplier, setSupplier] = useState({ id:'', name:'', email:'', phone:'', contact_person:'', notes:'' })
@@ -40,6 +42,7 @@ function MasterDataContent() {
   const [cross, setCross] = useState({ id:'', name:'' })
   const [workPreparation, setWorkPreparation] = useState({ id:'', name:'' })
   const [format, setFormat] = useState({ id:'', name:'', width_mm:'', height_mm:'' })
+  const [materialThickness, setMaterialThickness] = useState({ id:'', material:'', thickness_mm:'' })
 
   useEffect(() => {
     const t = searchParams.get('type') as TypeKey | null
@@ -59,7 +62,8 @@ function MasterDataContent() {
       {data:m},
       {data:cs},
       {data:av},
-      {data:f}
+      {data:f},
+      {data:mt}
     ] = await Promise.all([
       supabase.auth.getSession(),
       supabase.auth.getUser(),
@@ -68,7 +72,8 @@ function MasterDataContent() {
       supabase.from('materials').select('*').eq('order_area', orderArea).order('name'),
       supabase.from('cross_sections').select('*').eq('order_area', orderArea).order('name'),
       supabase.from('work_preparations').select('*').eq('order_area', orderArea).order('name'),
-      supabase.from('formats').select('*').order('width_mm', { ascending: false })
+      supabase.from('formats').select('*').order('width_mm', { ascending: false }),
+      supabase.from('material_thicknesses').select('id,material,thickness_mm').eq('order_area', '2d-laser').order('material').order('thickness_mm')
     ])
 
     const user = userData.user || sessionData.session?.user || null
@@ -101,6 +106,7 @@ function MasterDataContent() {
     setCrossSections(cs || [])
     setWorkPreparations(av || [])
     setFormats(f || [])
+    setMaterialThicknesses(mt || [])
   }
 
   function resetForms() {
@@ -110,6 +116,7 @@ function MasterDataContent() {
     setCross({ id:'', name:'' })
     setWorkPreparation({ id:'', name:'' })
     setFormat({ id:'', name:'', width_mm:'', height_mm:'' })
+    setMaterialThickness({ id:'', material:'', thickness_mm:'' })
   }
 
   async function saveCustomer(e:React.FormEvent) {
@@ -237,6 +244,33 @@ function MasterDataContent() {
     load()
   }
 
+  async function saveMaterialThickness(e:React.FormEvent) {
+    e.preventDefault()
+    if (materialThickness.id && !isAdmin) return
+
+    const thickness = Number(materialThickness.thickness_mm.replace(',', '.'))
+    if (!materialThickness.material.trim() || !thickness || thickness <= 0) return
+
+    const row = {
+      order_area: '2d-laser',
+      material: materialThickness.material.trim(),
+      thickness_mm: thickness
+    }
+    const supabase = createClient()
+
+    if (materialThickness.id) {
+      await supabase.from('material_thicknesses').update(row).eq('id', materialThickness.id)
+    } else {
+      await supabase.from('material_thicknesses').upsert(row, {
+        onConflict: 'order_area,material,thickness_mm',
+        ignoreDuplicates: true
+      })
+    }
+
+    resetForms()
+    load()
+  }
+
   async function remove(table:string, id:string) {
     if (!isAdmin) return
     if (!confirm('Eintrag wirklich löschen?')) return
@@ -281,6 +315,13 @@ function MasterDataContent() {
     return formats.filter(f => `${f.name} ${f.width_mm} ${f.height_mm}`.toLowerCase().includes(x))
   }, [formats, q])
 
+  const filteredMaterialThicknesses = useMemo(() => {
+    const x = q.toLowerCase()
+    return materialThicknesses.filter(item =>
+      `${item.material} ${String(item.thickness_mm).replace('.', ',')}`.toLowerCase().includes(x)
+    )
+  }, [materialThicknesses, q])
+
   return (
     <main className="container">
       <button type="button" className="secondary" onClick={() => router.push(ordersHref(orderArea))}>
@@ -320,6 +361,7 @@ function MasterDataContent() {
             {orderArea === 'rohrlaser' && <option value="customers">Kunden</option>}
             <option value="suppliers">Lieferanten</option>
             <option value="materials">Materialien</option>
+            {orderArea === '2d-laser' && <option value="material_thicknesses">Materialstärken</option>}
             {orderArea === 'rohrlaser' && <option value="cross_sections">Querschnitte</option>}
             {orderArea === 'rohrlaser' && <option value="work_preparations">AV</option>}
             {orderArea === '2d-laser' && <option value="formats">Formate</option>}
@@ -525,6 +567,62 @@ function MasterDataContent() {
                   {isAdmin && <td className="actions">
                     <button onClick={()=>setWorkPreparation(av)}>Bearbeiten</button>
                     <button className="danger" onClick={()=>remove('work_preparations', av.id)}>Löschen</button>
+                  </td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {type === 'material_thicknesses' && orderArea === '2d-laser' && (
+        <>
+          <h2>Materialstärken</h2>
+
+          <form className="card grid" onSubmit={saveMaterialThickness}>
+            <select
+              value={materialThickness.material}
+              onChange={e=>setMaterialThickness({...materialThickness,material:e.target.value})}
+              required
+            >
+              <option value="">Material auswählen</option>
+              {materials.map(m => (
+                <option key={m.id} value={m.name}>{m.material_name || m.name}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min="0.001"
+              step="0.001"
+              placeholder="Materialstärke in mm, z.B. 1,5"
+              value={materialThickness.thickness_mm}
+              onChange={e=>setMaterialThickness({...materialThickness,thickness_mm:e.target.value})}
+              required
+            />
+            <button>{materialThickness.id ? 'Materialstärke ändern' : 'Materialstärke speichern'}</button>
+            {materialThickness.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
+          </form>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Materialstärke</th>
+                {isAdmin && <th>Aktionen</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {filteredMaterialThicknesses.map(item=>(
+                <tr key={item.id}>
+                  <td><b>{item.material}</b></td>
+                  <td>{new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(item.thickness_mm)} mm</td>
+                  {isAdmin && <td className="actions">
+                    <button onClick={()=>setMaterialThickness({
+                      id:item.id,
+                      material:item.material,
+                      thickness_mm:String(item.thickness_mm)
+                    })}>Bearbeiten</button>
+                    <button className="danger" onClick={()=>remove('material_thicknesses', item.id)}>Löschen</button>
                   </td>}
                 </tr>
               ))}
