@@ -20,6 +20,7 @@ import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas
 import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
+import ConfirmDialog from '@/app/ConfirmDialog'
 
 type Order = {
   id: string
@@ -137,6 +138,7 @@ export default function OrderDetailPage() {
   const [isPdfDragging, setIsPdfDragging] = useState(false)
   const [isPdfUploading, setIsPdfUploading] = useState(false)
   const [showDetailStatusMenu, setShowDetailStatusMenu] = useState(false)
+  const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
   const [msg, setMsg] = useState('')
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
 
@@ -1241,10 +1243,6 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    if (!confirm(`Bestellung ${order.order_number} wirklich löschen?`)) {
-      return
-    }
-
     const supabase = createClient()
 
     await supabase
@@ -1289,6 +1287,17 @@ LKS-Technik GmbH & Co. KG`
 
   return (
     <main className="container wide">
+      <ConfirmDialog
+        open={deleteConfirmationOpen}
+        title="Bestellung löschen"
+        message={`Bestellung ${order.order_number} wirklich löschen?`}
+        onCancel={() => setDeleteConfirmationOpen(false)}
+        onConfirm={() => {
+          setDeleteConfirmationOpen(false)
+          void deleteOrder()
+        }}
+      />
+
       <button className="secondary" onClick={() => router.push(ordersHref(normalizeOrderArea(order.order_area)))}>
         Zurück
       </button>
@@ -1481,7 +1490,7 @@ LKS-Technik GmbH & Co. KG`
                 <button
                   type="button"
                   className="danger"
-                  onClick={deleteOrder}
+                  onClick={() => setDeleteConfirmationOpen(true)}
                 >
                   🗑 Bestellung löschen
                 </button>

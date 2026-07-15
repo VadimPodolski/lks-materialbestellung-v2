@@ -583,6 +583,14 @@ a.card:hover {
   box-shadow: 0 16px 36px rgba(0,0,0,.22);
 }
 
+.confirm-modal {
+  text-align: center;
+}
+
+.confirm-modal-actions {
+  justify-content: center;
+}
+
 /* Suggestions */
 .suggestions {
   background: white;

@@ -10,6 +10,7 @@ import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { newOrderHref, normalizeOrderArea, type OrderArea } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
+import ConfirmDialog from '@/app/ConfirmDialog'
 
 type Order = {
   id: string
@@ -87,6 +88,7 @@ function OrdersContent() {
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
   const [activeStatusMenu, setActiveStatusMenu] = useState<ActiveStatusMenu | null>(null)
+  const [orderToDelete, setOrderToDelete] = useState<Order | null>(null)
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
   const statusMenuCloseTimer = useRef<number | null>(null)
   const loadRequestId = useRef(0)
@@ -385,10 +387,6 @@ function OrdersContent() {
   async function deleteOrder(order: Order) {
     if (!isAdmin && !canDeleteOrder(order.created_at)) {
       alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
-      return
-    }
-
-    if (!confirm(`Bestellung ${order.order_number} wirklich löschen?`)) {
       return
     }
 
@@ -896,7 +894,7 @@ function OrdersContent() {
                       className="danger"
                       onClick={e => {
                         e.stopPropagation()
-                        deleteOrder(o)
+                        setOrderToDelete(o)
                       }}
                     >
                       🗑
@@ -909,6 +907,18 @@ function OrdersContent() {
         </tbody>
       </table>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(orderToDelete)}
+        title="Bestellung löschen"
+        message={orderToDelete ? `Bestellung ${orderToDelete.order_number} wirklich löschen?` : ''}
+        onCancel={() => setOrderToDelete(null)}
+        onConfirm={() => {
+          const selectedOrder = orderToDelete
+          setOrderToDelete(null)
+          if (selectedOrder) void deleteOrder(selectedOrder)
+        }}
+      />
     </main>
   )
 }
