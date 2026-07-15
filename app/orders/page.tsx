@@ -7,7 +7,7 @@ import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import { OrderItem, formatMaterialThickness, normalizeOrderItems, orderItemAvText, orderItemQuantityText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
-import { newOrderHref, normalizeOrderArea } from '@/lib/orderAreas'
+import { newOrderHref, normalizeOrderArea, type OrderArea } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 
@@ -77,6 +77,7 @@ function OrdersContent() {
   const orderArea = normalizeOrderArea(searchParams.get('bereich'))
 
   const [orders, setOrders] = useState<Order[]>([])
+  const [loadedOrderArea, setLoadedOrderArea] = useState<OrderArea | null>(null)
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [q, setQ] = useState('')
@@ -88,12 +89,18 @@ function OrdersContent() {
   const [activeStatusMenu, setActiveStatusMenu] = useState<ActiveStatusMenu | null>(null)
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
   const statusMenuCloseTimer = useRef<number | null>(null)
+  const loadRequestId = useRef(0)
 
   useEffect(() => {
     setStatus(searchParams.get('status') || '')
     setOverdueOnly(searchParams.get('overdue') === '1')
-    load()
   }, [searchParams])
+
+  useEffect(() => {
+    const requestId = ++loadRequestId.current
+    setActiveStatusMenu(null)
+    load(orderArea, requestId)
+  }, [orderArea])
 
   useEffect(() => {
     return () => clearStatusMenuCloseTimer()
@@ -150,7 +157,7 @@ function OrdersContent() {
   window.location.href = '/login'
 }
   
-  async function load() {
+  async function load(area: OrderArea, requestId: number) {
     const supabase = createClient()
 
     const { data: sessionData } = await supabase.auth.getSession()
@@ -183,8 +190,6 @@ function OrdersContent() {
         profileById?.role === 'admin' ||
         profileByEmail?.role === 'admin'
     }
-
-    setIsAdmin(admin)
 
     const ordersSelect = `
           id,
@@ -237,24 +242,29 @@ function OrdersContent() {
       supabase
         .from('material_orders')
         .select(ordersSelect)
-        .eq('order_area', orderArea)
+        .eq('order_area', area)
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id,full_name,email,role')
     ])
+
+    let nextOrders = (orderData as any) || []
 
     if (orderError) {
       const { data: fallbackOrderData } = await supabase
         .from('material_orders')
         .select(ordersSelectWithoutPdfs)
-        .eq('order_area', orderArea)
+        .eq('order_area', area)
         .order('created_at', { ascending: false })
 
-      setOrders((fallbackOrderData as any) || [])
-    } else {
-      setOrders((orderData as any) || [])
+      nextOrders = (fallbackOrderData as any) || []
     }
 
+    if (requestId !== loadRequestId.current) return
+
+    setIsAdmin(admin)
+    setOrders(nextOrders)
     setProfiles(profileData || [])
+    setLoadedOrderArea(area)
   }
 
   function profileName(id: string | null) {
@@ -410,7 +420,7 @@ function OrdersContent() {
       return
     }
 
-    await load()
+    await load(orderArea, ++loadRequestId.current)
   }
 
   async function changeOrderStatus(order: Order, nextStatus: string) {
@@ -431,7 +441,7 @@ function OrdersContent() {
 
     clearStatusMenuCloseTimer()
     setActiveStatusMenu(null)
-    await load()
+    await load(orderArea, ++loadRequestId.current)
   }
 
   function orderItemAvTitle(item: OrderItem) {
@@ -494,7 +504,7 @@ function OrdersContent() {
   }, [orders])
 
   const formatCards = useMemo(() => {
-    if (orderArea !== '2d-laser') return []
+    if (orderArea !== '2d-laser' || loadedOrderArea !== orderArea) return []
 
     const formats = new Map<string, {
       format: string
@@ -533,7 +543,7 @@ function OrdersContent() {
       formatSortValue(b.format) - formatSortValue(a.format) ||
       a.format.localeCompare(b.format, 'de-DE')
     ))
-  }, [orders, orderArea])
+  }, [orders, orderArea, loadedOrderArea])
 
   function orderBaseNumber(orderNumber: string) {
     return orderNumber.replace(/(?:-NB)+$/, '')
@@ -602,7 +612,9 @@ function OrdersContent() {
           <section className="format-summary" aria-label="Bestellte Tafeln nach Format">
             <h2>Bestellte Tafeln nach Format</h2>
             <div className="format-summary-cards">
-              {formatCards.length > 0 ? formatCards.map(card => (
+              {loadedOrderArea !== orderArea ? (
+                <p className="small">Tafeln werden geladen...</p>
+              ) : formatCards.length > 0 ? formatCards.map(card => (
                 <article className="format-summary-card" key={card.format}>
                   <strong>{card.format}</strong>
                   <span>
