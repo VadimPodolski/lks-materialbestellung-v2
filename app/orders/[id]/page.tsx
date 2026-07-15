@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import {
@@ -56,6 +56,9 @@ type OrderPdf = {
   file_url: string
   file_path: string
   document_type: PdfDocumentType
+  price_import_status: 'pending' | 'processing' | 'imported' | 'failed' | null
+  price_import_message: string | null
+  prices_imported_at: string | null
   created_at: string
 }
 
@@ -121,6 +124,24 @@ function formatPriceQuantity(value: number | null | undefined, unit: string | nu
   return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(Number(value))} ${unit}`
 }
 
+function normalizedDimensionPart(value: string) {
+  const number = Number(value.replace(',', '.'))
+  return Number.isFinite(number) ? String(number) : value
+}
+
+function dimensionSignature(value: string | null | undefined) {
+  if (!value) return ''
+
+  const match = value.match(/(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)(?:\s*[xX×]\s*(\d+(?:[.,]\d+)?))?/)
+    || value.match(/(\d+(?:[.,]\d+)?)\s*-\s*(\d+(?:[.,]\d+)?)(?:\s*-\s*(\d+(?:[.,]\d+)?))?/)
+  if (!match) return ''
+
+  return [match[1], match[2], match[3]]
+    .filter(Boolean)
+    .map(normalizedDimensionPart)
+    .join('x')
+}
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -163,7 +184,8 @@ export default function OrderDetailPage() {
 
   const [draggingPdfType, setDraggingPdfType] = useState<PdfDocumentType | null>(null)
   const [uploadingPdfType, setUploadingPdfType] = useState<PdfDocumentType | null>(null)
-  const [extractingPricePdfId, setExtractingPricePdfId] = useState('')
+  const [processingPricePdfId, setProcessingPricePdfId] = useState('')
+  const processedPricePdfIds = useRef(new Set<string>())
   const [showDetailStatusMenu, setShowDetailStatusMenu] = useState(false)
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
   const [msg, setMsg] = useState('')
@@ -298,6 +320,20 @@ export default function OrderDetailPage() {
     () => normalizeOrderItems(order),
     [order]
   )
+
+  useEffect(() => {
+    if (!order || orderItems.length === 0 || processingPricePdfId) return
+
+    const pendingPdf = orderPdfs.find(pdf => (
+      pdf.document_type === 'supplier_confirmation'
+      && pdf.price_import_status !== 'imported'
+      && !processedPricePdfIds.current.has(pdf.id)
+    ))
+
+    if (pendingPdf) {
+      void applySupplierPrices(pendingPdf)
+    }
+  }, [order, orderItems, orderPdfs, processingPricePdfId])
 
   const customerSuggestions = useMemo(() => {
     return masterDataOptions(customers, editForm.customer)
@@ -1159,13 +1195,15 @@ LKS-Technik GmbH & Co. KG`
         file_name: file.name,
         file_path: path,
         file_url: publicData.publicUrl,
-        document_type: documentType
+        document_type: documentType,
+        price_import_status: documentType === 'supplier_confirmation' ? 'pending' : null
       })
     }
 
-    const { error: insertError } = await supabase
+    const { data: insertedPdfs, error: insertError } = await supabase
       .from('order_pdfs')
       .insert(rows)
+      .select('*')
 
     setUploadingPdfType(null)
 
@@ -1174,9 +1212,16 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    await load()
     const sectionTitle = pdfSections.find(section => section.type === documentType)?.title.replace(/^\d+\.\s*/, '')
-    setMsg(`${rows.length} PDF${rows.length === 1 ? '' : 's'} unter „${sectionTitle}“ hochgeladen.`)
+
+    if (documentType === 'supplier_confirmation') {
+      for (const pdf of (insertedPdfs as OrderPdf[]) || []) {
+        await applySupplierPrices(pdf)
+      }
+    } else {
+      await load()
+      setMsg(`${rows.length} PDF${rows.length === 1 ? '' : 's'} unter „${sectionTitle}“ hochgeladen.`)
+    }
   }
 
   async function deleteSupplierOrderPdf(pdf: OrderPdf) {
@@ -1209,13 +1254,34 @@ LKS-Technik GmbH & Co. KG`
     setMsg('PDF wurde gelöscht.')
   }
 
-  async function applyUllnerPrices(pdfFile: OrderPdf) {
+  async function applySupplierPrices(pdfFile: OrderPdf) {
     if (!order) return
 
-    setExtractingPricePdfId(pdfFile.id)
-    setMsg('Ullner-Auftragsbestätigung wird ausgewertet...')
+    processedPricePdfIds.current.add(pdfFile.id)
+    setProcessingPricePdfId(pdfFile.id)
+    setMsg(`${pdfFile.file_name} wird automatisch ausgewertet...`)
+
+    const supabase = createClient()
+
+    async function failImport(message: string) {
+      await supabase
+        .from('order_pdfs')
+        .update({
+          price_import_status: 'failed',
+          price_import_message: message,
+          prices_imported_at: null
+        })
+        .eq('id', pdfFile.id)
+
+      setMsg(message)
+    }
 
     try {
+      await supabase
+        .from('order_pdfs')
+        .update({ price_import_status: 'processing', price_import_message: null })
+        .eq('id', pdfFile.id)
+
       const response = await fetch(`/api/orders/${order.id}/extract-ullner-prices`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1227,7 +1293,7 @@ LKS-Technik GmbH & Co. KG`
       const result = await response.json()
 
       if (!response.ok) {
-        setMsg(result.error || 'Positionspreise konnten nicht ausgelesen werden.')
+        await failImport(result.error || 'Positionspreise konnten nicht ausgelesen werden.')
         return
       }
 
@@ -1237,22 +1303,32 @@ LKS-Technik GmbH & Co. KG`
         priceUnit: string
         unitPriceEur: number
         lineTotalEur: number
+        description: string
       }[]
-      const updates = extractedPositions.map(price => {
-        const item = orderItems.find((candidate, index) => (
-          Number(candidate.position || index + 1) === Number(price.position)
-        ))
+      const usedItemIds = new Set<string>()
+      const updates = extractedPositions.flatMap(price => {
+        const signature = dimensionSignature(price.description)
+        const signatureMatches = signature
+          ? orderItems.filter(item => dimensionSignature(item.cross_section) === signature)
+          : []
+        let item = signatureMatches.length === 1 ? signatureMatches[0] : null
 
-        return { price, item }
+        if (!item && extractedPositions.length === orderItems.length) {
+          item = orderItems.find((candidate, index) => (
+            Number(candidate.position || index + 1) === Number(price.position)
+          )) || null
+        }
+
+        if (!item?.id || usedItemIds.has(item.id)) return []
+        usedItemIds.add(item.id)
+        return [{ price, item }]
       })
-      const unmatched = updates.filter(update => !update.item?.id)
 
-      if (unmatched.length > 0 || updates.length !== orderItems.length) {
-        setMsg('Die PDF-Positionen passen nicht eindeutig zu den Auftragspositionen. Es wurden keine Preise gespeichert.')
+      if (updates.length === 0) {
+        await failImport('Die PDF-Positionen konnten keinem Querschnitt des Auftrags eindeutig zugeordnet werden.')
         return
       }
 
-      const supabase = createClient()
       const updateResults = await Promise.all(updates.map(({ price, item }) => (
         supabase
           .from('order_items')
@@ -1268,19 +1344,29 @@ LKS-Technik GmbH & Co. KG`
       const updateError = updateResults.find(update => update.error)?.error
 
       if (updateError) {
-        setMsg(updateError.message)
+        await failImport(updateError.message)
         return
       }
 
+      const ignoredCount = extractedPositions.length - updates.length
+      const importMessage = `${updates.length} Positionspreis${updates.length === 1 ? '' : 'e'} automatisch übernommen` +
+        (ignoredCount > 0 ? `, ${ignoredCount} Zusatzposition${ignoredCount === 1 ? '' : 'en'} ignoriert.` : '.')
+
+      await supabase
+        .from('order_pdfs')
+        .update({
+          price_import_status: 'imported',
+          price_import_message: importMessage,
+          prices_imported_at: new Date().toISOString()
+        })
+        .eq('id', pdfFile.id)
+
       await load()
-      setMsg(
-        `${updates.length} Positionspreis${updates.length === 1 ? '' : 'e'} aus ` +
-        `${result.confirmationNumber ? `KAB ${result.confirmationNumber}` : pdfFile.file_name} übernommen.`
-      )
+      setMsg(`${pdfFile.file_name}: ${importMessage}`)
     } catch (error: any) {
-      setMsg(error.message || 'Ullner-Auftragsbestätigung konnte nicht ausgewertet werden.')
+      await failImport(error.message || 'Lieferanten-AB konnte nicht ausgewertet werden.')
     } finally {
-      setExtractingPricePdfId('')
+      setProcessingPricePdfId('')
     }
   }
 
@@ -1411,7 +1497,6 @@ LKS-Technik GmbH & Co. KG`
   }
 
   const isTwoDLaser = normalizeOrderArea(order.order_area) === '2d-laser'
-  const isUllnerOrder = order.suppliers?.name.toLocaleLowerCase('de-DE').includes('ullner') || false
   const canDeletePdfs = isAdminUser || canDeleteOrder(order.created_at, new Date(deleteCheckTime))
 
   return (
@@ -1493,8 +1578,8 @@ LKS-Technik GmbH & Co. KG`
                     {!isTwoDLaser && <th>AV</th>}
                     {!isTwoDLaser && <th>Länge</th>}
                     <th>{isTwoDLaser ? 'Menge' : 'Stückzahl'}</th>
-                    {!isTwoDLaser && <th>Preis</th>}
-                    {!isTwoDLaser && <th>Betrag</th>}
+                    <th>Preis</th>
+                    <th>Betrag</th>
                     {isTwoDLaser && <th>Einheit</th>}
                     {isTwoDLaser && <th>Stück/Paket</th>}
                     <th>Geliefert</th>
@@ -1520,17 +1605,15 @@ LKS-Technik GmbH & Co. KG`
                         {!isTwoDLaser && <td>{orderItemAvText(item) || '-'}</td>}
                         {!isTwoDLaser && <td>{item.length_mm || '-'} mm</td>}
                         <td>{item.quantity}</td>
-                        {!isTwoDLaser && (
-                          <td className="order-position-price">
-                            {item.unit_price_eur == null ? '-' : (
-                              <>
-                                <strong>{formatEuro(item.unit_price_eur, 4)} / {item.price_unit || 'Einheit'}</strong>
-                                <small>{formatPriceQuantity(item.price_quantity, item.price_unit)}</small>
-                              </>
-                            )}
-                          </td>
-                        )}
-                        {!isTwoDLaser && <td><strong>{formatEuro(item.line_total_eur)}</strong></td>}
+                        <td className="order-position-price">
+                          {item.unit_price_eur == null ? '-' : (
+                            <>
+                              <strong>{formatEuro(item.unit_price_eur, 4)} / {item.price_unit || 'Einheit'}</strong>
+                              <small>{formatPriceQuantity(item.price_quantity, item.price_unit)}</small>
+                            </>
+                          )}
+                        </td>
+                        <td><strong>{formatEuro(item.line_total_eur)}</strong></td>
                         {isTwoDLaser && <td>{item.order_unit === 'paket' ? 'Paket' : item.order_unit === 'kg' ? 'kg' : 'Stück'}</td>}
                         {isTwoDLaser && <td>{item.order_unit === 'paket' ? item.pieces_per_package || '-' : '-'}</td>}
                         <td className={receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}>
@@ -1700,15 +1783,19 @@ LKS-Technik GmbH & Co. KG`
                               </span>
                               <span>{pdf.file_name}</span>
                             </a>
-                            {section.type === 'supplier_confirmation' && isUllnerOrder && (
-                              <button
-                                type="button"
-                                className="primary"
-                                disabled={Boolean(extractingPricePdfId)}
-                                onClick={() => applyUllnerPrices(pdf)}
-                              >
-                                {extractingPricePdfId === pdf.id ? 'Preise werden gelesen...' : 'Preise übernehmen'}
-                              </button>
+                            {section.type === 'supplier_confirmation' && (
+                              <div className={`pdf-price-import-status ${pdf.price_import_status || 'pending'}`}>
+                                <strong>
+                                  {(processingPricePdfId === pdf.id || pdf.price_import_status === 'processing')
+                                    ? 'Preise werden automatisch geprüft...'
+                                    : pdf.price_import_status === 'imported'
+                                      ? 'Preise automatisch übernommen'
+                                      : pdf.price_import_status === 'failed'
+                                        ? 'Automatische Preisprüfung nicht möglich'
+                                        : 'Automatische Preisprüfung startet'}
+                                </strong>
+                                {pdf.price_import_message && <small>{pdf.price_import_message}</small>}
+                              </div>
                             )}
                             {canDeletePdfs && (
                               <button type="button" className="danger" onClick={() => deleteSupplierOrderPdf(pdf)}>

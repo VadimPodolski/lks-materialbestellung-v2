@@ -4,11 +4,13 @@ export type UllnerPositionPrice = {
   priceUnit: string
   unitPriceEur: number
   lineTotalEur: number
+  description: string
 }
 
 export type UllnerPriceConfirmation = {
   confirmationNumber: string | null
   referenceNumber: string | null
+  supplierFormat: 'ullner' | 'generic'
   positions: UllnerPositionPrice[]
 }
 
@@ -41,8 +43,8 @@ function splitUnitPriceAndTotal(value: string, quantity: number) {
 }
 
 function parsePriceLine(line: string) {
-  const compact = line.replace(/\s+/g, '')
-  const match = compact.match(/^([\d.]+,\d{3})(m|kg|Stg\.?)([\d.,]+)$/i)
+  const compact = line.replace(/\s+/g, '').replace(/[a-z]$/i, '')
+  const match = compact.match(/^([\d.]+,\d{2,3})(m|kg|Stg\.?|Stk\.?|Stück)([\d.,]+)$/i)
 
   if (!match) return null
 
@@ -53,9 +55,46 @@ function parsePriceLine(line: string) {
 
   return {
     priceQuantity,
-    priceUnit: /^stg/i.test(match[2]) ? 'Stück' : match[2].toLowerCase(),
+    priceUnit: normalizeUnit(match[2]),
     unitPriceEur: prices.unitPrice,
     lineTotalEur: prices.total
+  }
+}
+
+function normalizeUnit(value: string) {
+  return /^(?:stg|stk|stück)/i.test(value) ? 'Stück' : value.toLowerCase()
+}
+
+function parseGenericPriceLine(line: string) {
+  const compact = line.replace(/\s+/g, '')
+  const unitMatch = compact.match(/(Stück|Stk\.?|Stg\.?|m|kg)/i)
+  if (!unitMatch || unitMatch.index == null) return null
+
+  const beforeUnit = compact.slice(0, unitMatch.index)
+  const afterUnit = compact.slice(unitMatch.index + unitMatch[0].length)
+  const priceMatch = afterUnit.match(/([\d.]+,\d{2,4})€?(?:\/(?:Stück|Stk\.?|Stg\.?|m|kg))?([\d.]+,\d{2})€?$/i)
+  if (!priceMatch) return null
+
+  const unitPriceEur = germanNumber(priceMatch[1])
+  const lineTotalEur = germanNumber(priceMatch[2])
+  const quantityCandidates: { quantity: number; difference: number }[] = []
+
+  for (let index = 0; index < beforeUnit.length; index += 1) {
+    const candidate = beforeUnit.slice(index)
+    if (!/^\d+(?:\.\d{3})*,\d{2,3}$/.test(candidate)) continue
+
+    const quantity = germanNumber(candidate)
+    quantityCandidates.push({ quantity, difference: Math.abs(quantity * unitPriceEur - lineTotalEur) })
+  }
+
+  const quantity = quantityCandidates.sort((a, b) => a.difference - b.difference)[0]
+  if (!quantity || quantity.difference > 0.06) return null
+
+  return {
+    priceQuantity: quantity.quantity,
+    priceUnit: normalizeUnit(unitMatch[0]),
+    unitPriceEur,
+    lineTotalEur
   }
 }
 
@@ -84,7 +123,19 @@ export function parseUllnerPriceConfirmation(text: string): UllnerPriceConfirmat
         const price = parsePriceLine(lines[priceIndex])
 
         if (price) {
-          positions.push({ position, ...price })
+          let descriptionEnd = end
+          for (let descriptionIndex = priceIndex + 1; descriptionIndex < end; descriptionIndex += 1) {
+            if (/^\d{1,3}$/.test(lines[descriptionIndex])) {
+              descriptionEnd = descriptionIndex
+              break
+            }
+          }
+
+          positions.push({
+            position,
+            ...price,
+            description: lines.slice(index + 1, Math.min(descriptionEnd, priceIndex + 6)).join(' ')
+          })
           index = priceIndex
           break
         }
@@ -93,7 +144,43 @@ export function parseUllnerPriceConfirmation(text: string): UllnerPriceConfirmat
   }
 
   const confirmationNumber = text.match(/KAB\s+(\d+)/i)?.[1] || null
-  const referenceNumber = text.match(/Referenznummer:\s*([A-Z0-9-]+)/i)?.[1] || null
+  const referenceNumber = text.match(/Referenznummer:\s*([A-Z0-9-]+)/i)?.[1]
+    || text.match(/Kommission:\s*A?(AB-\d+)/i)?.[1]
+    || null
 
-  return { confirmationNumber, referenceNumber, positions }
+  return { confirmationNumber, referenceNumber, supplierFormat: 'ullner', positions }
+}
+
+export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirmation {
+  if (/(?:ULLNER\s*u\.?\s*ULLNER|ullner\.de)/i.test(text)) {
+    return parseUllnerPriceConfirmation(text)
+  }
+
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+
+  if (!lines.some(line => /^(?:Auftragsbestätigung|Order\s+Confirmation)(?:\s|$)/i.test(line))) {
+    throw new Error('Die PDF wurde nicht als Lieferanten-Auftragsbestätigung erkannt.')
+  }
+  const positions: UllnerPositionPrice[] = []
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const price = parseGenericPriceLine(lines[index])
+    if (!price) continue
+
+    const positionMatch = lines[index].match(/^(?:\d{4,})?(\d{1,3})(?=\d+[.,]\d{2,3}(?:Stück|Stk|Stg|m|kg))/i)
+    const fallbackPosition = positions.length + 1
+    positions.push({
+      position: positionMatch ? Number(positionMatch[1]) : fallbackPosition,
+      ...price,
+      description: lines.slice(index, Math.min(lines.length, index + 7)).join(' ')
+    })
+  }
+
+  const confirmationNumber = text.match(/(?:Auftragsbestätigung|Bestellung)\s*[:#]?\s*([A-Z0-9-]{4,})/i)?.[1] || null
+  const referenceNumber = text.match(/(?:Referenz|Kommission|Ihre Bestellung)\s*[:#]?\s*([A-Z0-9-]+)/i)?.[1] || null
+
+  return { confirmationNumber, referenceNumber, supplierFormat: 'generic', positions }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import pdf from 'pdf-parse/lib/pdf-parse.js'
-import { parseUllnerPriceConfirmation } from '@/lib/ullnerPriceParser'
+import { parseSupplierPriceConfirmation } from '@/lib/ullnerPriceParser'
 
 export const runtime = 'nodejs'
 
@@ -40,11 +40,20 @@ export async function POST(
     }
 
     const parsedPdf = await pdf(buffer)
-    const confirmation = parseUllnerPriceConfirmation(parsedPdf.text)
+    let confirmation
+
+    try {
+      confirmation = parseSupplierPriceConfirmation(parsedPdf.text)
+    } catch (error: any) {
+      return NextResponse.json(
+        { error: error.message || 'Die PDF wurde nicht als Lieferanten-AB erkannt.' },
+        { status: 422 }
+      )
+    }
 
     if (confirmation.positions.length === 0) {
       return NextResponse.json(
-        { error: 'In dieser Ullner-PDF wurden keine Positionspreise erkannt.' },
+        { error: 'In dieser Lieferanten-AB wurden keine Positionspreise erkannt.' },
         { status: 422 }
       )
     }
@@ -63,7 +72,7 @@ export async function POST(
     return NextResponse.json(confirmation)
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || 'Ullner-PDF konnte nicht ausgewertet werden.' },
+      { error: error.message || 'Lieferanten-AB konnte nicht ausgewertet werden.' },
       { status: 500 }
     )
   }
