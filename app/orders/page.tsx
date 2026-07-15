@@ -604,7 +604,7 @@ function OrdersContent() {
     <main className="container wide">
       <div className="orders-page-heading">
         <div>
-          <h1>Bestellungen</h1>
+          <h1>Bestellungen {orderArea === '2d-laser' ? '2D-Laser' : 'Rohrlaser'}</h1>
         </div>
 
         {orderArea === '2d-laser' && (
