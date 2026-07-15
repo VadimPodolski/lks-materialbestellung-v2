@@ -241,10 +241,10 @@ a {
   display: grid;
   grid-template-columns: repeat(2, minmax(120px, 1fr));
   gap: 0;
-  padding: 10px 6px;
+  padding: 6px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, .13);
-  border-radius: 18px;
+  border-radius: 15px;
   background: rgba(255, 255, 255, .07);
   isolation: isolate;
 }
@@ -256,8 +256,8 @@ a {
 .order-area-slider {
   position: absolute;
   z-index: -1;
-  top: 10px;
-  bottom: 10px;
+  top: 6px;
+  bottom: 6px;
   left: 6px;
   width: calc(50% - 6px);
   border-radius: 9px;
