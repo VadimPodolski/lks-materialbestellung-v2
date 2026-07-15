@@ -1108,7 +1108,15 @@ a.card:hover {
 }
 
 .order-summary-grid {
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 24px;
   margin-top: 28px;
+}
+
+@media (max-width: 1400px) {
+  .order-summary-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .qty-delivered.partial {

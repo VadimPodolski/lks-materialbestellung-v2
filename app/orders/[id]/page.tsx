@@ -321,6 +321,25 @@ export default function OrderDetailPage() {
     [order]
   )
 
+  const totalOrderPrice = useMemo(() => {
+    let hasPrice = false
+    const total = orderItems.reduce((sum, item) => {
+      if (item.line_total_eur != null) {
+        hasPrice = true
+        return sum + Number(item.line_total_eur)
+      }
+
+      if (item.unit_price_eur != null && item.price_quantity != null) {
+        hasPrice = true
+        return sum + Number(item.unit_price_eur) * Number(item.price_quantity)
+      }
+
+      return sum
+    }, 0)
+
+    return hasPrice ? total : null
+  }, [orderItems])
+
   useEffect(() => {
     if (!order || orderItems.length === 0 || processingPricePdfId) return
 
@@ -1681,11 +1700,12 @@ LKS-Technik GmbH & Co. KG`
             </div>
 
             <div className="grid order-summary-grid">
+              {!isTwoDLaser && <p><b>Kunde:</b><br />{order.customer}</p>}
               <p><b>Gesamtmenge:</b><br />{orderItemsTotal(orderItems)}</p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
-              {!isTwoDLaser && <p><b>Kunde:</b><br />{order.customer}</p>}
               {!isTwoDLaser && <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>}
+              <p><b>Gesamtsumme:</b><br />{formatEuro(totalOrderPrice)}</p>
               <p>
                 <b>Lieferant:</b>
                 <br />
