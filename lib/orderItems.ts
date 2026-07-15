@@ -1,6 +1,7 @@
 export type OrderItem = {
   id?: string
   material: string
+  material_thickness_mm?: number | null
   cross_section: string
   av_1?: string | null
   av_2?: string | null
@@ -25,11 +26,12 @@ export type LegacyOrderFields = {
   order_items?: OrderItem[] | null
 }
 
-export const orderItemsSelect = 'id,material,cross_section,av_1,av_2,av_3,av_4,length_mm,quantity,order_unit,pieces_per_package,position'
+export const orderItemsSelect = 'id,material,material_thickness_mm,cross_section,av_1,av_2,av_3,av_4,length_mm,quantity,order_unit,pieces_per_package,position'
 
 export function emptyOrderItem(): OrderItem {
   return {
     material: '',
+    material_thickness_mm: null,
     cross_section: '',
     av_1: '',
     av_2: '',
@@ -74,6 +76,7 @@ export function mergeOrderItems(items: OrderItem[]) {
   for (const item of items) {
     const material = item.material.trim()
     const crossSection = item.cross_section.trim()
+    const materialThicknessMm = item.material_thickness_mm ? Number(item.material_thickness_mm) : null
     const av1 = (item.av_1 || '').trim()
     const av2 = (item.av_2 || '').trim()
     const av3 = (item.av_3 || '').trim()
@@ -84,6 +87,7 @@ export function mergeOrderItems(items: OrderItem[]) {
     const piecesPerPackage = orderUnit === 'paket' ? Number(item.pieces_per_package || 0) : null
     const key = [
       material.toLowerCase(),
+      materialThicknessMm ?? '',
       crossSection.toLowerCase(),
       av1.toLowerCase(),
       av2.toLowerCase(),
@@ -103,6 +107,7 @@ export function mergeOrderItems(items: OrderItem[]) {
     merged.set(key, {
       id: item.id,
       material,
+      material_thickness_mm: materialThicknessMm,
       cross_section: crossSection,
       av_1: av1 || null,
       av_2: av2 || null,
@@ -129,7 +134,8 @@ export function orderItemsSummary(items: OrderItem[]) {
   return items
     .map(item => {
       const av = orderItemAvText(item)
-      return `${item.material} - ${item.cross_section}${av ? ` - AV: ${av}` : ''} (${orderItemQuantityText(item)})`
+      const thickness = item.material_thickness_mm ? ` - ${formatMaterialThickness(item.material_thickness_mm)}` : ''
+      return `${item.material}${thickness} - ${item.cross_section}${av ? ` - AV: ${av}` : ''} (${orderItemQuantityText(item)})`
     })
     .join(', ')
 }
@@ -156,10 +162,16 @@ export function orderItemQuantityText(item: OrderItem) {
   return `${item.quantity} Stück`
 }
 
+export function formatMaterialThickness(value: number | null | undefined) {
+  if (!value) return '-'
+  return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(Number(value))} mm`
+}
+
 export function orderItemsMailText(items: OrderItem[]) {
   return items
     .map((item, index) => (
       `${index + 1}. Material: ${item.material}
+${item.material_thickness_mm ? `   Materialstärke: ${formatMaterialThickness(item.material_thickness_mm)}\n` : ''}
    Querschnitt: ${item.cross_section}
    AV: ${orderItemAvText(item) || '-'}
    Länge: ${item.length_mm || '-'} mm

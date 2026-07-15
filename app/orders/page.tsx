@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
-import { OrderItem, normalizeOrderItems, orderItemAvText, orderItemQuantityText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
+import { OrderItem, formatMaterialThickness, normalizeOrderItems, orderItemAvText, orderItemQuantityText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { newOrderHref, normalizeOrderArea, orderAreaLabel, ordersHref } from '@/lib/orderAreas'
@@ -706,6 +706,7 @@ function OrdersContent() {
           {orderArea === 'rohrlaser' && <col className="orders-col-customer" />}
           {orderArea === 'rohrlaser' && <col className="orders-col-date" />}
           <col className="orders-col-material" />
+          {orderArea === '2d-laser' && <col className="orders-col-material" />}
           <col className="orders-col-positions" />
           {orderArea === 'rohrlaser' && <col className="orders-col-av" />}
           <col className="orders-col-qty" />
@@ -726,6 +727,7 @@ function OrdersContent() {
             {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
             {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
             <th>{sortButton('material', 'Material')}</th>
+            {orderArea === '2d-laser' && <th>Materialstärke</th>}
             <th>{sortButton('positions', 'Positionen')}</th>
             {orderArea === 'rohrlaser' && <th>AV</th>}
             <th>{sortButton('quantity', 'Menge')}</th>
@@ -810,6 +812,15 @@ function OrdersContent() {
                     ))}
                   </div>
                 </td>
+                {orderArea === '2d-laser' && <td className="order-positions-cell">
+                  <div className="order-position-lines">
+                    {orderItems.map((item, index) => (
+                      <div key={`${item.material}-${item.material_thickness_mm}-${index}`}>
+                        {formatMaterialThickness(item.material_thickness_mm)}
+                      </div>
+                    ))}
+                  </div>
+                </td>}
                 <td className="order-positions-cell">
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (

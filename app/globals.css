@@ -1042,6 +1042,7 @@ a.card:hover {
   grid-template-columns:
     minmax(105px, .45fr)
     minmax(220px, 1fr)
+    minmax(165px, .65fr)
     minmax(460px, 1.9fr)
     minmax(150px, .65fr)
     minmax(135px, .55fr)

@@ -6,6 +6,7 @@ import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import {
   OrderItem,
   emptyOrderItem,
+  formatMaterialThickness,
   mergeOrderItems,
   normalizeOrderItems,
   orderItemAvText,
@@ -82,6 +83,7 @@ type Scrap = {
 type Supplier = { id: string; name: string; email: string }
 type MasterData = { id: string; name: string; order_area: OrderArea }
 type SheetFormat = { id: string; name: string; width_mm: number; height_mm: number }
+type MaterialThickness = { id: string; material: string; thickness_mm: number; order_area: string }
 type ReceiptDraft = { quantity: string; deliveryNote: string; notes: string }
 type ScrapDraft = { quantity: string; reason: string }
 
@@ -107,6 +109,7 @@ export default function OrderDetailPage() {
   const [crossSections, setCrossSections] = useState<MasterData[]>([])
   const [workPreparations, setWorkPreparations] = useState<MasterData[]>([])
   const [packagingDefaults, setPackagingDefaults] = useState<Record<string, number>>({})
+  const [materialThicknesses, setMaterialThicknesses] = useState<MaterialThickness[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
 
   const [editing, setEditing] = useState(false)
@@ -160,7 +163,8 @@ export default function OrderDetailPage() {
       { data: crossData },
       { data: workPreparationData },
       { data: formatData },
-      { data: packagingData }
+      { data: packagingData },
+      { data: thicknessData }
     ] = await Promise.all([
       supabase
         .from('material_orders')
@@ -192,7 +196,8 @@ export default function OrderDetailPage() {
       supabase.from('cross_sections').select('id,name,order_area').order('name'),
       supabase.from('work_preparations').select('id,name,order_area').order('name'),
       supabase.from('formats').select('id,name,width_mm,height_mm').order('width_mm', { ascending: false }),
-      supabase.from('packaging_defaults').select('lookup_key,material,cross_section,pieces_per_package,order_area')
+      supabase.from('packaging_defaults').select('lookup_key,material,cross_section,pieces_per_package,order_area'),
+      supabase.from('material_thicknesses').select('id,material,thickness_mm,order_area').order('thickness_mm')
     ])
 
     const loadedOrder = orderData as any
@@ -213,6 +218,9 @@ export default function OrderDetailPage() {
       ((packagingData as (PackagingDefault & { order_area: string })[]) || [])
         .filter(item => item.order_area === area)
     ))
+    setMaterialThicknesses(
+      ((thicknessData as MaterialThickness[]) || []).filter(item => item.order_area === area)
+    )
 
     const { data: userData } = await supabase.auth.getUser()
     const user = userData.user
@@ -360,6 +368,20 @@ export default function OrderDetailPage() {
         throw new Error(error.message)
       }
     }
+
+    if (orderArea === '2d-laser') {
+      const thicknessRows = cleanItems
+        .filter(item => item.material && item.material_thickness_mm)
+        .map(item => ({ order_area: orderArea, material: item.material, thickness_mm: item.material_thickness_mm }))
+
+      if (thicknessRows.length > 0) {
+        const { error } = await supabase.from('material_thicknesses').upsert(thicknessRows, {
+          onConflict: 'order_area,material,thickness_mm',
+          ignoreDuplicates: true
+        })
+        if (error) throw new Error(error.message)
+      }
+    }
   }
 
   function visibleStatus(currentOrder: Order) {
@@ -367,7 +389,7 @@ export default function OrderDetailPage() {
     return currentOrder.status
   }
 
-  function setEditItem(index: number, key: 'material' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity' | 'order_unit' | 'pieces_per_package', value: string) {
+  function setEditItem(index: number, key: 'material' | 'material_thickness_mm' | 'cross_section' | 'av_1' | 'av_2' | 'av_3' | 'av_4' | 'length_mm' | 'quantity' | 'order_unit' | 'pieces_per_package', value: string) {
     setEditItems(prev => prev.map((item, itemIndex) => {
       if (itemIndex !== index) return item
 
@@ -381,6 +403,10 @@ export default function OrderDetailPage() {
 
       if (key === 'pieces_per_package') {
         return { ...item, pieces_per_package: value ? Number(value) : null }
+      }
+
+      if (key === 'material_thickness_mm') {
+        return { ...item, material_thickness_mm: value ? Number(value) : null }
       }
 
       if (key === 'order_unit') {
@@ -414,6 +440,7 @@ export default function OrderDetailPage() {
       {
         ...emptyOrderItem(),
         material: last.material,
+        material_thickness_mm: last.material_thickness_mm,
         cross_section: last.cross_section,
         av_1: last.av_1,
         av_2: last.av_2,
@@ -617,6 +644,7 @@ LKS-Technik GmbH & Co. KG`
     const customerName = twoDLaser ? '2D-Laser' : editForm.customer.trim()
     const cleanItems = mergeOrderItems(editItems.map(item => ({
       material: item.material.trim(),
+      material_thickness_mm: item.material_thickness_mm ? Number(item.material_thickness_mm) : null,
       cross_section: item.cross_section.trim(),
       av_1: (item.av_1 || '').trim(),
       av_2: (item.av_2 || '').trim(),
@@ -640,6 +668,10 @@ LKS-Technik GmbH & Co. KG`
 
     if (twoDLaser && cleanItems.some(item => item.order_unit === 'paket' && !item.pieces_per_package)) {
       return setMsg('Bitte bei jeder Paket-Position die Stückzahl pro Paket angeben.')
+    }
+
+    if (twoDLaser && cleanItems.some(item => !item.material_thickness_mm || item.material_thickness_mm <= 0)) {
+      return setMsg('Bitte bei jeder Position eine Materialstärke eingeben.')
     }
 
     try {
@@ -674,6 +706,7 @@ LKS-Technik GmbH & Co. KG`
       cleanItems.map((item, index) => ({
         material_order_id: order.id,
         material: item.material,
+        material_thickness_mm: item.material_thickness_mm,
         cross_section: item.cross_section,
         av_1: item.av_1 || null,
         av_2: item.av_2 || null,
@@ -880,6 +913,7 @@ LKS-Technik GmbH & Co. KG`
 
       return {
         material: scrap.material || sourceItem.material,
+        material_thickness_mm: sourceItem.material_thickness_mm,
         cross_section: scrap.cross_section || sourceItem.cross_section,
         av_1: sourceItem.av_1 || '',
         av_2: sourceItem.av_2 || '',
@@ -944,6 +978,7 @@ LKS-Technik GmbH & Co. KG`
       reorderItems.map((item, index) => ({
         material_order_id: data.id,
         material: item.material,
+        material_thickness_mm: item.material_thickness_mm,
         cross_section: item.cross_section,
         av_1: item.av_1 || null,
         av_2: item.av_2 || null,
@@ -1332,6 +1367,7 @@ LKS-Technik GmbH & Co. KG`
                   <tr>
                     <th>Position</th>
                     <th>Material</th>
+                    {isTwoDLaser && <th>Materialstärke</th>}
                     <th>{isTwoDLaser ? 'Format' : 'Querschnitt'}</th>
                     {!isTwoDLaser && <th>AV</th>}
                     {!isTwoDLaser && <th>Länge</th>}
@@ -1356,6 +1392,7 @@ LKS-Technik GmbH & Co. KG`
                       <tr key={`${item.cross_section}-${index}`}>
                         <td>{index + 1}</td>
                         <td>{item.material}</td>
+                        {isTwoDLaser && <td>{formatMaterialThickness(item.material_thickness_mm)}</td>}
                         <td>{item.cross_section}</td>
                         {!isTwoDLaser && <td>{orderItemAvText(item) || '-'}</td>}
                         {!isTwoDLaser && <td>{item.length_mm || '-'} mm</td>}
@@ -1648,6 +1685,27 @@ LKS-Technik GmbH & Co. KG`
                           )}
                         </div>
                       </div>
+
+                      {isTwoDLaser && (
+                        <div>
+                          <label>Materialstärke (mm)</label>
+                          <input
+                            type="number"
+                            min="0.001"
+                            step="0.001"
+                            list={`edit-material-thickness-options-${index}`}
+                            value={item.material_thickness_mm || ''}
+                            onChange={e => setEditItem(index, 'material_thickness_mm', e.target.value)}
+                            placeholder="z.B. 1,5"
+                            required
+                          />
+                          <datalist id={`edit-material-thickness-options-${index}`}>
+                            {materialThicknesses
+                              .filter(thickness => thickness.material.trim().toLocaleLowerCase('de-DE') === item.material.trim().toLocaleLowerCase('de-DE'))
+                              .map(thickness => <option key={thickness.id} value={thickness.thickness_mm} />)}
+                          </datalist>
+                        </div>
+                      )}
 
                       <div className={isTwoDLaser ? 'order-item-format' : undefined}>
                         <label>{isTwoDLaser ? 'Format' : 'Querschnitt'}</label>
