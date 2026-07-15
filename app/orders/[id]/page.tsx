@@ -19,6 +19,7 @@ import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
+import { canDeleteForOrderArea } from '@/lib/areaPermissions'
 import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
 import ConfirmDialog from '@/app/ConfirmDialog'
 
@@ -111,7 +112,7 @@ export default function OrderDetailPage() {
   const [workPreparations, setWorkPreparations] = useState<MasterData[]>([])
   const [packagingDefaults, setPackagingDefaults] = useState<Record<string, number>>({})
   const [materialThicknesses, setMaterialThicknesses] = useState<MaterialThickness[]>([])
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [canDeleteThisOrder, setCanDeleteThisOrder] = useState(false)
 
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({
@@ -229,9 +230,10 @@ export default function OrderDetailPage() {
 
     if (user) {
       const profile = await ensureCurrentUserProfile(supabase, user)
-      setIsAdmin(profile?.role === 'admin')
+      const admin = profile?.role === 'admin'
+      setCanDeleteThisOrder(canDeleteForOrderArea(user.email, admin, area))
     } else {
-      setIsAdmin(false)
+      setCanDeleteThisOrder(false)
     }
 
     if (loadedOrder) {
@@ -1243,13 +1245,13 @@ LKS-Technik GmbH & Co. KG`
   async function deleteOrder() {
     if (!order) return
 
-    if (!isAdmin && !canDeleteOrder(order.created_at)) {
+    if (!canDeleteThisOrder && !canDeleteOrder(order.created_at)) {
       alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
       return
     }
 
-    if (!isAdmin) {
-      alert('Nur Administratoren dürfen Bestellungen löschen.')
+    if (!canDeleteThisOrder) {
+      alert('Du hast für diesen Fertigungsbereich keine Löschberechtigung.')
       return
     }
 
@@ -1274,7 +1276,7 @@ LKS-Technik GmbH & Co. KG`
       supabase,
       order.id,
       order.created_at,
-      isAdmin
+      canDeleteThisOrder
     )
 
     if (deleteError) {
@@ -1496,7 +1498,7 @@ LKS-Technik GmbH & Co. KG`
                 Stornieren
               </button>
 
-              {isAdmin && (
+              {canDeleteThisOrder && (
                 <button
                   type="button"
                   className="danger"

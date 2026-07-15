@@ -10,6 +10,7 @@ import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { newOrderHref, normalizeOrderArea, type OrderArea } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
+import { canDeleteForOrderArea } from '@/lib/areaPermissions'
 import ConfirmDialog from '@/app/ConfirmDialog'
 
 type Order = {
@@ -81,7 +82,7 @@ function OrdersContent() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loadedOrderArea, setLoadedOrderArea] = useState<OrderArea | null>(null)
   const [profiles, setProfiles] = useState<Profile[]>([])
-  const [isAdmin, setIsAdmin] = useState(false)
+  const [canDeleteCurrentArea, setCanDeleteCurrentArea] = useState(false)
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
@@ -253,7 +254,7 @@ function OrdersContent() {
     if (requestId !== loadRequestId.current) return
 
     ordersByAreaCache.current[area] = nextOrders
-    setIsAdmin(admin)
+    setCanDeleteCurrentArea(canDeleteForOrderArea(email, admin, area))
     setOrders(nextOrders)
     setProfiles(profileData || [])
     setLoadedOrderArea(area)
@@ -397,7 +398,7 @@ function OrdersContent() {
   }
 
   async function deleteOrder(order: Order) {
-    if (!isAdmin && !canDeleteOrder(order.created_at)) {
+    if (!canDeleteCurrentArea && !canDeleteOrder(order.created_at)) {
       alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
       return
     }
@@ -411,7 +412,7 @@ function OrdersContent() {
       supabase,
       order.id,
       order.created_at,
-      isAdmin
+      canDeleteCurrentArea
     )
 
     if (deleteError) {
@@ -901,7 +902,7 @@ function OrdersContent() {
                   )}
                 </td>
                 <td className="row-actions">
-                  {(isAdmin || (orderStatus === 'offen' && canDeleteOrder(o.created_at, new Date(deleteCheckTime)))) && (
+                  {(canDeleteCurrentArea || (orderStatus === 'offen' && canDeleteOrder(o.created_at, new Date(deleteCheckTime)))) && (
                     <button
                       type="button"
                       className="danger"

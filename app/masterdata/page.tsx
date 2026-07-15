@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
+import { isTwoDLaserDeleteManager } from '@/lib/areaPermissions'
 
 type Customer = { id:string; name:string; contact_person:string|null; email:string|null; phone:string|null; notes:string|null }
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
@@ -42,6 +43,7 @@ function MasterDataContent() {
   const [type, setType] = useState<TypeKey>('customers')
   const [q, setQ] = useState('')
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isTwoDDeleteManager, setIsTwoDDeleteManager] = useState(false)
 
   const [customers, setCustomers] = useState<Customer[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -99,6 +101,7 @@ function MasterDataContent() {
     }
 
     setIsAdmin(admin)
+    setIsTwoDDeleteManager(!LOGIN_DISABLED && isTwoDLaserDeleteManager(email))
     setCustomers(c || [])
     setSuppliers(s || [])
     setMaterials(m || [])
@@ -271,12 +274,28 @@ function MasterDataContent() {
   }
 
   async function remove(table:string, id:string) {
-    if (!isAdmin) return
+    const isTwoDOnlyTable = ['materials', 'material_thicknesses', 'formats'].includes(table)
+    const canDelete = isAdmin || (orderArea === '2d-laser' && isTwoDDeleteManager && isTwoDOnlyTable)
+    if (!canDelete) return
     if (!confirm('Eintrag wirklich löschen?')) return
     const supabase = createClient()
-    await supabase.from(table).delete().eq('id', id)
+    let query = supabase.from(table).delete().eq('id', id)
+    if (table === 'materials' || table === 'material_thicknesses') {
+      query = query.eq('order_area', '2d-laser')
+    }
+    const { error } = await query
+    if (error) {
+      alert(`Eintrag konnte nicht gelöscht werden: ${error.message}`)
+      return
+    }
     load()
   }
+
+  const canDeleteSelectedMasterData = isAdmin || (
+    orderArea === '2d-laser' &&
+    isTwoDDeleteManager &&
+    ['materials', 'material_thicknesses', 'formats'].includes(type)
+  )
 
   const filteredSuppliers = useMemo(() => {
     const x = q.toLowerCase()
@@ -343,8 +362,11 @@ function MasterDataContent() {
 
       <h1>Stammdaten</h1>
 
-      {!isAdmin && (
+      {!isAdmin && !canDeleteSelectedMasterData && (
         <p className="small">Normale Benutzer koennen Stammdaten anlegen. Bearbeiten und Loeschen ist nur fuer Administratoren moeglich.</p>
+      )}
+      {!isAdmin && canDeleteSelectedMasterData && (
+        <p className="small">Du kannst die Stammdaten dieses 2D-Laser-Bereichs löschen. Bearbeiten bleibt Administratoren vorbehalten.</p>
       )}
 
       <div className="card grid">
@@ -501,19 +523,19 @@ function MasterDataContent() {
             <thead>
               <tr>
                 <th>Material</th>
-                {isAdmin && <th>Aktionen</th>}
+                {canDeleteSelectedMasterData && <th>Aktionen</th>}
               </tr>
             </thead>
             <tbody>
               {filteredMaterials.map(m=>(
                 <tr key={m.id}>
                   <td><b>{m.material_name || m.name}</b></td>
-                  {isAdmin && <td className="actions">
-                    <button onClick={()=>setMaterial({
+                  {canDeleteSelectedMasterData && <td className="actions">
+                    {isAdmin && <button onClick={()=>setMaterial({
                       id:m.id,
                       material_name:m.material_name || m.name,
                       material_number:''
-                    })}>Bearbeiten</button>
+                    })}>Bearbeiten</button>}
                     <button className="danger" onClick={()=>remove('materials', m.id)}>Löschen</button>
                   </td>}
                 </tr>
@@ -628,7 +650,7 @@ function MasterDataContent() {
               <tr>
                 <th>Material</th>
                 <th>Materialstärke</th>
-                {isAdmin && <th>Aktionen</th>}
+                {canDeleteSelectedMasterData && <th>Aktionen</th>}
               </tr>
             </thead>
             <tbody>
@@ -636,12 +658,12 @@ function MasterDataContent() {
                 <tr key={item.id}>
                   <td><b>{item.material}</b></td>
                   <td>{new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(item.thickness_mm)} mm</td>
-                  {isAdmin && <td className="actions">
-                    <button onClick={()=>setMaterialThickness({
+                  {canDeleteSelectedMasterData && <td className="actions">
+                    {isAdmin && <button onClick={()=>setMaterialThickness({
                       id:item.id,
                       material:item.material,
                       thickness_mm:String(item.thickness_mm)
-                    })}>Bearbeiten</button>
+                    })}>Bearbeiten</button>}
                     <button className="danger" onClick={()=>remove('material_thicknesses', item.id)}>Löschen</button>
                   </td>}
                 </tr>
@@ -687,7 +709,7 @@ function MasterDataContent() {
                 <th>Bezeichnung</th>
                 <th>Breite</th>
                 <th>Höhe</th>
-                {isAdmin && <th>Aktionen</th>}
+                {canDeleteSelectedMasterData && <th>Aktionen</th>}
               </tr>
             </thead>
             <tbody>
@@ -696,13 +718,13 @@ function MasterDataContent() {
                   <td><b>{f.name}</b></td>
                   <td>{f.width_mm} mm</td>
                   <td>{f.height_mm} mm</td>
-                  {isAdmin && <td className="actions">
-                    <button onClick={()=>setFormat({
+                  {canDeleteSelectedMasterData && <td className="actions">
+                    {isAdmin && <button onClick={()=>setFormat({
                       id:f.id,
                       name:f.name,
                       width_mm:String(f.width_mm),
                       height_mm:String(f.height_mm)
-                    })}>Bearbeiten</button>
+                    })}>Bearbeiten</button>}
                     <button className="danger" onClick={()=>remove('formats', f.id)}>Löschen</button>
                   </td>}
                 </tr>
