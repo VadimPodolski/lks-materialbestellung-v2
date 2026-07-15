@@ -14,11 +14,25 @@ type CrossSection = { id:string; name:string }
 type WorkPreparation = { id:string; name:string }
 type SheetFormat = { id:string; name:string; width_mm:number; height_mm:number }
 type MaterialThickness = { id:string; material:string; thickness_mm:number }
+type CrossSectionCategory = 'square' | 'rectangular' | 'round'
 
 type TypeKey = 'customers' | 'suppliers' | 'materials' | 'material_thicknesses' | 'cross_sections' | 'work_preparations' | 'formats'
 
 const ROHRLASER_TYPES: TypeKey[] = ['customers', 'suppliers', 'materials', 'cross_sections', 'work_preparations']
 const TWO_D_LASER_TYPES: TypeKey[] = ['suppliers', 'materials', 'material_thicknesses', 'formats']
+
+function getCrossSectionCategory(name:string): CrossSectionCategory {
+  const normalized = name.toLowerCase().replace(/×/g, 'x')
+
+  if (/rund|kreis|ø|⌀/.test(normalized)) return 'round'
+  if (/quadrat/.test(normalized)) return 'square'
+  if (/rechteck/.test(normalized)) return 'rectangular'
+
+  const dimensions = normalized.match(/\d+(?:[.,]\d+)?/g)?.map(value => Number(value.replace(',', '.'))) || []
+  if (dimensions.length === 2) return 'round'
+  if (dimensions.length >= 3 && Math.abs(dimensions[0] - dimensions[1]) < 0.001) return 'square'
+  return 'rectangular'
+}
 
 function MasterDataContent() {
   const router = useRouter()
@@ -283,6 +297,20 @@ function MasterDataContent() {
     return crossSections.filter(c => c.name.toLowerCase().includes(x))
   }, [crossSections, q])
 
+  const groupedCrossSections = useMemo(() => {
+    const groups: Record<CrossSectionCategory, CrossSection[]> = {
+      square: [],
+      rectangular: [],
+      round: []
+    }
+
+    filteredCrossSections.forEach(crossSection => {
+      groups[getCrossSectionCategory(crossSection.name)].push(crossSection)
+    })
+
+    return groups
+  }, [filteredCrossSections])
+
   const filteredWorkPreparations = useMemo(() => {
     const x = q.toLowerCase()
     return workPreparations.filter(av => av.name.toLowerCase().includes(x))
@@ -505,21 +533,39 @@ function MasterDataContent() {
             {cross.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
 
-          <table>
+          <table className="cross-section-table">
             <thead>
               <tr>
-                <th>Querschnitt</th>
-                {isAdmin && <th>Aktionen</th>}
+                <th>Quadratrohr</th>
+                <th>Rechteckrohr</th>
+                <th>Rundrohr</th>
               </tr>
             </thead>
             <tbody>
-              {filteredCrossSections.map(c=>(
-                <tr key={c.id}>
-                  <td><b>{c.name}</b></td>
-                  {isAdmin && <td className="actions">
-                    <button onClick={()=>setCross(c)}>Bearbeiten</button>
-                    <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
-                  </td>}
+              {Array.from({ length: Math.max(
+                groupedCrossSections.square.length,
+                groupedCrossSections.rectangular.length,
+                groupedCrossSections.round.length
+              ) }).map((_, rowIndex) => (
+                <tr key={rowIndex}>
+                  {(['square', 'rectangular', 'round'] as const).map(category => {
+                    const c = groupedCrossSections[category][rowIndex]
+                    return (
+                      <td key={category}>
+                        {c && (
+                          <div className="cross-section-entry">
+                            <b>{c.name}</b>
+                            {isAdmin && (
+                              <span className="cross-section-actions">
+                                <button onClick={()=>setCross(c)}>Bearbeiten</button>
+                                <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    )
+                  })}
                 </tr>
               ))}
             </tbody>

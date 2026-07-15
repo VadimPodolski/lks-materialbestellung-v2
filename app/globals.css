@@ -498,6 +498,33 @@ tr.clickable-row {
   cursor: pointer;
 }
 
+.cross-section-table {
+  table-layout: fixed;
+}
+
+.cross-section-table th,
+.cross-section-table td {
+  width: 33.333%;
+}
+
+.cross-section-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+}
+
+.cross-section-actions {
+  display: inline-flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.cross-section-actions button {
+  padding: 7px 10px;
+}
+
 .orders-table tr.reorder-row td,
 tr.reorder-row td {
   background: #fbfcfd;
