@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { OrderItem, emptyOrderItem, mergeOrderItems, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
-import { newOrderHref, normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
+import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
 import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
 
 type Supplier = { id: string; name: string }
@@ -505,13 +505,6 @@ export default function NewOrderPage() {
 
       <div className="order-page-heading">
         <div>
-          <a
-            className="order-area-badge order-area-switch"
-            href={newOrderHref(orderArea === '2d-laser' ? 'rohrlaser' : '2d-laser')}
-            title={`Zu ${orderAreaLabel(orderArea === '2d-laser' ? 'rohrlaser' : '2d-laser')} wechseln`}
-          >
-            {orderAreaLabel(orderArea)}
-          </a>
           <h1>Neue Materialbestellung</h1>
         </div>
       </div>

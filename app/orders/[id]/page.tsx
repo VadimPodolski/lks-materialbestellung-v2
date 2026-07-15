@@ -16,7 +16,7 @@ import {
   primaryOrderItem
 } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
-import { normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
+import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
@@ -1311,7 +1311,6 @@ LKS-Technik GmbH & Co. KG`
 
       <div className="actions" style={{ justifyContent: 'space-between' }}>
         <div>
-          <span className="order-area-badge">{orderAreaLabel(normalizeOrderArea(order.order_area))}</span>
           <h1>
             Auftrag {order.order_number} — {order.customer}
           </h1>

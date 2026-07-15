@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { LOGIN_DISABLED } from '@/lib/authMode'
-import { normalizeOrderArea, orderAreaLabel, ordersHref, type OrderArea } from '@/lib/orderAreas'
+import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
 
 type Customer = { id:string; name:string; contact_person:string|null; email:string|null; phone:string|null; notes:string|null }
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
@@ -328,7 +328,6 @@ function MasterDataContent() {
         Zurück
       </button>
 
-      <span className="order-area-badge">{orderAreaLabel(orderArea)}</span>
       <h1>Stammdaten</h1>
 
       {!isAdmin && (
