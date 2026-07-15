@@ -239,12 +239,12 @@ a {
 .order-area-switch {
   --switch-color: #2563eb;
   display: grid;
-  grid-template-columns: repeat(2, minmax(108px, 1fr));
+  grid-template-columns: repeat(2, minmax(120px, 1fr));
   gap: 0;
-  padding: 3px;
+  padding: 6px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, .13);
-  border-radius: 12px;
+  border-radius: 15px;
   background: rgba(255, 255, 255, .07);
   isolation: isolate;
 }
@@ -256,10 +256,10 @@ a {
 .order-area-slider {
   position: absolute;
   z-index: -1;
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  width: calc(50% - 3px);
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: calc(50% - 6px);
   border-radius: 9px;
   background: var(--switch-color);
   box-shadow: 0 4px 14px color-mix(in srgb, var(--switch-color) 42%, transparent);
@@ -282,7 +282,7 @@ a {
   z-index: 1;
   justify-content: center;
   height: 34px;
-  padding: 0 15px;
+  padding: 0 20px;
   border-radius: 9px;
   color: #cbd5e1;
   transition: color .2s ease, transform .2s ease;
