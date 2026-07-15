@@ -533,43 +533,33 @@ function MasterDataContent() {
             {cross.id && <button type="button" className="secondary" onClick={resetForms}>Abbrechen</button>}
           </form>
 
-          <table className="cross-section-table">
-            <thead>
-              <tr>
-                <th>Quadratrohr</th>
-                <th>Rechteckrohr</th>
-                <th>Rundrohr</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: Math.max(
-                groupedCrossSections.square.length,
-                groupedCrossSections.rectangular.length,
-                groupedCrossSections.round.length
-              ) }).map((_, rowIndex) => (
-                <tr key={rowIndex}>
-                  {(['square', 'rectangular', 'round'] as const).map(category => {
-                    const c = groupedCrossSections[category][rowIndex]
-                    return (
-                      <td key={category}>
-                        {c && (
-                          <div className="cross-section-entry">
-                            <b>{c.name}</b>
-                            {isAdmin && (
-                              <span className="cross-section-actions">
-                                <button onClick={()=>setCross(c)}>Bearbeiten</button>
-                                <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="cross-section-card-grid">
+            {([
+              ['square', 'Quadratrohr'],
+              ['rectangular', 'Rechteckrohr'],
+              ['round', 'Rundrohr']
+            ] as const).map(([category, title]) => (
+              <section className="card cross-section-card" key={category}>
+                <h3>{title}</h3>
+                <div className="cross-section-list">
+                  {groupedCrossSections[category].length === 0 && (
+                    <p className="small">Keine Querschnitte vorhanden.</p>
+                  )}
+                  {groupedCrossSections[category].map(c => (
+                    <div className="cross-section-entry" key={c.id}>
+                      <b>{c.name}</b>
+                      {isAdmin && (
+                        <span className="cross-section-actions">
+                          <button onClick={()=>setCross(c)}>Bearbeiten</button>
+                          <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
         </>
       )}
 

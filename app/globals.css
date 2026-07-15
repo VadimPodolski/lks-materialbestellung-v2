@@ -498,13 +498,27 @@ tr.clickable-row {
   cursor: pointer;
 }
 
-.cross-section-table {
-  table-layout: fixed;
+.cross-section-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
 }
 
-.cross-section-table th,
-.cross-section-table td {
-  width: 33.333%;
+.cross-section-card {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cross-section-card h3 {
+  margin: 0;
+  padding: 14px 16px;
+  background: #eef1f4;
+  border-bottom: 1px solid #dde3e8;
+}
+
+.cross-section-list {
+  min-height: 64px;
 }
 
 .cross-section-entry {
@@ -513,6 +527,17 @@ tr.clickable-row {
   justify-content: space-between;
   gap: 12px;
   min-height: 38px;
+  padding: 10px 16px;
+  border-bottom: 1px solid #edf0f2;
+}
+
+.cross-section-entry:last-child {
+  border-bottom: 0;
+}
+
+.cross-section-list > .small {
+  margin: 0;
+  padding: 16px;
 }
 
 .cross-section-actions {
@@ -523,6 +548,12 @@ tr.clickable-row {
 
 .cross-section-actions button {
   padding: 7px 10px;
+}
+
+@media (max-width: 1000px) {
+  .cross-section-card-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .orders-table tr.reorder-row td,
