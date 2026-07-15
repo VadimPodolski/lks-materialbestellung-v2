@@ -55,8 +55,17 @@ type OrderPdf = {
   file_name: string
   file_url: string
   file_path: string
+  document_type: PdfDocumentType
   created_at: string
 }
+
+type PdfDocumentType = 'lks_order' | 'supplier_confirmation' | 'supplier_delivery_note'
+
+const pdfSections: { type: PdfDocumentType; title: string; uploadText: string }[] = [
+  { type: 'lks_order', title: '1. LKS-Auftrag', uploadText: 'LKS-Auftrag hier ablegen oder klicken' },
+  { type: 'supplier_confirmation', title: '2. Lieferanten-AB', uploadText: 'Lieferanten-AB hier ablegen oder klicken' },
+  { type: 'supplier_delivery_note', title: '3. Lieferanten-Lieferschein', uploadText: 'Lieferanten-Lieferschein hier ablegen oder klicken' }
+]
 
 type Receipt = {
   id: string
@@ -152,8 +161,8 @@ export default function OrderDetailPage() {
   const [editReceiptNote, setEditReceiptNote] = useState('')
   const [editReceiptComment, setEditReceiptComment] = useState('')
 
-  const [isPdfDragging, setIsPdfDragging] = useState(false)
-  const [isPdfUploading, setIsPdfUploading] = useState(false)
+  const [draggingPdfType, setDraggingPdfType] = useState<PdfDocumentType | null>(null)
+  const [uploadingPdfType, setUploadingPdfType] = useState<PdfDocumentType | null>(null)
   const [extractingPricePdfId, setExtractingPricePdfId] = useState('')
   const [showDetailStatusMenu, setShowDetailStatusMenu] = useState(false)
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
@@ -1105,7 +1114,7 @@ LKS-Technik GmbH & Co. KG`
     setMsg('Wareneingang wurde gelöscht.')
   }
 
-  async function uploadSupplierOrderPdfs(files: FileList | File[]) {
+  async function uploadOrderPdfs(files: FileList | File[], documentType: PdfDocumentType) {
     if (!order) return
 
     const pdfFiles = Array.from(files).filter(file =>
@@ -1117,7 +1126,7 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    setIsPdfUploading(true)
+    setUploadingPdfType(documentType)
     setMsg('')
 
     const supabase = createClient()
@@ -1136,7 +1145,7 @@ LKS-Technik GmbH & Co. KG`
         })
 
       if (uploadError) {
-        setIsPdfUploading(false)
+        setUploadingPdfType(null)
         setMsg(uploadError.message)
         return
       }
@@ -1149,7 +1158,8 @@ LKS-Technik GmbH & Co. KG`
         material_order_id: order.id,
         file_name: file.name,
         file_path: path,
-        file_url: publicData.publicUrl
+        file_url: publicData.publicUrl,
+        document_type: documentType
       })
     }
 
@@ -1157,7 +1167,7 @@ LKS-Technik GmbH & Co. KG`
       .from('order_pdfs')
       .insert(rows)
 
-    setIsPdfUploading(false)
+    setUploadingPdfType(null)
 
     if (insertError) {
       setMsg(insertError.message)
@@ -1165,7 +1175,8 @@ LKS-Technik GmbH & Co. KG`
     }
 
     await load()
-    setMsg(`${rows.length} PDF${rows.length === 1 ? '' : 's'} wurden hochgeladen.`)
+    const sectionTitle = pdfSections.find(section => section.type === documentType)?.title.replace(/^\d+\.\s*/, '')
+    setMsg(`${rows.length} PDF${rows.length === 1 ? '' : 's'} unter „${sectionTitle}“ hochgeladen.`)
   }
 
   async function deleteSupplierOrderPdf(pdf: OrderPdf) {
@@ -1176,7 +1187,7 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    if (!confirm('AB-PDF wirklich löschen?')) return
+    if (!confirm('PDF wirklich löschen?')) return
 
     const supabase = createClient()
 
@@ -1195,7 +1206,7 @@ LKS-Technik GmbH & Co. KG`
     }
 
     await load()
-    setMsg('AB-PDF wurde gelöscht.')
+    setMsg('PDF wurde gelöscht.')
   }
 
   async function applyUllnerPrices(pdfFile: OrderPdf) {
@@ -1273,13 +1284,13 @@ LKS-Technik GmbH & Co. KG`
     }
   }
 
-  function handlePdfDrop(e: React.DragEvent<HTMLDivElement>) {
+  function handlePdfDrop(e: React.DragEvent<HTMLElement>, documentType: PdfDocumentType) {
     e.preventDefault()
-    setIsPdfDragging(false)
+    setDraggingPdfType(null)
 
     const files = e.dataTransfer.files
     if (files?.length) {
-      uploadSupplierOrderPdfs(files)
+      uploadOrderPdfs(files, documentType)
     }
   }
 
@@ -1628,74 +1639,91 @@ LKS-Technik GmbH & Co. KG`
               )}
             </div>
 
-            <div
-              className={`pdf-dropzone${isPdfDragging ? ' active' : ''}`}
-              onDragOver={e => {
-                e.preventDefault()
-                setIsPdfDragging(true)
-              }}
-              onDragLeave={() => setIsPdfDragging(false)}
-              onDrop={handlePdfDrop}
-            >
-              <label className="pdf-upload-target">
-                <span className="small">
-                  {isPdfUploading ? 'PDFs werden hochgeladen...' : 'PDFs hier ablegen oder klicken'}
-                </span>
-                <input
-                  type="file"
-                  accept="application/pdf,.pdf"
-                  multiple
-                  hidden
-                  disabled={isPdfUploading}
-                  onChange={e => {
-                    const files = e.target.files
-                    if (files?.length) {
-                      uploadSupplierOrderPdfs(files)
-                    }
-                    e.currentTarget.value = ''
-                  }}
-                />
-              </label>
+            <div className="pdf-sections">
+              {pdfSections.map(section => {
+                const sectionPdfs = orderPdfs.filter(pdf => pdf.document_type === section.type)
+                const isUploading = uploadingPdfType === section.type
 
-              {orderPdfs.length > 0 && (
-                <div className="pdf-preview-grid">
-                  {orderPdfs.map(pdf => (
-                    <div className="pdf-preview-card" key={pdf.id}>
-                      <a
-                        className="pdf-preview"
-                        href={pdf.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        title={pdf.file_name}
-                      >
-                        <span className="pdf-preview-page">
-                          <iframe
-                            src={`${pdf.file_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-                            title={pdf.file_name}
-                            scrolling="no"
-                          />
-                        </span>
-                        <span>{pdf.file_name}</span>
-                      </a>
-                      {isUllnerOrder && (
-                        <button
-                          type="button"
-                          className="primary"
-                          disabled={Boolean(extractingPricePdfId)}
-                          onClick={() => applyUllnerPrices(pdf)}
-                        >
-                          {extractingPricePdfId === pdf.id ? 'Preise werden gelesen...' : 'Preise übernehmen'}
-                        </button>
-                      )}
-                      {canDeletePdfs && (
-                        <button type="button" className="danger" onClick={() => deleteSupplierOrderPdf(pdf)}>
-                          PDF löschen
-                        </button>
-                      )}
+                return (
+                  <section
+                    className={`pdf-section${draggingPdfType === section.type ? ' active' : ''}`}
+                    key={section.type}
+                    onDragOver={e => {
+                      e.preventDefault()
+                      setDraggingPdfType(section.type)
+                    }}
+                    onDragLeave={() => setDraggingPdfType(null)}
+                    onDrop={e => handlePdfDrop(e, section.type)}
+                  >
+                    <div className="pdf-section-heading">
+                      <h3>{section.title}</h3>
+                      <span className="small">{sectionPdfs.length} PDF{sectionPdfs.length === 1 ? '' : 's'}</span>
                     </div>
-                  ))}
-                </div>
-              )}
+
+                    <label className="pdf-upload-target">
+                      <span className="small">
+                        {isUploading ? 'PDFs werden hochgeladen...' : section.uploadText}
+                      </span>
+                      <input
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        multiple
+                        hidden
+                        disabled={Boolean(uploadingPdfType)}
+                        onChange={e => {
+                          const files = e.target.files
+                          if (files?.length) {
+                            uploadOrderPdfs(files, section.type)
+                          }
+                          e.currentTarget.value = ''
+                        }}
+                      />
+                    </label>
+
+                    {sectionPdfs.length > 0 ? (
+                      <div className="pdf-preview-grid">
+                        {sectionPdfs.map(pdf => (
+                          <div className="pdf-preview-card" key={pdf.id}>
+                            <a
+                              className="pdf-preview"
+                              href={pdf.file_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              title={pdf.file_name}
+                            >
+                              <span className="pdf-preview-page">
+                                <iframe
+                                  src={`${pdf.file_url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                                  title={pdf.file_name}
+                                  scrolling="no"
+                                />
+                              </span>
+                              <span>{pdf.file_name}</span>
+                            </a>
+                            {section.type === 'supplier_confirmation' && isUllnerOrder && (
+                              <button
+                                type="button"
+                                className="primary"
+                                disabled={Boolean(extractingPricePdfId)}
+                                onClick={() => applyUllnerPrices(pdf)}
+                              >
+                                {extractingPricePdfId === pdf.id ? 'Preise werden gelesen...' : 'Preise übernehmen'}
+                              </button>
+                            )}
+                            {canDeletePdfs && (
+                              <button type="button" className="danger" onClick={() => deleteSupplierOrderPdf(pdf)}>
+                                PDF löschen
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="pdf-section-empty">Noch keine PDF vorhanden.</p>
+                    )}
+                  </section>
+                )
+              })}
             </div>
           </>
         ) : (

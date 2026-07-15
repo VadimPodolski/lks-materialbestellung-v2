@@ -1775,6 +1775,45 @@ table td {
   background: #eff6ff;
 }
 
+.pdf-sections {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.pdf-section {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+  padding: 16px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.pdf-section.active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.pdf-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.pdf-section-heading h3 {
+  margin: 0;
+}
+
+.pdf-section-empty {
+  margin: 0;
+  color: #64748b;
+}
+
 .pdf-dropzone p {
   margin-bottom: 0;
 }
@@ -1811,6 +1850,12 @@ table td {
 
 .pdf-preview-card button {
   width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .pdf-sections {
+    grid-template-columns: 1fr;
+  }
 }
 
 .order-position-price {
