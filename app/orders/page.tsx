@@ -902,15 +902,15 @@ function OrdersContent() {
         <colgroup>
           <col className="orders-col-status" />
           <col className="orders-col-order" />
+          {orderArea === 'rohrlaser' && <col className="orders-col-customer" />}
+          {orderArea === 'rohrlaser' && <col className="orders-col-date" />}
           <col className="orders-col-material" />
           {orderArea === '2d-laser' && <col className="orders-col-material" />}
           <col className="orders-col-positions" />
-          {orderArea === 'rohrlaser' && <col className="orders-col-av" />}
-          {orderArea === 'rohrlaser' && <col className="orders-col-customer" />}
           <col className="orders-col-total-qty" />
           <col className="orders-col-qty" />
           <col className="orders-col-qty" />
-          {orderArea === 'rohrlaser' && <col className="orders-col-date" />}
+          {orderArea === 'rohrlaser' && <col className="orders-col-av" />}
           <col className="orders-col-price" />
           <col className="orders-col-supplier" />
           <col className="orders-col-date" />
@@ -923,15 +923,15 @@ function OrdersContent() {
           <tr>
             <th>{sortButton('status', 'Status')}</th>
             <th>{sortButton('order_number', 'Auftrag')}</th>
+            {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
+            {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
             <th>{sortButton('material', 'Material')}</th>
             {orderArea === '2d-laser' && <th>{sortButton('material_thickness', 'Materialstärke')}</th>}
             <th>{sortButton('positions', 'Positionen')}</th>
-            {orderArea === 'rohrlaser' && <th>AV</th>}
-            {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
             <th>{sortButton('quantity', 'Soll')}</th>
             <th>{sortButton('delivered', 'Geliefert')}</th>
             <th>{sortButton('scrap', 'Ausschuss')}</th>
-            {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
+            {orderArea === 'rohrlaser' && <th>AV</th>}
             <th>{sortButton('total_price', 'Preis')}</th>
             <th>{sortButton('supplier', 'Lieferant')}</th>
             <th>{sortButton('desired_delivery_date', 'Liefertermin')}</th>
@@ -1000,6 +1000,8 @@ function OrdersContent() {
                 <td>
                   <b>{o.order_number}</b>
                 </td>
+                {orderArea === 'rohrlaser' && <td>{o.customer}</td>}
+                {orderArea === 'rohrlaser' && <td>{formatDateShort(o.customer_delivery_date)}</td>}
                 <td className="order-positions-cell">
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (
@@ -1027,6 +1029,22 @@ function OrdersContent() {
                     ))}
                   </div>
                 </td>
+                <td>{o.quantity}</td>
+               <td
+  className={
+    delivered >= o.quantity
+      ? 'qty-delivered complete'
+      : delivered > 0
+        ? 'qty-delivered partial'
+        : ''
+  }
+>
+  {delivered}
+</td>
+
+<td className="qty-scrap">
+  {scrap}
+</td>
                 {orderArea === 'rohrlaser' && <td className="av-cell">
                   <div className="av-lines">
                     {orderItems.some(item => orderItemAvText(item)) ? (
@@ -1049,24 +1067,6 @@ function OrdersContent() {
                     )}
                   </div>
                 </td>}
-                {orderArea === 'rohrlaser' && <td>{o.customer}</td>}
-                <td>{o.quantity}</td>
-               <td
-  className={
-    delivered >= o.quantity
-      ? 'qty-delivered complete'
-      : delivered > 0
-        ? 'qty-delivered partial'
-        : ''
-  }
->
-  {delivered}
-</td>
-
-<td className="qty-scrap">
-  {scrap}
-</td>
-                {orderArea === 'rohrlaser' && <td>{formatDateShort(o.customer_delivery_date)}</td>}
                 <td className="order-total-price">{totalPrice == null ? '-' : formatEuro(totalPrice)}</td>
                 <td>{o.suppliers?.name || '-'}</td>
                 <td>{formatDateShort(o.desired_delivery_date)}</td>
