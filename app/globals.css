@@ -863,6 +863,8 @@ a.card:hover {
   z-index: 300;
 }
 
+.orders-table th:nth-child(7),
+.orders-table td:nth-child(7),
 .orders-table th:nth-child(8),
 .orders-table td:nth-child(8),
 .orders-table th:nth-child(9),
@@ -876,19 +878,20 @@ a.card:hover {
   padding-right: 4px;
 }
 
-.orders-col-status { width: 7%; }
-.orders-col-order { width: 8%; }
-.orders-col-customer { width: 10%; }
-.orders-col-date { width: 6%; }
-.orders-col-material { width: 11%; }
-.orders-col-positions { width: 13%; }
-.orders-col-av { width: 4%; }
+.orders-col-status { width: 4.5%; }
+.orders-col-order { width: 6.5%; }
+.orders-col-customer { width: 9.5%; }
+.orders-col-date { width: 5.5%; }
+.orders-col-material { width: 9%; }
+.orders-col-positions { width: 10.5%; }
+.orders-col-av { width: 2.5%; }
+.orders-col-total-qty { width: 6%; }
 .orders-col-qty { width: 4%; }
-.orders-col-price { width: 7%; }
-.orders-col-supplier { width: 8%; }
-.orders-col-person { width: 8%; }
-.orders-col-pdf { width: 4%; }
-.orders-col-action { width: 4%; }
+.orders-col-price { width: 6.5%; }
+.orders-col-supplier { width: 7%; }
+.orders-col-person { width: 6.25%; }
+.orders-col-pdf { width: 3%; }
+.orders-col-action { width: 3.5%; }
 
 .order-total-price {
   white-space: nowrap;
@@ -1033,6 +1036,7 @@ a.card:hover {
   font: inherit;
   font-weight: 600;
   text-align: left;
+  white-space: nowrap;
 }
 
 .column-sort-button:hover,
