@@ -336,12 +336,20 @@ a {
 }
 
 .masterdata-page table:has(td.actions) th:last-child {
+  width: 1%;
+  white-space: nowrap;
   text-align: left !important;
 }
 
 .masterdata-page td.actions {
-  justify-content: flex-start;
+  display: table-cell;
+  width: 1%;
+  white-space: nowrap;
   text-align: left !important;
+}
+
+.masterdata-page td.actions button + button {
+  margin-left: 8px;
 }
 
 /* Forms */
