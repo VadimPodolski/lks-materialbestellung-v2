@@ -89,6 +89,7 @@ function OrdersContent() {
   const [sortKey, setSortKey] = useState<SortKey>('order_number')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
+  const [showTubeStatistics, setShowTubeStatistics] = useState(false)
   const [activeStatusMenu, setActiveStatusMenu] = useState<ActiveStatusMenu | null>(null)
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null)
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
@@ -121,6 +122,17 @@ function OrdersContent() {
     const timer = window.setInterval(() => setDeleteCheckTime(Date.now()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (!showTubeStatistics) return
+
+    function closeStatisticsOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setShowTubeStatistics(false)
+    }
+
+    window.addEventListener('keydown', closeStatisticsOnEscape)
+    return () => window.removeEventListener('keydown', closeStatisticsOnEscape)
+  }, [showTubeStatistics])
 
   function clearStatusMenuCloseTimer() {
     if (statusMenuCloseTimer.current !== null) {
@@ -545,6 +557,59 @@ function OrdersContent() {
     ))
   }, [orders, orderArea, loadedOrderArea])
 
+  const tubeStatistics = useMemo(() => {
+    const tubes = new Map<string, {
+      material: string
+      crossSection: string
+      pieces: number
+      orderIds: Set<string>
+    }>()
+    const orderIds = new Set<string>()
+    let totalPieces = 0
+
+    if (orderArea !== 'rohrlaser' || loadedOrderArea !== orderArea) {
+      return { rows: [], totalPieces, orderCount: 0 }
+    }
+
+    for (const order of orders) {
+      if (order.status === 'storniert') continue
+
+      orderIds.add(order.id)
+
+      for (const item of normalizeOrderItems(order)) {
+        const material = item.material.trim() || 'Ohne Materialangabe'
+        const crossSection = item.cross_section.trim() || 'Ohne Querschnitt'
+        const pieces = item.order_unit === 'paket'
+          ? Number(item.quantity || 0) * Number(item.pieces_per_package || 0)
+          : item.order_unit === 'kg'
+            ? 0
+            : Number(item.quantity || 0)
+        const key = `${material.toLocaleLowerCase('de-DE')}|${crossSection.toLocaleLowerCase('de-DE')}`
+        const current = tubes.get(key) || {
+          material,
+          crossSection,
+          pieces: 0,
+          orderIds: new Set<string>()
+        }
+
+        current.pieces += pieces
+        current.orderIds.add(order.id)
+        totalPieces += pieces
+        tubes.set(key, current)
+      }
+    }
+
+    return {
+      rows: Array.from(tubes.values()).sort((a, b) => (
+        b.pieces - a.pieces ||
+        a.material.localeCompare(b.material, 'de-DE') ||
+        a.crossSection.localeCompare(b.crossSection, 'de-DE', { numeric: true })
+      )),
+      totalPieces,
+      orderCount: orderIds.size
+    }
+  }, [orders, orderArea, loadedOrderArea])
+
   function orderBaseNumber(orderNumber: string) {
     return orderNumber.replace(/(?:-NB)+$/, '')
   }
@@ -629,6 +694,25 @@ function OrdersContent() {
               )}
             </div>
           </section>
+        )}
+
+        {orderArea === 'rohrlaser' && (
+          <button
+            type="button"
+            className="tube-statistics-card"
+            onClick={() => setShowTubeStatistics(true)}
+          >
+            <span className="tube-statistics-card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M5 19V11M12 19V5M19 19v-6" />
+              </svg>
+            </span>
+            <span className="tube-statistics-card-copy">
+              <strong>Statistik</strong>
+              <small>Rohre nach Querschnitt</small>
+            </span>
+            <span className="tube-statistics-card-arrow" aria-hidden="true">›</span>
+          </button>
         )}
 
         <div className="actions">
@@ -921,6 +1005,78 @@ function OrdersContent() {
         </tbody>
       </table>
       </div>
+
+      {showTubeStatistics && orderArea === 'rohrlaser' && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowTubeStatistics(false)}>
+          <section
+            className="modal tube-statistics-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="tube-statistics-title"
+            onMouseDown={event => event.stopPropagation()}
+          >
+            <header className="tube-statistics-modal-header">
+              <div>
+                <span className="tube-statistics-eyebrow">Rohrlaser</span>
+                <h2 id="tube-statistics-title">Bestellstatistik</h2>
+                <p>Alle nicht stornierten Aufträge, zusammengefasst nach Material und Querschnitt.</p>
+              </div>
+              <button
+                type="button"
+                className="tube-statistics-close"
+                aria-label="Statistik schließen"
+                onClick={() => setShowTubeStatistics(false)}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="tube-statistics-totals">
+              <div>
+                <span>Varianten</span>
+                <strong>{tubeStatistics.rows.length.toLocaleString('de-DE')}</strong>
+              </div>
+              <div>
+                <span>Stück gesamt</span>
+                <strong>{tubeStatistics.totalPieces.toLocaleString('de-DE')}</strong>
+              </div>
+              <div>
+                <span>Aufträge</span>
+                <strong>{tubeStatistics.orderCount.toLocaleString('de-DE')}</strong>
+              </div>
+            </div>
+
+            <div className="tube-statistics-table-shell">
+              {loadedOrderArea !== orderArea ? (
+                <p className="small">Statistik wird geladen...</p>
+              ) : tubeStatistics.rows.length > 0 ? (
+                <table className="tube-statistics-table">
+                  <thead>
+                    <tr>
+                      <th>Material</th>
+                      <th>Querschnitt</th>
+                      <th className="number">Stück</th>
+                      <th className="number">Aufträge</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tubeStatistics.rows.map(row => (
+                      <tr key={`${row.material}|${row.crossSection}`}>
+                        <td><strong>{row.material}</strong></td>
+                        <td>{row.crossSection}</td>
+                        <td className="number">{row.pieces.toLocaleString('de-DE')}</td>
+                        <td className="number">{row.orderIds.size.toLocaleString('de-DE')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="tube-statistics-empty">Noch keine Rohrlaser-Bestellungen vorhanden.</div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       <ConfirmDialog
         open={Boolean(orderToDelete)}
