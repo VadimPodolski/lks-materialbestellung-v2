@@ -1073,7 +1073,7 @@ function OrdersContent() {
       </div>
 
       {showTubeStatistics && orderArea === 'rohrlaser' && (
-        <div className="modal-backdrop" role="presentation" onMouseDown={() => setShowTubeStatistics(false)}>
+        <div className="modal-backdrop tube-statistics-backdrop" role="presentation" onMouseDown={() => setShowTubeStatistics(false)}>
           <section
             className="modal tube-statistics-modal"
             role="dialog"

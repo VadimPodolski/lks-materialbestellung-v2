@@ -1258,9 +1258,15 @@ a.card:hover {
   line-height: 1;
 }
 
+.tube-statistics-backdrop {
+  align-items: flex-start;
+  padding: 64px 0 24px;
+  overflow-y: auto;
+}
+
 .tube-statistics-modal {
   width: min(900px, 94vw);
-  max-height: 86vh;
+  max-height: calc(100vh - 88px);
   padding: 0;
   overflow: hidden;
 }
@@ -1351,7 +1357,7 @@ button.tube-statistics-close {
 }
 
 .tube-statistics-table-shell {
-  max-height: calc(86vh - 245px);
+  max-height: calc(100vh - 390px);
   padding: 0 26px 26px;
   overflow: auto;
 }
@@ -1433,6 +1439,11 @@ button.tube-statistics-close {
 }
 
 @media (max-width: 620px) {
+  .tube-statistics-backdrop {
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
   .tube-statistics-card {
     width: 100%;
   }
@@ -1454,7 +1465,7 @@ button.tube-statistics-close {
   }
 
   .tube-statistics-table-shell {
-    max-height: calc(86vh - 360px);
+    max-height: calc(100vh - 500px);
   }
 }
 
