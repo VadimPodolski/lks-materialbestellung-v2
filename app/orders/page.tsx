@@ -79,7 +79,6 @@ function OrdersContent() {
   const [orders, setOrders] = useState<Order[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [isAdmin, setIsAdmin] = useState(false)
-  const [currentUserEmail, setCurrentUserEmail] = useState('')
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
@@ -163,8 +162,6 @@ function OrdersContent() {
     if (!LOGIN_DISABLED && user) {
       await ensureCurrentUserProfile(supabase)
     }
-
-    setCurrentUserEmail(LOGIN_DISABLED ? 'Login deaktiviert' : email)
 
     let admin = !LOGIN_DISABLED && email === 'v.podolski@lks-technik.de'
 
@@ -606,8 +603,6 @@ function OrdersContent() {
             {orderAreaLabel(orderArea)}
           </a>
           <h1>Bestellungen</h1>
-          <p className="small">Admin: {isAdmin ? 'JA' : 'NEIN'}</p>
-          <p className="small">{LOGIN_DISABLED ? currentUserEmail : `Eingeloggt als: ${currentUserEmail || 'nicht erkannt'}`}</p>
         </div>
 
         {orderArea === '2d-laser' && (
