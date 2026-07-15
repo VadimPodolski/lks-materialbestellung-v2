@@ -1701,11 +1701,11 @@ LKS-Technik GmbH & Co. KG`
 
             <div className="grid order-summary-grid">
               {!isTwoDLaser && <p><b>Kunde:</b><br />{order.customer}</p>}
-              <p><b>Gesamtmenge:</b><br />{orderItemsTotal(orderItems)}</p>
+              <p><b>Soll:</b><br />{orderItemsTotal(orderItems)}</p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
               {!isTwoDLaser && <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>}
-              <p><b>Gesamtsumme:</b><br />{formatEuro(totalOrderPrice)}</p>
+              <p><b>Preis:</b><br />{formatEuro(totalOrderPrice)}</p>
               <p>
                 <b>Lieferant:</b>
                 <br />

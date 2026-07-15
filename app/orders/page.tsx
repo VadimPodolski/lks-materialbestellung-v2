@@ -889,7 +889,7 @@ function OrdersContent() {
             {orderArea === 'rohrlaser' && <option value="customer_delivery_date">K-Liefertermin</option>}
             <option value="material">Material</option>
             {orderArea === '2d-laser' && <option value="material_thickness">Materialstärke</option>}
-            <option value="total_price">Gesamtsumme</option>
+            <option value="total_price">Preis</option>
             <option value="supplier">Lieferant</option>
             <option value="desired_delivery_date">Liefertermin</option>
             <option value="created_at">Erstellt am</option>
@@ -928,11 +928,11 @@ function OrdersContent() {
             <th>{sortButton('positions', 'Positionen')}</th>
             {orderArea === 'rohrlaser' && <th>AV</th>}
             {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
-            <th>{sortButton('quantity', 'Gesamtmenge')}</th>
+            <th>{sortButton('quantity', 'Soll')}</th>
             <th>{sortButton('delivered', 'Geliefert')}</th>
             <th>{sortButton('scrap', 'Ausschuss')}</th>
             {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
-            <th>{sortButton('total_price', 'Gesamtsumme')}</th>
+            <th>{sortButton('total_price', 'Preis')}</th>
             <th>{sortButton('supplier', 'Lieferant')}</th>
             <th>{sortButton('desired_delivery_date', 'Liefertermin')}</th>
             <th>{sortButton('created_by', 'Erstellt von')}</th>
