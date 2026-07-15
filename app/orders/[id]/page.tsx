@@ -244,7 +244,13 @@ export default function OrderDetailPage() {
         desired_delivery_date: loadedOrder.desired_delivery_date || '',
         notes: loadedOrder.notes || ''
       })
-      setEditItems(loadedItems)
+      setEditItems(loadedItems.map(item => ({
+        ...item,
+        order_unit: area === '2d-laser' ? (item.order_unit || 'paket') : 'stück',
+        pieces_per_package: area === '2d-laser' && item.order_unit === 'paket'
+          ? item.pieces_per_package
+          : null
+      })))
     }
   }
 
@@ -638,8 +644,12 @@ LKS-Technik GmbH & Co. KG`
       av_4: (item.av_4 || '').trim(),
       length_mm: item.length_mm ? Number(item.length_mm) : null,
       quantity: Number(item.quantity),
-      order_unit: item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück',
-      pieces_per_package: item.order_unit === 'paket' ? Number(item.pieces_per_package || 0) : null
+      order_unit: twoDLaser
+        ? (item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück')
+        : 'stück',
+      pieces_per_package: twoDLaser && item.order_unit === 'paket'
+        ? Number(item.pieces_per_package || 0)
+        : null
     })))
 
     if (!twoDLaser && !customerName) {
@@ -700,8 +710,8 @@ LKS-Technik GmbH & Co. KG`
         av_4: item.av_4 || null,
         length_mm: item.length_mm,
         quantity: item.quantity,
-        order_unit: item.order_unit || 'paket',
-        pieces_per_package: item.order_unit === 'paket' ? item.pieces_per_package : null,
+        order_unit: twoDLaser ? (item.order_unit || 'paket') : 'stück',
+        pieces_per_package: twoDLaser && item.order_unit === 'paket' ? item.pieces_per_package : null,
         position: index + 1
       }))
     )

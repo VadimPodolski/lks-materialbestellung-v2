@@ -127,9 +127,10 @@ export default function NewOrderPage() {
         ...item,
         material: item.material || material,
         cross_section: item.cross_section || crossSection,
+        order_unit: area === '2d-laser' ? (item.order_unit || 'paket') : 'stück',
         pieces_per_package: area === '2d-laser'
           ? loadedPackagingDefaults[packagingDefaultKey(area, item.material || material, item.cross_section || crossSection)] || null
-          : item.pieces_per_package,
+          : null,
         length_mm: area === '2d-laser' ? null : item.length_mm
       } : item)
     })
@@ -372,8 +373,12 @@ export default function NewOrderPage() {
       av_4: (item.av_4 || '').trim(),
       length_mm: item.length_mm ? Number(item.length_mm) : null,
       quantity: Number(item.quantity),
-      order_unit: item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück',
-      pieces_per_package: item.order_unit === 'paket' ? Number(item.pieces_per_package || 0) : null
+      order_unit: orderArea === '2d-laser'
+        ? (item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück')
+        : 'stück',
+      pieces_per_package: orderArea === '2d-laser' && item.order_unit === 'paket'
+        ? Number(item.pieces_per_package || 0)
+        : null
     })))
 
     if (cleanItems.some(item => !item.material || !item.cross_section || !item.quantity || item.quantity < 1)) {
@@ -481,8 +486,8 @@ export default function NewOrderPage() {
         av_4: item.av_4 || null,
         length_mm: item.length_mm,
         quantity: item.quantity,
-        order_unit: item.order_unit || 'paket',
-        pieces_per_package: item.order_unit === 'paket' ? item.pieces_per_package : null,
+        order_unit: orderArea === '2d-laser' ? (item.order_unit || 'paket') : 'stück',
+        pieces_per_package: orderArea === '2d-laser' && item.order_unit === 'paket' ? item.pieces_per_package : null,
         position: index + 1
       }))
     )
