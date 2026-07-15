@@ -336,12 +336,12 @@ a {
 }
 
 .masterdata-page table:has(td.actions) th:last-child {
-  text-align: right !important;
+  text-align: left !important;
 }
 
 .masterdata-page td.actions {
-  justify-content: flex-end;
-  text-align: right !important;
+  justify-content: flex-start;
+  text-align: left !important;
 }
 
 /* Forms */
