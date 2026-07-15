@@ -16,7 +16,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <nav className="main-nav">
             <div className="nav-left">
-              <Link href="/">Bestellungen</Link>
               <Link href="/masterdata">Stammdaten</Link>
             </div>
             <div className="nav-center" aria-label="Bestelllisten nach Fertigungsbereich">
