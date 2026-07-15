@@ -1157,6 +1157,13 @@ a.card:hover {
   justify-self: end;
 }
 
+.orders-page-heading > .actions .button {
+  padding: 11px 18px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
 .format-summary {
   text-align: center;
 }
