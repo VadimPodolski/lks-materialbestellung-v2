@@ -8,6 +8,7 @@ import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { isTwoDLaserDeleteManager } from '@/lib/areaPermissions'
 import { calculateTubeWeightKgPerMeter, formatTubeWeightPerMeter } from '@/lib/tubeWeight'
+import ActionIconButton from '@/app/ActionIconButton'
 
 type Customer = { id:string; name:string; contact_person:string|null; email:string|null; phone:string|null; notes:string|null }
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
@@ -450,15 +451,15 @@ function MasterDataContent() {
                   <td>{c.email || '-'}</td>
                   <td>{c.phone || '-'}</td>
                   {isAdmin && <td className="actions">
-                    <button onClick={()=>setCustomer({
+                    <ActionIconButton action="edit" label="Kunde bearbeiten" onClick={()=>setCustomer({
                       id:c.id,
                       name:c.name,
                       contact_person:c.contact_person || '',
                       email:c.email || '',
                       phone:c.phone || '',
                       notes:c.notes || ''
-                    })}>Bearbeiten</button>
-                    <button className="danger" onClick={()=>remove('customers', c.id)}>Löschen</button>
+                    })} />
+                    <ActionIconButton action="delete" label="Kunde löschen" onClick={()=>remove('customers', c.id)} />
                   </td>}
                 </tr>
               ))}
@@ -498,15 +499,15 @@ function MasterDataContent() {
                   <td>{s.phone || '-'}</td>
                   <td>{s.contact_person || '-'}</td>
                   {isAdmin && <td className="actions">
-                    <button onClick={()=>setSupplier({
+                    <ActionIconButton action="edit" label="Lieferant bearbeiten" onClick={()=>setSupplier({
                       id:s.id,
                       name:s.name,
                       email:s.email,
                       phone:s.phone || '',
                       contact_person:s.contact_person || '',
                       notes:s.notes || ''
-                    })}>Bearbeiten</button>
-                    <button className="danger" onClick={()=>remove('suppliers', s.id)}>Löschen</button>
+                    })} />
+                    <ActionIconButton action="delete" label="Lieferant löschen" onClick={()=>remove('suppliers', s.id)} />
                   </td>}
                 </tr>
               ))}
@@ -542,12 +543,12 @@ function MasterDataContent() {
                 <tr key={m.id}>
                   <td><b>{m.material_name || m.name}</b></td>
                   {canDeleteSelectedMasterData && <td className="actions">
-                    {isAdmin && <button onClick={()=>setMaterial({
+                    {isAdmin && <ActionIconButton action="edit" label="Material bearbeiten" onClick={()=>setMaterial({
                       id:m.id,
                       material_name:m.material_name || m.name,
                       material_number:''
-                    })}>Bearbeiten</button>}
-                    <button className="danger" onClick={()=>remove('materials', m.id)}>Löschen</button>
+                    })} />}
+                    <ActionIconButton action="delete" label="Material löschen" onClick={()=>remove('materials', m.id)} />
                   </td>}
                 </tr>
               ))}
@@ -595,8 +596,8 @@ function MasterDataContent() {
                           </button>
                           {isAdmin && (
                             <span className="cross-section-actions">
-                              <button onClick={()=>setCross(c)}>Bearbeiten</button>
-                              <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
+                              <ActionIconButton action="edit" label="Querschnitt bearbeiten" onClick={()=>setCross(c)} />
+                              <ActionIconButton action="delete" label="Querschnitt löschen" onClick={()=>remove('cross_sections', c.id)} />
                             </span>
                           )}
                         </div>
@@ -656,8 +657,8 @@ function MasterDataContent() {
                 <tr key={av.id}>
                   <td><b>{av.name}</b></td>
                   {isAdmin && <td className="actions">
-                    <button onClick={()=>setWorkPreparation(av)}>Bearbeiten</button>
-                    <button className="danger" onClick={()=>remove('work_preparations', av.id)}>Löschen</button>
+                    <ActionIconButton action="edit" label="Arbeitsvorbereitung bearbeiten" onClick={()=>setWorkPreparation(av)} />
+                    <ActionIconButton action="delete" label="Arbeitsvorbereitung löschen" onClick={()=>remove('work_preparations', av.id)} />
                   </td>}
                 </tr>
               ))}
@@ -708,12 +709,12 @@ function MasterDataContent() {
                   <td><b>{item.material}</b></td>
                   <td>{new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(item.thickness_mm)} mm</td>
                   {canDeleteSelectedMasterData && <td className="actions">
-                    {isAdmin && <button onClick={()=>setMaterialThickness({
+                    {isAdmin && <ActionIconButton action="edit" label="Materialstärke bearbeiten" onClick={()=>setMaterialThickness({
                       id:item.id,
                       material:item.material,
                       thickness_mm:String(item.thickness_mm)
-                    })}>Bearbeiten</button>}
-                    <button className="danger" onClick={()=>remove('material_thicknesses', item.id)}>Löschen</button>
+                    })} />}
+                    <ActionIconButton action="delete" label="Materialstärke löschen" onClick={()=>remove('material_thicknesses', item.id)} />
                   </td>}
                 </tr>
               ))}
@@ -768,13 +769,13 @@ function MasterDataContent() {
                   <td>{f.width_mm} mm</td>
                   <td>{f.height_mm} mm</td>
                   {canDeleteSelectedMasterData && <td className="actions">
-                    {isAdmin && <button onClick={()=>setFormat({
+                    {isAdmin && <ActionIconButton action="edit" label="Format bearbeiten" onClick={()=>setFormat({
                       id:f.id,
                       name:f.name,
                       width_mm:String(f.width_mm),
                       height_mm:String(f.height_mm)
-                    })}>Bearbeiten</button>}
-                    <button className="danger" onClick={()=>remove('formats', f.id)}>Löschen</button>
+                    })} />}
+                    <ActionIconButton action="delete" label="Format löschen" onClick={()=>remove('formats', f.id)} />
                   </td>}
                 </tr>
               ))}

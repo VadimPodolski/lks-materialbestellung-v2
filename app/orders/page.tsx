@@ -13,6 +13,7 @@ import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 import { canDeleteForOrderArea } from '@/lib/areaPermissions'
 import { calculateTubeItemWeightKg, calculateTubeWeightKgPerMeter, formatTubeWeight } from '@/lib/tubeWeight'
 import ConfirmDialog from '@/app/ConfirmDialog'
+import ActionIconButton from '@/app/ActionIconButton'
 
 type Order = {
   id: string
@@ -1122,16 +1123,14 @@ function OrdersContent() {
                 </td>
                 <td className="row-actions">
                   {(canDeleteCurrentArea || (orderStatus === 'offen' && canDeleteOrder(o.created_at, new Date(deleteCheckTime)))) && (
-                    <button
-                      type="button"
-                      className="danger"
+                    <ActionIconButton
+                      action="delete"
+                      label={`Bestellung ${o.order_number} löschen`}
                       onClick={e => {
                         e.stopPropagation()
                         setOrderToDelete(o)
                       }}
-                    >
-                      🗑
-                    </button>
+                    />
                   )}
                 </td>
               </tr>

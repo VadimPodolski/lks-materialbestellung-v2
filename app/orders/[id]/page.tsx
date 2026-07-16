@@ -23,6 +23,7 @@ import { canDeleteForOrderArea } from '@/lib/areaPermissions'
 import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
 import { calculateTubeItemWeightKg, calculateTubeWeightKgPerMeter, formatTubeWeight, formatTubeWeightPerMeter } from '@/lib/tubeWeight'
 import ConfirmDialog from '@/app/ConfirmDialog'
+import ActionIconButton from '@/app/ActionIconButton'
 
 type Order = {
   id: string
@@ -1546,14 +1547,7 @@ LKS-Technik GmbH & Co. KG`
           </h1>
         </div>
 
-        <button
-          type="button"
-          className="primary icon-button"
-          onClick={() => setEditing(true)}
-        >
-          <span aria-hidden="true">✎</span>
-          Bearbeiten
-        </button>
+        <ActionIconButton action="edit" label="Bestellung bearbeiten" onClick={() => setEditing(true)} />
       </div>
 
       <div className="card">
@@ -1758,13 +1752,11 @@ LKS-Technik GmbH & Co. KG`
               </button>
 
               {canDeleteThisOrder && (
-                <button
-                  type="button"
-                  className="danger"
+                <ActionIconButton
+                  action="delete"
+                  label="Bestellung löschen"
                   onClick={() => setDeleteConfirmationOpen(true)}
-                >
-                  🗑 Bestellung löschen
-                </button>
+                />
               )}
             </div>
 
@@ -1844,9 +1836,7 @@ LKS-Technik GmbH & Co. KG`
                               </div>
                             )}
                             {canDeletePdfs && (
-                              <button type="button" className="danger" onClick={() => deleteSupplierOrderPdf(pdf)}>
-                                PDF löschen
-                              </button>
+                              <ActionIconButton action="delete" label="PDF löschen" onClick={() => deleteSupplierOrderPdf(pdf)} />
                             )}
                           </div>
                         ))}
@@ -2133,9 +2123,7 @@ LKS-Technik GmbH & Co. KG`
 
                       <div className="order-item-remove">
                         {editItems.length > 1 && (
-                          <button type="button" className="danger" onClick={() => removeEditItem(index)}>
-                            Entfernen
-                          </button>
+                          <ActionIconButton action="delete" label={`Position ${index + 1} entfernen`} onClick={() => removeEditItem(index)} />
                         )}
                       </div>
                     </div>
@@ -2219,9 +2207,7 @@ LKS-Technik GmbH & Co. KG`
                 <td>{s.reordered ? 'Nachbestellt' : 'Offen'}</td>
                 <td>
                   {!s.reordered && (
-                    <button type="button" className="danger" onClick={() => deleteScrap(s)}>
-                      Löschen
-                    </button>
+                    <ActionIconButton action="delete" label="Ausschuss löschen" onClick={() => deleteScrap(s)} />
                   )}
                 </td>
               </tr>
@@ -2310,21 +2296,8 @@ LKS-Technik GmbH & Co. KG`
                     <td>{r.notes || '-'}</td>
 
                     <td className="actions">
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => startEditReceipt(r)}
-                      >
-                        ✏️
-                      </button>
-
-                      <button
-                        type="button"
-                        className="danger"
-                        onClick={() => deleteReceipt(r)}
-                      >
-                        🗑
-                      </button>
+                      <ActionIconButton action="edit" label="Wareneingang bearbeiten" onClick={() => startEditReceipt(r)} />
+                      <ActionIconButton action="delete" label="Wareneingang löschen" onClick={() => deleteReceipt(r)} />
                     </td>
                   </>
                 )}

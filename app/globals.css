@@ -533,6 +533,37 @@ button.danger,
   background: #a93226;
 }
 
+.square-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  min-width: 46px;
+  padding: 0;
+  border-radius: 10px;
+}
+
+.square-action-button.edit {
+  background: #111c28;
+  color: white;
+}
+
+.square-action-button.delete {
+  background: #b83226;
+  color: white;
+}
+
+.square-action-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .icon-button {
   display: inline-flex;
   align-items: center;

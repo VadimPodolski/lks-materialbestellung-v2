@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import ActionIconButton from '@/app/ActionIconButton'
 
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
 
@@ -41,6 +42,6 @@ export default function SuppliersPage(){
       <button>Lieferant speichern</button>{msg && <p className="success">{msg}</p>}
     </form>
     <table><thead><tr><th>Name</th><th>E-Mail</th><th>Telefon</th><th>Ansprechpartner</th><th></th></tr></thead>
-    <tbody>{suppliers.map(s=><tr key={s.id}><td><b>{s.name}</b></td><td>{s.email}</td><td>{s.phone || '-'}</td><td>{s.contact_person || '-'}</td><td><button className="danger" onClick={()=>remove(s.id)}>Löschen</button></td></tr>)}</tbody></table>
+    <tbody>{suppliers.map(s=><tr key={s.id}><td><b>{s.name}</b></td><td>{s.email}</td><td>{s.phone || '-'}</td><td>{s.contact_person || '-'}</td><td><ActionIconButton action="delete" label="Lieferant löschen" onClick={()=>remove(s.id)} /></td></tr>)}</tbody></table>
   </main>
 }
