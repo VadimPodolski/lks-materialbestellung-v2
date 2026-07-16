@@ -11,7 +11,7 @@ import { newOrderHref, normalizeOrderArea, type OrderArea } from '@/lib/orderAre
 import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 import { canDeleteForOrderArea } from '@/lib/areaPermissions'
-import { calculateTubeWeightKgPerMeter, formatTubeWeight } from '@/lib/tubeWeight'
+import { calculateTubeItemWeightKg, calculateTubeWeightKgPerMeter, formatTubeWeight } from '@/lib/tubeWeight'
 import ConfirmDialog from '@/app/ConfirmDialog'
 
 type Order = {
@@ -909,7 +909,7 @@ function OrdersContent() {
       </div>
 
       <div className="orders-table-shell" onScroll={() => setActiveStatusMenu(null)}>
-      <table className="orders-table">
+      <table className={`orders-table ${orderArea === 'rohrlaser' ? 'tube-orders-table' : ''}`}>
         <colgroup>
           <col className="orders-col-status" />
           <col className="orders-col-order" />
@@ -923,6 +923,7 @@ function OrdersContent() {
           <col className="orders-col-qty" />
           {orderArea === 'rohrlaser' && <col className="orders-col-av" />}
           <col className="orders-col-price" />
+          {orderArea === 'rohrlaser' && <col className="orders-col-weight" />}
           <col className="orders-col-supplier" />
           <col className="orders-col-date" />
           <col className="orders-col-person" />
@@ -944,6 +945,7 @@ function OrdersContent() {
             <th>{sortButton('scrap', 'Ausschuss')}</th>
             {orderArea === 'rohrlaser' && <th>AV</th>}
             <th>{sortButton('total_price', 'Preis')}</th>
+            {orderArea === 'rohrlaser' && <th>Gesamtgewicht</th>}
             <th>{sortButton('supplier', 'Lieferant')}</th>
             <th>{sortButton('desired_delivery_date', 'Liefertermin')}</th>
             <th>{sortButton('created_by', 'Erstellt von')}</th>
@@ -959,6 +961,12 @@ function OrdersContent() {
             const delivered = deliveredQty(o)
             const scrap = scrapQty(o)
             const totalPrice = orderTotalPrice(orderItems)
+            const tubeWeights = orderArea === 'rohrlaser'
+              ? orderItems.map(item => calculateTubeItemWeightKg(item))
+              : []
+            const totalTubeWeight = tubeWeights.length > 0 && tubeWeights.every(weight => weight != null)
+              ? tubeWeights.reduce((sum, weight) => sum + Number(weight), 0)
+              : null
             const orderStatus = visibleStatus(o)
             const pdf = o.order_pdfs?.[0]
             const pdfUrl = pdf?.file_url || o.supplier_order_pdf_url
@@ -1079,6 +1087,11 @@ function OrdersContent() {
                   </div>
                 </td>}
                 <td className="order-total-price">{totalPrice == null ? '-' : formatEuro(totalPrice)}</td>
+                {orderArea === 'rohrlaser' && (
+                  <td className="order-total-weight">
+                    {totalTubeWeight == null ? '-' : formatTubeWeight(totalTubeWeight)}
+                  </td>
+                )}
                 <td>{o.suppliers?.name || '-'}</td>
                 <td>{formatDateShort(o.desired_delivery_date)}</td>
                 <td>

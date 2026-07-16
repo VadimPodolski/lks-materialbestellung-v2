@@ -906,7 +906,7 @@ a.card:hover {
 
 .orders-table-shell {
   max-height: calc(100vh - 220px);
-  overflow-x: hidden;
+  overflow-x: auto;
   overflow-y: auto;
   border-radius: 8px;
   box-shadow: 0 1px 5px rgba(0,0,0,.05);
@@ -918,6 +918,10 @@ a.card:hover {
   width: 100%;
   box-shadow: none;
   overflow: visible;
+}
+
+.tube-orders-table {
+  min-width: 1900px;
 }
 
 .orders-table thead,
@@ -973,6 +977,7 @@ a.card:hover {
 .orders-col-total-qty { width: 4%; }
 .orders-col-qty { width: 4%; }
 .orders-col-price { width: 6.5%; }
+.orders-col-weight { width: 6.5%; }
 .orders-col-supplier { width: 7%; }
 .orders-col-person { width: 6.25%; }
 .orders-col-pdf { width: 3%; }
@@ -980,6 +985,12 @@ a.card:hover {
 
 .order-total-price {
   white-space: nowrap;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.order-total-weight {
+  white-space: nowrap !important;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
