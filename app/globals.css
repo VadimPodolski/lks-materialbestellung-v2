@@ -1745,13 +1745,13 @@ table td {
 }
 
 .position-booking-cell.we-booking-cell {
-  border-left: 3px solid #cbd5e1;
-  background: #eaf4ff;
+  border-left: 0;
+  background: transparent;
 }
 
 .position-booking-cell.scrap-booking-cell {
-  border-left: 3px solid #cbd5e1;
-  background: #fff4e6;
+  border-left: 0;
+  background: transparent;
 }
 
 .tube-position-entry-table th,
