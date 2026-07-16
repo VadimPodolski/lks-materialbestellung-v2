@@ -24,6 +24,7 @@ import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type P
 import { calculateTubeItemWeightKg, calculateTubeWeightKgPerMeter, formatTubeWeight, formatTubeWeightPerMeter } from '@/lib/tubeWeight'
 import ConfirmDialog from '@/app/ConfirmDialog'
 import ActionIconButton from '@/app/ActionIconButton'
+import { useAppDialog } from '@/app/useAppDialog'
 
 type Order = {
   id: string
@@ -191,6 +192,7 @@ export default function OrderDetailPage() {
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
   const [msg, setMsg] = useState('')
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
+  const { ask, notify, dialog } = useAppDialog()
 
   useEffect(() => {
     load()
@@ -1024,7 +1026,11 @@ LKS-Technik GmbH & Co. KG`
       return `- ${material} - ${crossSection}, ${lengthMm || '-'} mm: ${scrap.quantity} Stück, Grund: ${scrap.reason || '-'}`
     }).join('\n')}`
 
-    if (!confirm(`${totalQuantity} Stück aus Ausschuss nachbestellen?`)) {
+    if (!await ask({
+      title: 'Ausschuss nachbestellen',
+      message: `${totalQuantity} Stück aus Ausschuss nachbestellen?`,
+      confirmLabel: 'Nachbestellen'
+    })) {
       return
     }
 
@@ -1160,7 +1166,12 @@ LKS-Technik GmbH & Co. KG`
 
   async function deleteReceipt(receipt: Receipt) {
     if (!order) return
-    if (!confirm('Wareneingang wirklich löschen?')) return
+    if (!await ask({
+      title: 'Wareneingang löschen',
+      message: 'Wareneingang wirklich löschen?',
+      confirmLabel: 'Löschen',
+      danger: true
+    })) return
 
     const supabase = createClient()
 
@@ -1252,11 +1263,16 @@ LKS-Technik GmbH & Co. KG`
     if (!order) return
 
     if (!isAdminUser && !canDeleteOrder(order.created_at)) {
-      alert('PDFs können nach zwei Werktagen nur noch von Administratoren gelöscht werden.')
+      await notify('PDF kann nicht gelöscht werden', 'PDFs können nach zwei Werktagen nur noch von Administratoren gelöscht werden.')
       return
     }
 
-    if (!confirm('PDF wirklich löschen?')) return
+    if (!await ask({
+      title: 'PDF löschen',
+      message: 'PDF wirklich löschen?',
+      confirmLabel: 'Löschen',
+      danger: true
+    })) return
 
     const supabase = createClient()
 
@@ -1410,7 +1426,12 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    if (!confirm('Ausschuss wirklich löschen?')) return
+    if (!await ask({
+      title: 'Ausschuss löschen',
+      message: 'Ausschuss wirklich löschen?',
+      confirmLabel: 'Löschen',
+      danger: true
+    })) return
 
     const supabase = createClient()
 
@@ -1425,7 +1446,12 @@ LKS-Technik GmbH & Co. KG`
   }
 
   async function cancelOrder() {
-    if (!order || !confirm('Bestellung wirklich stornieren und Stornierungsmail senden?')) return
+    if (!order || !await ask({
+      title: 'Bestellung stornieren',
+      message: 'Bestellung wirklich stornieren und Stornierungsmail senden?',
+      confirmLabel: 'Stornieren',
+      danger: true
+    })) return
 
     if (!order.suppliers?.email) {
       setMsg('Keine Lieferanten-E-Mail vorhanden. Stornierungsmail wurde nicht gesendet.')
@@ -1471,12 +1497,12 @@ LKS-Technik GmbH & Co. KG`
     if (!order) return
 
     if (!canDeleteThisOrder && !canDeleteOrder(order.created_at)) {
-      alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
+      await notify('Löschen nicht möglich', 'Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
       return
     }
 
     if (!canDeleteThisOrder) {
-      alert('Du hast für diesen Fertigungsbereich keine Löschberechtigung.')
+      await notify('Löschen nicht möglich', 'Du hast für diesen Fertigungsbereich keine Löschberechtigung.')
       return
     }
 
@@ -1505,7 +1531,7 @@ LKS-Technik GmbH & Co. KG`
     )
 
     if (deleteError) {
-      alert(`Bestellung konnte nicht gelöscht werden: ${deleteError.message}`)
+      await notify('Bestellung konnte nicht gelöscht werden', deleteError.message)
       return
     }
 
@@ -1525,6 +1551,7 @@ LKS-Technik GmbH & Co. KG`
 
   return (
     <main className="container wide">
+      {dialog}
       <ConfirmDialog
         open={deleteConfirmationOpen}
         title="Bestellung löschen"

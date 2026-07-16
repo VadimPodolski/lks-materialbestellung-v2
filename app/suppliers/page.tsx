@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import ActionIconButton from '@/app/ActionIconButton'
+import { useAppDialog } from '@/app/useAppDialog'
 
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
 
@@ -10,6 +11,7 @@ export default function SuppliersPage(){
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [form, setForm] = useState({ name:'', email:'', phone:'', contact_person:'', notes:'' })
   const [msg, setMsg] = useState('')
+  const { ask, dialog } = useAppDialog()
 
   useEffect(()=>{ load() }, [])
   async function load(){ const supabase = createClient(); const { data } = await supabase.from('suppliers').select('*').order('name'); setSuppliers(data || []) }
@@ -26,12 +28,18 @@ export default function SuppliersPage(){
 
   async function remove(id:string){
     const supabase = createClient()
-    if(!confirm('Lieferant löschen? Bestehende Bestellungen bleiben erhalten, aber ohne Lieferant.')) return
+    if(!await ask({
+      title: 'Lieferant löschen',
+      message: 'Lieferant wirklich löschen? Bestehende Bestellungen bleiben erhalten, aber ohne Lieferant.',
+      confirmLabel: 'Löschen',
+      danger: true
+    })) return
     await supabase.from('suppliers').delete().eq('id', id)
     await load()
   }
 
   return <main className="container">
+    {dialog}
     <h1>Lieferanten</h1>
     <form className="card grid" onSubmit={save}>
       <div><label>Name</label><input value={form.name} onChange={e=>set('name', e.target.value)} required /></div>

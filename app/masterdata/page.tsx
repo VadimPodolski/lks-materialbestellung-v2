@@ -9,6 +9,7 @@ import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { isTwoDLaserDeleteManager } from '@/lib/areaPermissions'
 import { calculateTubeWeightKgPerMeter, formatTubeWeightPerMeter } from '@/lib/tubeWeight'
 import ActionIconButton from '@/app/ActionIconButton'
+import { useAppDialog } from '@/app/useAppDialog'
 
 type Customer = { id:string; name:string; contact_person:string|null; email:string|null; phone:string|null; notes:string|null }
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
@@ -41,6 +42,7 @@ function MasterDataContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orderArea = normalizeOrderArea(searchParams.get('bereich'))
+  const { ask, notify, dialog } = useAppDialog()
 
   const [type, setType] = useState<TypeKey>('customers')
   const [q, setQ] = useState('')
@@ -289,7 +291,12 @@ function MasterDataContent() {
     const isTwoDOnlyTable = ['materials', 'material_thicknesses', 'formats'].includes(table)
     const canDelete = isAdmin || (orderArea === '2d-laser' && isTwoDDeleteManager && isTwoDOnlyTable)
     if (!canDelete) return
-    if (!confirm('Eintrag wirklich löschen?')) return
+    if (!await ask({
+      title: 'Eintrag löschen',
+      message: 'Eintrag wirklich löschen?',
+      confirmLabel: 'Löschen',
+      danger: true
+    })) return
     const supabase = createClient()
     let query = supabase.from(table).delete().eq('id', id)
     if (table === 'materials' || table === 'material_thicknesses') {
@@ -297,7 +304,7 @@ function MasterDataContent() {
     }
     const { error } = await query
     if (error) {
-      alert(`Eintrag konnte nicht gelöscht werden: ${error.message}`)
+      await notify('Eintrag konnte nicht gelöscht werden', error.message)
       return
     }
     load()
@@ -368,6 +375,7 @@ function MasterDataContent() {
 
   return (
     <main className="container masterdata-page">
+      {dialog}
       <button type="button" className="secondary" onClick={() => router.push(ordersHref(orderArea))}>
         Zurück
       </button>

@@ -14,6 +14,7 @@ import { canDeleteForOrderArea } from '@/lib/areaPermissions'
 import { calculateTubeItemWeightKg, calculateTubeWeightKgPerMeter, formatTubeWeight } from '@/lib/tubeWeight'
 import ConfirmDialog from '@/app/ConfirmDialog'
 import ActionIconButton from '@/app/ActionIconButton'
+import { useAppDialog } from '@/app/useAppDialog'
 
 type Order = {
   id: string
@@ -128,6 +129,7 @@ function OrdersContent() {
   const [activeStatusMenu, setActiveStatusMenu] = useState<ActiveStatusMenu | null>(null)
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null)
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
+  const { notify, dialog } = useAppDialog()
   const statusMenuCloseTimer = useRef<number | null>(null)
   const loadRequestId = useRef(0)
   const ordersByAreaCache = useRef<Partial<Record<OrderArea, Order[]>>>({})
@@ -448,7 +450,7 @@ function OrdersContent() {
 
   async function deleteOrder(order: Order) {
     if (!canDeleteCurrentArea && !canDeleteOrder(order.created_at)) {
-      alert('Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
+      await notify('Löschen nicht möglich', 'Diese Bestellung kann nach zwei Werktagen nicht mehr gelöscht werden.')
       return
     }
 
@@ -465,7 +467,7 @@ function OrdersContent() {
     )
 
     if (deleteError) {
-      alert(`Bestellung konnte nicht gelöscht werden: ${deleteError.message}`)
+      await notify('Bestellung konnte nicht gelöscht werden', deleteError.message)
       return
     }
 
@@ -795,6 +797,7 @@ function OrdersContent() {
 
   return (
     <main className="container wide">
+      {dialog}
       <div className="orders-page-heading">
         <div>
           <h1>Bestellungen {orderArea === '2d-laser' ? '2D-Laser' : 'Rohrlaser'}</h1>

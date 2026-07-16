@@ -5,6 +5,8 @@ type ConfirmDialogProps = {
   title: string
   message: string
   confirmLabel?: string
+  cancelLabel?: string | null
+  danger?: boolean
   onConfirm: () => void
   onCancel: () => void
 }
@@ -14,6 +16,8 @@ export default function ConfirmDialog({
   title,
   message,
   confirmLabel = 'Löschen',
+  cancelLabel = 'Abbrechen',
+  danger = true,
   onConfirm,
   onCancel
 }: ConfirmDialogProps) {
@@ -31,8 +35,8 @@ export default function ConfirmDialog({
         <h2 id="confirm-dialog-title">{title}</h2>
         <p>{message}</p>
         <div className="actions confirm-modal-actions">
-          <button type="button" className="secondary" onClick={onCancel}>Abbrechen</button>
-          <button type="button" className="danger" onClick={onConfirm} autoFocus>{confirmLabel}</button>
+          {cancelLabel && <button type="button" className="secondary" onClick={onCancel}>{cancelLabel}</button>}
+          <button type="button" className={danger ? 'danger' : undefined} onClick={onConfirm} autoFocus>{confirmLabel}</button>
         </div>
       </div>
     </div>
