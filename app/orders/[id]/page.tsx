@@ -66,8 +66,7 @@ type PdfDocumentType = 'lks_order' | 'supplier_confirmation' | 'supplier_deliver
 
 const pdfSections: { type: PdfDocumentType; title: string; uploadText: string }[] = [
   { type: 'lks_order', title: '1. LKS-Auftrag', uploadText: 'LKS-Auftrag hier ablegen oder klicken' },
-  { type: 'supplier_confirmation', title: '2. Lieferanten-AB', uploadText: 'Lieferanten-AB hier ablegen oder klicken' },
-  { type: 'supplier_delivery_note', title: '3. Lieferanten-Lieferschein', uploadText: 'Lieferanten-Lieferschein hier ablegen oder klicken' }
+  { type: 'supplier_confirmation', title: '2. Lieferanten-AB', uploadText: 'Lieferanten-AB hier ablegen oder klicken' }
 ]
 
 type Receipt = {
