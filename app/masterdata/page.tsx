@@ -570,16 +570,19 @@ function MasterDataContent() {
                   )}
                   {groupedCrossSections[category].map(c => {
                     return (
-                      <div className="cross-section-entry" key={c.id}>
-                        <div className="cross-section-entry-heading">
-                          <b>{c.name}</b>
+                      <details className="cross-section-entry" key={c.id}>
+                        <summary className="cross-section-entry-heading">
+                          <span className="cross-section-summary-title">
+                            <span className="cross-section-chevron" aria-hidden="true">›</span>
+                            <b>{c.name}</b>
+                          </span>
                           {isAdmin && (
-                            <span className="cross-section-actions">
+                            <span className="cross-section-actions" onClick={event => event.preventDefault()}>
                               <button onClick={()=>setCross(c)}>Bearbeiten</button>
                               <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
                             </span>
                           )}
-                        </div>
+                        </summary>
                         <div className="cross-section-material-weights">
                           <div className="cross-section-material-weight-header">
                             <span>Material</span>
@@ -604,7 +607,7 @@ function MasterDataContent() {
                             )
                           })}
                         </div>
-                      </div>
+                      </details>
                     )
                   })}
                 </div>

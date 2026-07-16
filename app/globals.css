@@ -597,7 +597,6 @@ tr.clickable-row {
 
 .cross-section-entry {
   min-height: 38px;
-  padding: 14px 16px;
   border-bottom: 1px solid #edf0f2;
 }
 
@@ -621,10 +620,39 @@ tr.clickable-row {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.cross-section-entry-heading::-webkit-details-marker {
+  display: none;
+}
+
+.cross-section-summary-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.cross-section-chevron {
+  display: inline-block;
+  color: #617080;
+  font-size: 22px;
+  line-height: 1;
+  transition: transform .18s ease;
+}
+
+.cross-section-entry[open] .cross-section-chevron {
+  transform: rotate(90deg);
+}
+
+.cross-section-entry[open] .cross-section-entry-heading {
+  background: #fafbfc;
 }
 
 .cross-section-material-weights {
-  margin-top: 12px;
+  margin: 0 16px 14px;
   overflow: hidden;
   border: 1px solid #e1e6eb;
   border-radius: 8px;
