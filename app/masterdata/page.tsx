@@ -7,6 +7,7 @@ import { LOGIN_DISABLED } from '@/lib/authMode'
 import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { isTwoDLaserDeleteManager } from '@/lib/areaPermissions'
+import { calculateTubeWeightKgPerMeter, formatTubeWeightPerMeter } from '@/lib/tubeWeight'
 
 type Customer = { id:string; name:string; contact_person:string|null; email:string|null; phone:string|null; notes:string|null }
 type Supplier = { id:string; name:string; email:string; phone:string|null; contact_person:string|null; notes:string|null }
@@ -567,17 +568,45 @@ function MasterDataContent() {
                   {groupedCrossSections[category].length === 0 && (
                     <p className="small">Keine Querschnitte vorhanden.</p>
                   )}
-                  {groupedCrossSections[category].map(c => (
-                    <div className="cross-section-entry" key={c.id}>
-                      <b>{c.name}</b>
-                      {isAdmin && (
-                        <span className="cross-section-actions">
-                          <button onClick={()=>setCross(c)}>Bearbeiten</button>
-                          <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                  {groupedCrossSections[category].map(c => {
+                    return (
+                      <div className="cross-section-entry" key={c.id}>
+                        <div className="cross-section-entry-heading">
+                          <b>{c.name}</b>
+                          {isAdmin && (
+                            <span className="cross-section-actions">
+                              <button onClick={()=>setCross(c)}>Bearbeiten</button>
+                              <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
+                            </span>
+                          )}
+                        </div>
+                        <div className="cross-section-material-weights">
+                          <div className="cross-section-material-weight-header">
+                            <span>Material</span>
+                            <span>Gewicht</span>
+                          </div>
+                          {materials.length === 0 && (
+                            <p className="small">Keine Materialien vorhanden.</p>
+                          )}
+                          {materials.map(materialItem => {
+                            const materialName = materialItem.material_name || materialItem.name
+                            const tubeWeight = calculateTubeWeightKgPerMeter(c.name, materialName)
+
+                            return (
+                              <div className="cross-section-material-weight-row" key={materialItem.id}>
+                                <span>{materialName}</span>
+                                <strong>
+                                  {tubeWeight
+                                    ? `ca. ${formatTubeWeightPerMeter(tubeWeight.weightKgPerMeter)}`
+                                    : 'nicht bestimmbar'}
+                                </strong>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
               </section>
             ))}

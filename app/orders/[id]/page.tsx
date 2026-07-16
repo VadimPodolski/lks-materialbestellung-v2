@@ -21,6 +21,7 @@ import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 import { canDeleteForOrderArea } from '@/lib/areaPermissions'
 import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
+import { calculateTubeItemWeightKg, calculateTubeWeightKgPerMeter, formatTubeWeight, formatTubeWeightPerMeter } from '@/lib/tubeWeight'
 import ConfirmDialog from '@/app/ConfirmDialog'
 
 type Order = {
@@ -338,6 +339,10 @@ export default function OrderDetailPage() {
 
     return hasPrice ? total : null
   }, [orderItems])
+
+  const totalTubeWeight = useMemo(() => (
+    orderItems.reduce((sum, item) => sum + (calculateTubeItemWeightKg(item) || 0), 0)
+  ), [orderItems])
 
   useEffect(() => {
     if (!order || orderItems.length === 0 || processingPricePdfId) return
@@ -1596,6 +1601,7 @@ LKS-Technik GmbH & Co. KG`
                     {!isTwoDLaser && <th>AV</th>}
                     {!isTwoDLaser && <th>Länge</th>}
                     <th>{isTwoDLaser ? 'Menge' : 'Stückzahl'}</th>
+                    {!isTwoDLaser && <th>Gewicht</th>}
                     <th>Preis</th>
                     <th>Betrag</th>
                     {isTwoDLaser && <th>Einheit</th>}
@@ -1613,6 +1619,10 @@ LKS-Technik GmbH & Co. KG`
                   {orderItems.map((item, index) => {
                     const receiptDraft = receiptDraftFor(item, index)
                     const draft = scrapDraftFor(item, index)
+                    const tubeWeightPerMeter = !isTwoDLaser
+                      ? calculateTubeWeightKgPerMeter(item.cross_section, item.material)
+                      : null
+                    const tubeItemWeight = !isTwoDLaser ? calculateTubeItemWeightKg(item) : null
 
                     return (
                       <tr key={`${item.cross_section}-${index}`}>
@@ -1623,6 +1633,16 @@ LKS-Technik GmbH & Co. KG`
                         {!isTwoDLaser && <td>{orderItemAvText(item) || '-'}</td>}
                         {!isTwoDLaser && <td>{item.length_mm || '-'} mm</td>}
                         <td>{item.quantity}</td>
+                        {!isTwoDLaser && (
+                          <td className="tube-weight-cell">
+                            {tubeItemWeight == null || tubeWeightPerMeter == null ? '-' : (
+                              <>
+                                <strong>{formatTubeWeight(tubeItemWeight)}</strong>
+                                <small>{formatTubeWeightPerMeter(tubeWeightPerMeter.weightKgPerMeter)}</small>
+                              </>
+                            )}
+                          </td>
+                        )}
                         <td className="order-position-price">
                           {item.unit_price_eur == null ? '-' : (
                             <>
@@ -1703,6 +1723,7 @@ LKS-Technik GmbH & Co. KG`
               <p><b>Soll:</b><br />{orderItemsTotal(orderItems)}</p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
+              {!isTwoDLaser && <p><b>Gewicht:</b><br />ca. {formatTubeWeight(totalTubeWeight)}</p>}
               {!isTwoDLaser && <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>}
               <p><b>Preis:</b><br />{formatEuro(totalOrderPrice)}</p>
               <p>

@@ -11,6 +11,7 @@ import { newOrderHref, normalizeOrderArea, type OrderArea } from '@/lib/orderAre
 import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 import { canDeleteForOrderArea } from '@/lib/areaPermissions'
+import { calculateTubeWeightKgPerMeter, formatTubeWeight } from '@/lib/tubeWeight'
 import ConfirmDialog from '@/app/ConfirmDialog'
 
 type Order = {
@@ -66,7 +67,7 @@ type SortKey =
 
 type SortDirection = 'asc' | 'desc'
 type SortMode = 'latest_order' | SortKey
-type TubeStatisticsSortKey = 'material' | 'crossSection' | 'pieces' | 'meters' | 'totalPrice' | 'orders'
+type TubeStatisticsSortKey = 'material' | 'crossSection' | 'pieces' | 'meters' | 'weight' | 'totalPrice' | 'orders'
 type ActiveStatusMenu = { orderId: string; top: number; left: number; placement: 'top' | 'bottom' }
 
 function formatSortValue(value: string) {
@@ -598,16 +599,18 @@ function OrdersContent() {
       crossSection: string
       pieces: number
       meters: number
+      weight: number
       totalPrice: number
       orderIds: Set<string>
     }>()
     const orderIds = new Set<string>()
     let totalPieces = 0
     let totalMeters = 0
+    let totalWeight = 0
     let totalPrice = 0
 
     if (orderArea !== 'rohrlaser' || loadedOrderArea !== orderArea) {
-      return { rows: [], totalPieces, totalMeters, totalPrice, orderCount: 0 }
+      return { rows: [], totalPieces, totalMeters, totalWeight, totalPrice, orderCount: 0 }
     }
 
     for (const order of orders) {
@@ -623,6 +626,8 @@ function OrdersContent() {
             ? 0
             : Number(item.quantity || 0)
         const meters = Number(item.length_mm || 0) / 1000 * pieces
+        const weightPerMeter = calculateTubeWeightKgPerMeter(crossSection, material)?.weightKgPerMeter || 0
+        const weight = meters * weightPerMeter
         const itemPrice = item.line_total_eur == null
           ? Number(item.unit_price_eur || 0) * Number(item.price_quantity || 0)
           : Number(item.line_total_eur)
@@ -632,16 +637,19 @@ function OrdersContent() {
           crossSection,
           pieces: 0,
           meters: 0,
+          weight: 0,
           totalPrice: 0,
           orderIds: new Set<string>()
         }
 
         current.pieces += pieces
         current.meters += meters
+        current.weight += weight
         current.totalPrice += itemPrice
         current.orderIds.add(order.id)
         totalPieces += pieces
         totalMeters += meters
+        totalWeight += weight
         totalPrice += itemPrice
         tubes.set(key, current)
       }
@@ -655,6 +663,7 @@ function OrdersContent() {
       )),
       totalPieces,
       totalMeters,
+      totalWeight,
       totalPrice,
       orderCount: orderIds.size
     }
@@ -676,6 +685,7 @@ function OrdersContent() {
 
         if (tubeStatisticsSortKey === 'pieces') return (a.pieces - b.pieces) * direction
         if (tubeStatisticsSortKey === 'meters') return (a.meters - b.meters) * direction
+        if (tubeStatisticsSortKey === 'weight') return (a.weight - b.weight) * direction
         if (tubeStatisticsSortKey === 'totalPrice') return (a.totalPrice - b.totalPrice) * direction
         if (tubeStatisticsSortKey === 'orders') return (a.orderIds.size - b.orderIds.size) * direction
 
@@ -693,6 +703,7 @@ function OrdersContent() {
       rows,
       totalPieces: rows.reduce((sum, row) => sum + row.pieces, 0),
       totalMeters: rows.reduce((sum, row) => sum + row.meters, 0),
+      totalWeight: rows.reduce((sum, row) => sum + row.weight, 0),
       totalPrice: rows.reduce((sum, row) => sum + row.totalPrice, 0),
       orderCount: orderIds.size
     }
@@ -1182,6 +1193,10 @@ function OrdersContent() {
                 <strong>{formatMeters(visibleTubeStatistics.totalMeters)}</strong>
               </div>
               <div>
+                <span>Gewicht gesamt</span>
+                <strong>{formatTubeWeight(visibleTubeStatistics.totalWeight)}</strong>
+              </div>
+              <div>
                 <span>Gesamtpreis</span>
                 <strong>{formatEuro(visibleTubeStatistics.totalPrice)}</strong>
               </div>
@@ -1202,6 +1217,7 @@ function OrdersContent() {
                       <th>{tubeStatisticsSortButton('crossSection', 'Querschnitt')}</th>
                       <th className="number">{tubeStatisticsSortButton('pieces', 'Stück')}</th>
                       <th className="number">{tubeStatisticsSortButton('meters', 'Meter gesamt')}</th>
+                      <th className="number">{tubeStatisticsSortButton('weight', 'Gewicht')}</th>
                       <th className="number">{tubeStatisticsSortButton('totalPrice', 'Gesamtpreis')}</th>
                       <th className="number">{tubeStatisticsSortButton('orders', 'Aufträge')}</th>
                     </tr>
@@ -1213,6 +1229,7 @@ function OrdersContent() {
                         <td>{row.crossSection}</td>
                         <td className="number">{row.pieces.toLocaleString('de-DE')}</td>
                         <td className="number">{formatMeters(row.meters)}</td>
+                        <td className="number">{formatTubeWeight(row.weight)}</td>
                         <td className="number">{formatEuro(row.totalPrice)}</td>
                         <td className="number">{row.orderIds.size.toLocaleString('de-DE')}</td>
                       </tr>
