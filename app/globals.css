@@ -537,11 +537,11 @@ button.danger,
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
+  width: 34px;
+  height: 34px;
+  min-width: 34px;
   padding: 0;
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .square-action-button.edit {
@@ -555,8 +555,8 @@ button.danger,
 }
 
 .square-action-button svg {
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.9;
@@ -738,6 +738,10 @@ tr.clickable-row {
 
 .cross-section-actions button {
   padding: 7px 10px;
+}
+
+.cross-section-actions .square-action-button {
+  padding: 0;
 }
 
 @media (max-width: 1000px) {
