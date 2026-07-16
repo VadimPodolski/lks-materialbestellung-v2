@@ -53,6 +53,7 @@ function MasterDataContent() {
   const [workPreparations, setWorkPreparations] = useState<WorkPreparation[]>([])
   const [formats, setFormats] = useState<SheetFormat[]>([])
   const [materialThicknesses, setMaterialThicknesses] = useState<MaterialThickness[]>([])
+  const [openCrossSectionIds, setOpenCrossSectionIds] = useState<Set<string>>(new Set())
 
   const [customer, setCustomer] = useState({ id:'', name:'', contact_person:'', email:'', phone:'', notes:'' })
   const [supplier, setSupplier] = useState({ id:'', name:'', email:'', phone:'', contact_person:'', notes:'' })
@@ -120,6 +121,15 @@ function MasterDataContent() {
     setWorkPreparation({ id:'', name:'' })
     setFormat({ id:'', name:'', width_mm:'', height_mm:'' })
     setMaterialThickness({ id:'', material:'', thickness_mm:'' })
+  }
+
+  function toggleCrossSection(id:string) {
+    setOpenCrossSectionIds(current => {
+      const next = new Set(current)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
   }
 
   async function saveCustomer(e:React.FormEvent) {
@@ -569,21 +579,28 @@ function MasterDataContent() {
                     <p className="small">Keine Querschnitte vorhanden.</p>
                   )}
                   {groupedCrossSections[category].map(c => {
+                    const isOpen = openCrossSectionIds.has(c.id)
+
                     return (
-                      <details className="cross-section-entry" key={c.id}>
-                        <summary className="cross-section-entry-heading">
-                          <span className="cross-section-summary-title">
+                      <div className="cross-section-entry" key={c.id}>
+                        <div className="cross-section-entry-heading">
+                          <button
+                            type="button"
+                            className="cross-section-toggle"
+                            aria-expanded={isOpen}
+                            onClick={() => toggleCrossSection(c.id)}
+                          >
                             <span className="cross-section-chevron" aria-hidden="true">›</span>
                             <b>{c.name}</b>
-                          </span>
+                          </button>
                           {isAdmin && (
-                            <span className="cross-section-actions" onClick={event => event.preventDefault()}>
+                            <span className="cross-section-actions">
                               <button onClick={()=>setCross(c)}>Bearbeiten</button>
                               <button className="danger" onClick={()=>remove('cross_sections', c.id)}>Löschen</button>
                             </span>
                           )}
-                        </summary>
-                        <div className="cross-section-material-weights">
+                        </div>
+                        {isOpen && <div className="cross-section-material-weights">
                           <div className="cross-section-material-weight-header">
                             <span>Material</span>
                             <span>Gewicht</span>
@@ -606,8 +623,8 @@ function MasterDataContent() {
                               </div>
                             )
                           })}
-                        </div>
-                      </details>
+                        </div>}
+                      </div>
                     )
                   })}
                 </div>

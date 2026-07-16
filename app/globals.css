@@ -621,18 +621,24 @@ tr.clickable-row {
   justify-content: space-between;
   gap: 12px;
   padding: 14px 16px;
-  cursor: pointer;
-  list-style: none;
 }
 
-.cross-section-entry-heading::-webkit-details-marker {
-  display: none;
-}
-
-.cross-section-summary-title {
+.cross-section-toggle {
   display: inline-flex;
   align-items: center;
   gap: 9px;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: #0f172a;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cross-section-toggle:hover {
+  background: transparent;
+  color: #2563eb;
 }
 
 .cross-section-chevron {
@@ -643,11 +649,11 @@ tr.clickable-row {
   transition: transform .18s ease;
 }
 
-.cross-section-entry[open] .cross-section-chevron {
+.cross-section-toggle[aria-expanded="true"] .cross-section-chevron {
   transform: rotate(90deg);
 }
 
-.cross-section-entry[open] .cross-section-entry-heading {
+.cross-section-entry:has(.cross-section-toggle[aria-expanded="true"]) .cross-section-entry-heading {
   background: #fafbfc;
 }
 
