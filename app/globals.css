@@ -1729,6 +1729,28 @@ table td {
   min-width: 2040px;
 }
 
+.position-booking-actions {
+  display: grid;
+  align-items: start;
+  padding: 14px 0 4px;
+}
+
+.position-booking-actions.tube {
+  grid-template-columns: 1095px 555px 465px;
+  min-width: 2115px;
+}
+
+.position-booking-actions.two-d {
+  grid-template-columns: 1195px 420px 425px;
+  min-width: 2040px;
+}
+
+.position-booking-action {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 11px;
+}
+
 .tube-position-entry-table th,
 .tube-position-entry-table td,
 .two-d-position-entry-table th,

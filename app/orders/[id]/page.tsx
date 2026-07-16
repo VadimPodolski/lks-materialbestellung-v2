@@ -1707,15 +1707,19 @@ LKS-Technik GmbH & Co. KG`
                   })}
                 </tbody>
               </table>
-            </div>
-
-            <div className="actions" style={{ justifyContent: 'flex-end' }}>
-              <button type="button" onClick={receiveGoods}>
-                Wareneingang buchen
-              </button>
-              <button type="button" onClick={bookScraps}>
-                Ausschuss buchen
-              </button>
+              <div className={`position-booking-actions ${isTwoDLaser ? 'two-d' : 'tube'}`}>
+                <span aria-hidden="true" />
+                <div className="position-booking-action">
+                  <button type="button" onClick={receiveGoods}>
+                    Wareneingang buchen
+                  </button>
+                </div>
+                <div className="position-booking-action">
+                  <button type="button" onClick={bookScraps}>
+                    Ausschuss buchen
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="grid order-summary-grid">
