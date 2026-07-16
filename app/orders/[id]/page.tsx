@@ -1706,20 +1706,22 @@ LKS-Technik GmbH & Co. KG`
                     )
                   })}
                 </tbody>
+                <tfoot>
+                  <tr className="position-booking-row">
+                    <td colSpan={isTwoDLaser ? 10 : 9} />
+                    <td className="position-booking-cell we-booking-cell" colSpan={isTwoDLaser ? 3 : 4}>
+                      <button type="button" onClick={receiveGoods}>
+                        Wareneingang buchen
+                      </button>
+                    </td>
+                    <td className="position-booking-cell scrap-booking-cell" colSpan={3}>
+                      <button type="button" onClick={bookScraps}>
+                        Ausschuss buchen
+                      </button>
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
-              <div className={`position-booking-actions ${isTwoDLaser ? 'two-d' : 'tube'}`}>
-                <span aria-hidden="true" />
-                <div className="position-booking-action">
-                  <button type="button" onClick={receiveGoods}>
-                    Wareneingang buchen
-                  </button>
-                </div>
-                <div className="position-booking-action">
-                  <button type="button" onClick={bookScraps}>
-                    Ausschuss buchen
-                  </button>
-                </div>
-              </div>
             </div>
 
             <div className="grid order-summary-grid">

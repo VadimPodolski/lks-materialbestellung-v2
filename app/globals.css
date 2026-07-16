@@ -1729,26 +1729,29 @@ table td {
   min-width: 2040px;
 }
 
-.position-booking-actions {
-  display: grid;
-  align-items: start;
-  padding: 14px 0 4px;
+.position-booking-row td {
+  width: auto !important;
+  padding-top: 14px;
+  padding-bottom: 14px;
+  border-bottom: 0;
 }
 
-.position-booking-actions.tube {
-  grid-template-columns: 1095px 555px 465px;
-  min-width: 2115px;
+.position-booking-row td:first-child {
+  background: white;
 }
 
-.position-booking-actions.two-d {
-  grid-template-columns: 1195px 420px 425px;
-  min-width: 2040px;
+.position-booking-cell {
+  text-align: right !important;
 }
 
-.position-booking-action {
-  display: flex;
-  justify-content: flex-end;
-  padding: 0 11px;
+.position-booking-cell.we-booking-cell {
+  border-left: 3px solid #cbd5e1;
+  background: #eaf4ff;
+}
+
+.position-booking-cell.scrap-booking-cell {
+  border-left: 3px solid #cbd5e1;
+  background: #fff4e6;
 }
 
 .tube-position-entry-table th,
