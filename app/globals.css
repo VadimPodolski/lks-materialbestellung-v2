@@ -1256,6 +1256,15 @@ a.card:hover {
   margin-top: 28px;
 }
 
+.order-summary-grid > p > b {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.order-summary-grid > p > b + br {
+  display: none;
+}
+
 @media (max-width: 1400px) {
   .order-summary-grid {
     grid-template-columns: repeat(4, minmax(0, 180px));
