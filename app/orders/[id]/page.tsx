@@ -192,6 +192,7 @@ export default function OrderDetailPage() {
   const processedPricePdfIds = useRef(new Set<string>())
   const [showDetailStatusMenu, setShowDetailStatusMenu] = useState(false)
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
+  const [sendingOrderEmail, setSendingOrderEmail] = useState(false)
   const [msg, setMsg] = useState('')
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
   const { ask, notify, dialog } = useAppDialog()
@@ -666,38 +667,45 @@ LKS-Technik GmbH & Co. KG`
   }
 
   async function sendOrderEmail() {
-    if (!order || !order.suppliers?.email) {
+    if (!order || order.ordered_at || sendingOrderEmail) return
+
+    if (!order.suppliers?.email) {
       setMsg('Keine Lieferanten-E-Mail vorhanden.')
       return
     }
 
+    setSendingOrderEmail(true)
     setMsg('Bestellung wird per E-Mail versendet...')
-    const orderedBy = await currentUserDisplayName()
+    try {
+      const orderedBy = await currentUserDisplayName()
 
-    const res = await fetch('/api/send-order-mail', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        supplierEmail: order.suppliers.email,
-        orderNumber: order.order_number,
-        customer: order.customer,
-        items: orderItems,
-        desiredDeliveryDate: order.desired_delivery_date,
-        supplierName: order.suppliers.name,
-        orderedBy,
-        notes: order.notes
+      const res = await fetch('/api/send-order-mail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          supplierEmail: order.suppliers.email,
+          orderNumber: order.order_number,
+          customer: order.customer,
+          items: orderItems,
+          desiredDeliveryDate: order.desired_delivery_date,
+          supplierName: order.suppliers.name,
+          orderedBy,
+          notes: order.notes
+        })
       })
-    })
 
-    const data = await res.json()
+      const data = await res.json()
 
-    if (!res.ok) {
-      setMsg(data.error || 'E-Mail konnte nicht gesendet werden.')
-      return
+      if (!res.ok) {
+        setMsg(data.error || 'E-Mail konnte nicht gesendet werden.')
+        return
+      }
+
+      await markOrdered()
+      setMsg(`Bestellung wurde an ${order.suppliers.email} versendet.`)
+    } finally {
+      setSendingOrderEmail(false)
     }
-
-    await markOrdered()
-    setMsg(`Bestellung wurde an ${order.suppliers.email} versendet.`)
   }
 
   async function recalculateStatus(orderId: string, quantity: number) {
@@ -1812,7 +1820,13 @@ LKS-Technik GmbH & Co. KG`
             )}
 
             <div className="actions">
-              <button type="button" onClick={sendOrderEmail}>
+              <button
+                type="button"
+                className="order-send-button"
+                onClick={sendOrderEmail}
+                disabled={Boolean(order.ordered_at) || sendingOrderEmail}
+                title={order.ordered_at ? 'Bestellung wurde bereits gesendet.' : undefined}
+              >
                 Bestellung senden
               </button>
 
