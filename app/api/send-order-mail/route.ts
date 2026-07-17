@@ -85,7 +85,7 @@ Bearbeiter: ${orderedBy || '-'}
 
 ${orderItemsMailText(orderItems)}
 
-Gewünschter Liefertermin: ${desiredDeliveryDate || '-'}
+L-Liefertermin: ${desiredDeliveryDate || 'schnellstmöglich'}
 Bemerkung: ${notes || '-'}
 
 Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere (AB-Nummer) an.

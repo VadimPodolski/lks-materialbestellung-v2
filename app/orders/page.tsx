@@ -782,6 +782,10 @@ function OrdersContent() {
     return `${day}.${month}.${year.slice(-2)}`
   }
 
+  function formatSupplierDeliveryDate(value: string | null) {
+    return value ? formatDateShort(value) : 'schnellstmöglich'
+  }
+
   function formatDateTimeShort(value: string | null) {
     if (!value) return '-'
 
@@ -944,7 +948,7 @@ function OrdersContent() {
             {orderArea === '2d-laser' && <option value="material_thickness">Materialstärke</option>}
             <option value="total_price">Preis</option>
             <option value="supplier">Lieferant</option>
-            <option value="desired_delivery_date">Liefertermin</option>
+            <option value="desired_delivery_date">L-Liefertermin</option>
             <option value="created_at">Erstellt am</option>
           </select>
         </div>
@@ -989,7 +993,7 @@ function OrdersContent() {
             <th>{sortButton('total_price', 'Preis')}</th>
             {orderArea === 'rohrlaser' && <th>Gesamtgewicht</th>}
             <th>{sortButton('supplier', 'Lieferant')}</th>
-            <th>{sortButton('desired_delivery_date', 'Liefertermin')}</th>
+            <th>{sortButton('desired_delivery_date', 'L-Liefertermin')}</th>
             <th>{sortButton('created_by', 'Erstellt von')}</th>
             <th>{sortButton('ordered_by', 'Bestellt von')}</th>
             <th>PDF</th>
@@ -1144,7 +1148,7 @@ function OrdersContent() {
                   </td>
                 )}
                 <td>{o.suppliers?.name || '-'}</td>
-                <td>{formatDateShort(o.desired_delivery_date)}</td>
+                <td>{formatSupplierDeliveryDate(o.desired_delivery_date)}</td>
                 <td>
                   <div className="table-person-cell">
                     <b>{profileName(o.created_by)}</b>

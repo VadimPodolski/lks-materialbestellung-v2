@@ -637,7 +637,7 @@ Bemerkung: ${order.notes || '-'}
 
 ${orderItemsMailText(orderItems)}
 
-Gewünschter Liefertermin: ${order.desired_delivery_date || '-'}
+L-Liefertermin: ${order.desired_delivery_date || 'schnellstmöglich'}
 
 Mit freundlichen Grüßen
 LKS-Technik GmbH & Co. KG`
@@ -1828,7 +1828,7 @@ LKS-Technik GmbH & Co. KG`
                 <br />
                 {order.suppliers?.email || ''}
               </p>
-              <p><b>Liefertermin:</b><br />{order.desired_delivery_date || '-'}</p>
+              <p><b>L-Liefertermin:</b><br />{order.desired_delivery_date || 'schnellstmöglich'}</p>
             </div>
 
             {order.notes && (
@@ -2027,7 +2027,7 @@ LKS-Technik GmbH & Co. KG`
             </div>
 
             <div>
-              <label>Liefertermin</label>
+              <label>L-Liefertermin</label>
               <input
                 type="date"
                 value={editForm.desired_delivery_date}

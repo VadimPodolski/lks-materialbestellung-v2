@@ -576,7 +576,7 @@ export default function NewOrderPage() {
         </div>
 
         <div>
-          <label>Liefertermin</label>
+          <label>L-Liefertermin</label>
           <input type="date" value={form.desired_delivery_date} onChange={e => set('desired_delivery_date', e.target.value)} />
         </div>
 
