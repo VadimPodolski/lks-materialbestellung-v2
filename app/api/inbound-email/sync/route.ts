@@ -90,17 +90,21 @@ async function syncInboundEmail(request: Request) {
     skipped: 0,
     failed: 0
   }
+  let imapStage = 'Verbindung zum Postfach'
 
   try {
     await client.connect()
+    imapStage = 'Postfach INBOX öffnen'
     const lock = await client.getMailboxLock('INBOX', { description: 'LKS Lieferanten-AB Import' })
 
     try {
+      imapStage = 'E-Mails suchen'
       const since = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000)
       const foundUids = await client.search({ since }, { uid: true })
       const uids = (foundUids || []).slice(-MAX_EMAILS_PER_RUN)
 
       for (const uid of uids) {
+        imapStage = 'E-Mail laden'
         const message = await client.fetchOne(String(uid), {
           uid: true,
           envelope: true,
@@ -248,8 +252,19 @@ async function syncInboundEmail(request: Request) {
       lock.release()
     }
   } catch (error: any) {
+    const authenticationFailed = Boolean(error.authenticationFailed)
+    const serverDetail = [error.serverResponseCode, error.responseText]
+      .filter(Boolean)
+      .join(': ')
     return NextResponse.json(
-      { error: error.message || 'Einkaufspostfach konnte nicht abgerufen werden.', result },
+      {
+        error: authenticationFailed
+          ? 'Anmeldung am Einkaufspostfach fehlgeschlagen.'
+          : (error.message || 'Einkaufspostfach konnte nicht abgerufen werden.'),
+        stage: imapStage,
+        serverDetail: serverDetail || null,
+        result
+      },
       { status: 502 }
     )
   } finally {
