@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { Suspense } from 'react'
 import LoginLogoutLink from './LoginLogoutLink'
 import OrderAreaNav from './OrderAreaNav'
+import SessionTimeout from './SessionTimeout'
 
 export const metadata = {
   title: 'LKS Materialbestellung',
@@ -13,6 +14,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="de">
       <body>
+        <SessionTimeout />
         <div className="header">
           <Link href="/" className="brand">LKS Bestellportal</Link>
 
