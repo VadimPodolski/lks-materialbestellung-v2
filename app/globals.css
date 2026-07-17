@@ -2080,16 +2080,17 @@ table td {
 .pdf-sections {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 13px;
+  width: 80%;
   margin-top: 18px;
 }
 
 .pdf-section {
   display: grid;
-  gap: 14px;
+  gap: 11px;
   align-content: start;
   min-width: 0;
-  padding: 16px;
+  padding: 13px;
   border: 2px dashed #cbd5e1;
   border-radius: 10px;
   background: #f8fafc;
@@ -2139,25 +2140,36 @@ table td {
 
 .pdf-preview-grid {
   display: flex;
-  gap: 14px;
+  gap: 11px;
   flex-wrap: wrap;
 }
 
 .pdf-preview-card {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   align-content: start;
-  width: 240px;
+  width: 192px;
 }
 
 .pdf-preview-card button {
   width: 100%;
 }
 
+.pdf-preview-card .square-action-button {
+  height: 27px;
+  min-height: 27px;
+  border-radius: 6px;
+}
+
+.pdf-preview-card .square-action-button svg {
+  width: 14px;
+  height: 14px;
+}
+
 .pdf-price-import-status {
   display: grid;
-  gap: 4px;
-  padding: 10px 12px;
+  gap: 3px;
+  padding: 8px 10px;
   border: 1px solid #bfdbfe;
   border-radius: 8px;
   background: #eff6ff;
@@ -2203,16 +2215,16 @@ table td {
 
 .pdf-preview {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   align-items: center;
   color: inherit;
-  max-width: 240px;
+  max-width: 192px;
 }
 
 .pdf-preview-page {
   display: block;
-  width: 240px;
-  height: 320px;
+  width: 192px;
+  height: 256px;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   background: white;
@@ -2223,14 +2235,15 @@ table td {
   width: 260px;
   height: 350px;
   border: 0;
-  transform: translate(-10px, -12px);
+  transform: scale(.8) translate(-10px, -12px);
+  transform-origin: top left;
   pointer-events: none;
 }
 
 .pdf-preview span {
   overflow-wrap: anywhere;
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
 }
 
 .nav-link-button {
