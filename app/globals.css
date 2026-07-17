@@ -1195,7 +1195,7 @@ a.card:hover {
   background: #f6f8fb;
 }
 
-.orders-table .clickable-order-row:hover td {
+.orders-table tbody > .clickable-order-row:hover > td {
   background: #e8f2ff;
 }
 
