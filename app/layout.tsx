@@ -21,7 +21,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav className="main-nav">
             <div className="nav-left">
               <Link href="/masterdata">Stammdaten</Link>
-              <Link href="/inbound-email">E-Mail-AB</Link>
             </div>
             <Suspense fallback={<div className="nav-center order-area-switch" aria-hidden="true" />}>
               <OrderAreaNav />
