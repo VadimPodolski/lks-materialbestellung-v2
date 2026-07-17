@@ -9,6 +9,7 @@ export default function OrderAreaNav() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const areaFromUrl = searchParams.get('bereich')
+  const archiveSuffix = searchParams.get('archiv') === '1' ? '&archiv=1' : ''
   const [lastOrderArea, setLastOrderArea] = useState<OrderArea>('rohrlaser')
   const isOrderPage = pathname.startsWith('/orders')
   const activeArea = isOrderPage
@@ -39,14 +40,14 @@ export default function OrderAreaNav() {
     >
       <span className="order-area-slider" aria-hidden="true" />
       <Link
-        href={ordersHref('rohrlaser')}
+        href={`${ordersHref('rohrlaser')}${archiveSuffix}`}
         className={activeArea === 'rohrlaser' ? 'active' : ''}
         aria-current={activeArea === 'rohrlaser' ? 'page' : undefined}
       >
         Rohrlaser
       </Link>
       <Link
-        href={ordersHref('2d-laser')}
+        href={`${ordersHref('2d-laser')}${archiveSuffix}`}
         className={activeArea === '2d-laser' ? 'active' : ''}
         aria-current={activeArea === '2d-laser' ? 'page' : undefined}
       >

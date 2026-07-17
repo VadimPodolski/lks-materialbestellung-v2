@@ -72,6 +72,9 @@ type SortMode = 'latest_order' | SortKey
 type TubeStatisticsSortKey = 'material' | 'crossSection' | 'pieces' | 'meters' | 'weight' | 'totalPrice' | 'orders'
 type ActiveStatusMenu = { orderId: string; top: number; left: number; placement: 'top' | 'bottom' }
 
+const ARCHIVE_AFTER_DAYS = 30
+const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000
+
 function formatSortValue(value: string) {
   const dimensions = value.match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i)
   if (!dimensions) return 0
@@ -110,6 +113,7 @@ function OrdersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orderArea = normalizeOrderArea(searchParams.get('bereich'))
+  const showArchive = searchParams.get('archiv') === '1'
 
   const [orders, setOrders] = useState<Order[]>([])
   const [loadedOrderArea, setLoadedOrderArea] = useState<OrderArea | null>(null)
@@ -509,10 +513,22 @@ function OrdersContent() {
 
   const today = new Date().toISOString().slice(0, 10)
 
+  const archivedOrders = useMemo(() => orders.filter(order => {
+    if (visibleStatus(order) !== 'geliefert' || !order.created_at) return false
+
+    const createdAt = new Date(order.created_at).getTime()
+    return Number.isFinite(createdAt) && createdAt <= deleteCheckTime - ARCHIVE_AFTER_MS
+  }), [orders, deleteCheckTime])
+
+  const listedOrders = useMemo(() => {
+    const archivedIds = new Set(archivedOrders.map(order => order.id))
+    return orders.filter(order => showArchive === archivedIds.has(order.id))
+  }, [orders, archivedOrders, showArchive])
+
   const latestGroupTime = useMemo(() => {
     const groups = new Map<string, string>()
 
-    for (const order of orders) {
+    for (const order of listedOrders) {
       const base = orderBaseNumber(order.order_number)
       const createdAt = order.created_at || ''
       const current = groups.get(base) || ''
@@ -523,10 +539,10 @@ function OrdersContent() {
     }
 
     return groups
-  }, [orders])
+  }, [listedOrders])
 
   const filtered = useMemo(() => {
-    return orders.filter(o => {
+    return listedOrders.filter(o => {
       const items = normalizeOrderItems(o)
       const deliveryNotes = (o.goods_receipts || [])
         .map(receipt => receipt.delivery_note_number || '')
@@ -544,15 +560,15 @@ function OrdersContent() {
 
       return matchesSearch && matchesStatus && matchesOverdue
     }).sort(sortMode === 'latest_order' ? latestOrderSort : sortOrders)
-  }, [orders, q, status, overdueOnly, today, sortKey, sortDirection, sortMode, profiles, latestGroupTime])
+  }, [listedOrders, q, status, overdueOnly, today, sortKey, sortDirection, sortMode, profiles, latestGroupTime])
 
   const statusCounts = useMemo(() => {
-    return orders.reduce<Record<string, number>>((counts, order) => {
+    return listedOrders.reduce<Record<string, number>>((counts, order) => {
       const key = visibleStatus(order)
       counts[key] = (counts[key] || 0) + 1
       return counts
     }, {})
-  }, [orders])
+  }, [listedOrders])
 
   const formatCards = useMemo(() => {
     if (orderArea !== '2d-laser' || loadedOrderArea !== orderArea) return []
@@ -791,7 +807,7 @@ function OrdersContent() {
     const orderId = row?.dataset.orderId
 
     if (orderId) {
-      router.push(`/orders/${orderId}`)
+      router.push(`/orders/${orderId}${showArchive ? '?archiv=1' : ''}`)
     }
   }
 
@@ -800,10 +816,15 @@ function OrdersContent() {
       {dialog}
       <div className="orders-page-heading">
         <div>
-          <h1>Bestellungen {orderArea === '2d-laser' ? '2D-Laser' : 'Rohrlaser'}</h1>
+          <h1>{showArchive ? 'Archiv' : 'Bestellungen'} {orderArea === '2d-laser' ? '2D-Laser' : 'Rohrlaser'}</h1>
+          {showArchive && (
+            <p className="orders-archive-note">
+              Gelieferte Aufträge, die mindestens {ARCHIVE_AFTER_DAYS} Tage alt sind.
+            </p>
+          )}
         </div>
 
-        {orderArea === '2d-laser' && (
+        {!showArchive && orderArea === '2d-laser' && (
           <section className="format-summary" aria-label="Bestellte Tafeln nach Format">
             <h2>Bestellte Tafeln nach Format</h2>
             <div className="format-summary-cards">
@@ -826,7 +847,7 @@ function OrdersContent() {
           </section>
         )}
 
-        {orderArea === 'rohrlaser' && (
+        {!showArchive && orderArea === 'rohrlaser' && (
           <button
             type="button"
             className="tube-statistics-card"
@@ -844,9 +865,20 @@ function OrdersContent() {
         )}
 
         <div className="actions">
-          <Link className="button" href={newOrderHref(orderArea)}>
-            Neue Bestellung
-          </Link>
+          {showArchive ? (
+            <Link className="button secondary" href={`/orders?bereich=${orderArea}`}>
+              Aktive Bestellungen
+            </Link>
+          ) : (
+            <>
+              <Link className="button secondary" href={`/orders?bereich=${orderArea}&archiv=1`}>
+                Archiv ({archivedOrders.length})
+              </Link>
+              <Link className="button" href={newOrderHref(orderArea)}>
+                Neue Bestellung
+              </Link>
+            </>
+          )}
         </div>
       </div>
 
@@ -863,7 +895,7 @@ function OrdersContent() {
         <div>
           <label>Status</label>
           <select value={status} onChange={e => setStatus(e.target.value)}>
-            <option value="">Alle ({orders.length})</option>
+            <option value="">Alle ({listedOrders.length})</option>
             {Object.entries(statusLabels).map(([k, v]) => (
               <option key={k} value={k}>
                 {v} ({statusCounts[k] || 0})
@@ -960,6 +992,15 @@ function OrdersContent() {
         </thead>
 
         <tbody onClick={e => openOrderFromRow(e.target)}>
+          {filtered.length === 0 && (
+            <tr>
+              <td className="orders-empty-state" colSpan={orderArea === 'rohrlaser' ? 18 : 15}>
+                {showArchive
+                  ? 'Noch keine Aufträge im Archiv.'
+                  : 'Keine Bestellungen für die gewählten Filter gefunden.'}
+              </td>
+            </tr>
+          )}
           {filtered.map(o => {
             const orderItems = normalizeOrderItems(o)
             const delivered = deliveredQty(o)

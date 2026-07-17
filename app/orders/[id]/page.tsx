@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import {
   OrderItem,
@@ -147,6 +147,8 @@ function dimensionSignature(value: string | null | undefined) {
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const openedFromArchive = searchParams.get('archiv') === '1'
 
   const [order, setOrder] = useState<Order | null>(null)
   const [orderPdfs, setOrderPdfs] = useState<OrderPdf[]>([])
@@ -1575,7 +1577,7 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    router.push(ordersHref(normalizeOrderArea(order?.order_area)))
+    router.push(`${ordersHref(normalizeOrderArea(order?.order_area))}${openedFromArchive ? '&archiv=1' : ''}`)
   }
 
   if (!order) {
@@ -1603,7 +1605,7 @@ LKS-Technik GmbH & Co. KG`
         }}
       />
 
-      <button className="secondary" onClick={() => router.push(ordersHref(normalizeOrderArea(order.order_area)))}>
+      <button className="secondary" onClick={() => router.push(`${ordersHref(normalizeOrderArea(order.order_area))}${openedFromArchive ? '&archiv=1' : ''}`)}>
         Zurück
       </button>
 
