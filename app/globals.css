@@ -2085,7 +2085,7 @@ table td {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 13px;
-  width: 80%;
+  width: 100%;
   margin-top: 18px;
 }
 
