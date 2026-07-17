@@ -121,6 +121,15 @@ function formatEuro(value: number | null | undefined, maximumFractionDigits = 2)
   }).format(Number(value))} €`
 }
 
+function formatDateShort(value: string | null) {
+  if (!value) return '-'
+
+  const [year, month, day] = value.split('-')
+  if (!year || !month || !day) return value
+
+  return `${day}.${month}.${year}`
+}
+
 function formatPriceQuantity(value: number | null | undefined, unit: string | null | undefined) {
   if (value == null || !unit) return ''
 
@@ -637,7 +646,7 @@ Bemerkung: ${order.notes || '-'}
 
 ${orderItemsMailText(orderItems)}
 
-L-Liefertermin: ${order.desired_delivery_date || 'schnellstmöglich'}
+L-Liefertermin: ${order.desired_delivery_date ? formatDateShort(order.desired_delivery_date) : 'schnellstmöglich'}
 
 Mit freundlichen Grüßen
 LKS-Technik GmbH & Co. KG`
@@ -1817,7 +1826,7 @@ LKS-Technik GmbH & Co. KG`
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
               {!isTwoDLaser && <p><b>Gewicht:</b><br />ca. {formatTubeWeight(totalTubeWeight)}</p>}
-              {!isTwoDLaser && <p><b>K-Liefertermin:</b><br />{order.customer_delivery_date || '-'}</p>}
+              {!isTwoDLaser && <p><b>K-Liefertermin:</b><br />{formatDateShort(order.customer_delivery_date)}</p>}
               <p><b>Preis:</b><br />{formatEuro(totalOrderPrice)}</p>
               <p>
                 <b>Lieferant:</b>
@@ -1828,7 +1837,7 @@ LKS-Technik GmbH & Co. KG`
                 <br />
                 {order.suppliers?.email || ''}
               </p>
-              <p><b>L-Liefertermin:</b><br />{order.desired_delivery_date || 'schnellstmöglich'}</p>
+              <p><b>L-Liefertermin:</b><br />{order.desired_delivery_date ? formatDateShort(order.desired_delivery_date) : 'schnellstmöglich'}</p>
             </div>
 
             {order.notes && (

@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import { OrderItem, orderItemsMailText } from '@/lib/orderItems'
 
+function formatDateShort(value: string) {
+  const [year, month, day] = value.split('-')
+  if (!year || !month || !day) return value
+
+  return `${day}.${month}.${year}`
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json()
@@ -85,7 +92,7 @@ Bearbeiter: ${orderedBy || '-'}
 
 ${orderItemsMailText(orderItems)}
 
-L-Liefertermin: ${desiredDeliveryDate || 'schnellstmöglich'}
+L-Liefertermin: ${desiredDeliveryDate ? formatDateShort(desiredDeliveryDate) : 'schnellstmöglich'}
 Bemerkung: ${notes || '-'}
 
 Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere (AB-Nummer) an.
