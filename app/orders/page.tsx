@@ -547,8 +547,14 @@ function OrdersContent() {
       const deliveryNotes = (o.goods_receipts || [])
         .map(receipt => receipt.delivery_note_number || '')
         .join(' ')
-      const text = `${o.order_number} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${deliveryNotes} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLowerCase()
-      const matchesSearch = text.includes(q.toLowerCase())
+      const pdfNames = (o.order_pdfs || [])
+        .map(pdf => pdf.file_name || '')
+        .join(' ')
+      const text = `${o.order_number} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${deliveryNotes} ${pdfNames} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLocaleLowerCase('de-DE')
+      const search = q.trim().toLocaleLowerCase('de-DE')
+      const normalizedSearch = search.replace(/[\s._/-]+/g, '')
+      const normalizedText = text.replace(/[\s._/-]+/g, '')
+      const matchesSearch = !search || text.includes(search) || normalizedText.includes(normalizedSearch)
       const matchesStatus = !status || visibleStatus(o) === status
       const matchesOverdue =
         !overdueOnly ||
@@ -888,7 +894,7 @@ function OrdersContent() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Auftrag, Material, Lieferschein..."
+            placeholder="Auftrag, KAB-Nummer, Material, Lieferschein..."
           />
         </div>
 
