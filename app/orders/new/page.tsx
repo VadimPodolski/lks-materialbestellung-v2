@@ -150,8 +150,18 @@ export default function NewOrderPage() {
   function set(k: string, v: string) {
     if (k === 'order_number') {
       if (orderArea === '2d-laser') return
-      const rest = v.startsWith('AB-') ? v.slice(3) : v.replace(/^AB-?/, '')
-      setForm(prev => ({ ...prev, order_number: 'AB-' + rest }))
+      const rawSuffix = v.replace(/^AB-?/i, '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+      let suffix = ''
+
+      if (/^\d/.test(rawSuffix)) {
+        suffix = rawSuffix.replace(/\D/g, '')
+      } else if ('LAGER'.startsWith(rawSuffix)) {
+        suffix = rawSuffix
+      } else if (rawSuffix.startsWith('LAGER')) {
+        suffix = 'LAGER'
+      }
+
+      setForm(prev => ({ ...prev, order_number: 'AB-' + suffix }))
       return
     }
 
@@ -359,6 +369,10 @@ export default function NewOrderPage() {
       return setMsg('Bitte eine AB-Nummer eintragen.')
     }
 
+    if (orderArea === 'rohrlaser' && !/^(?:\d+|LAGER)$/.test(orderNumberSuffix)) {
+      return setMsg('Die Auftragsnummer darf nach AB- nur Zahlen oder das Wort LAGER enthalten.')
+    }
+
     if (orderArea === 'rohrlaser' && !customerName) {
       return setMsg('Bitte Kundennamen eintragen.')
     }
@@ -521,6 +535,8 @@ export default function NewOrderPage() {
             value={form.order_number}
             onChange={e => set('order_number', e.target.value)}
             readOnly={orderArea === '2d-laser'}
+            pattern={orderArea === 'rohrlaser' ? 'AB-(?:[0-9]+|LAGER)' : undefined}
+            title={orderArea === 'rohrlaser' ? 'Nach AB- sind nur Zahlen oder das Wort LAGER erlaubt.' : undefined}
             required
           />
         </div>
