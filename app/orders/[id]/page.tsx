@@ -1254,7 +1254,12 @@ LKS-Technik GmbH & Co. KG`
     const sectionTitle = pdfSections.find(section => section.type === documentType)?.title.replace(/^\d+\.\s*/, '')
 
     if (documentType === 'supplier_confirmation') {
-      for (const pdf of (insertedPdfs as OrderPdf[]) || []) {
+      const uploadedPdfs = (insertedPdfs as OrderPdf[]) || []
+
+      uploadedPdfs.forEach(pdf => processedPricePdfIds.current.add(pdf.id))
+      setOrderPdfs(current => [...uploadedPdfs, ...current])
+
+      for (const pdf of uploadedPdfs) {
         await applySupplierPrices(pdf)
       }
     } else {
