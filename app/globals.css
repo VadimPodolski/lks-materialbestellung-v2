@@ -1191,8 +1191,12 @@ a.card:hover {
   cursor: pointer;
 }
 
+.orders-table tbody > .clickable-order-row:nth-child(even) > td {
+  background: #f6f8fb;
+}
+
 .orders-table .clickable-order-row:hover td {
-  background: #f8fafc;
+  background: #edf3f8;
 }
 
 .orders-table .clickable-order-row:focus-visible {
