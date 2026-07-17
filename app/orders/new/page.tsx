@@ -159,6 +159,8 @@ export default function NewOrderPage() {
         suffix = rawSuffix
       } else if (rawSuffix.startsWith('LAGER')) {
         suffix = 'LAGER'
+      } else {
+        return
       }
 
       setForm(prev => ({ ...prev, order_number: 'AB-' + suffix }))
