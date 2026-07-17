@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { ImapFlow } from 'imapflow'
 import { simpleParser } from 'mailparser'
 import pdf from 'pdf-parse/lib/pdf-parse.js'
+import { classifyInboundSupplierDocument, type SupplierDocumentType } from '@/lib/inboundDocumentType'
 import { matchInboundPdfToOrder, type InboundOrderCandidate } from '@/lib/inboundOrderMatcher'
 import { isCronOrAdminRequest } from '@/lib/serverAdminAuth'
 import { createAdminClient } from '@/lib/supabaseAdmin'
@@ -25,15 +26,77 @@ function isoDate(value: string | Date | null | undefined) {
   return Number.isNaN(date.getTime()) ? null : date.toISOString()
 }
 
-function looksLikeOrderConfirmation(subject: string, pdfText: string) {
-  return /(?:auftragsbest[äa]tigung|order\s+confirmation|\bKAB\s*\d+)/i.test(`${subject}\n${pdfText}`)
-}
-
 function publicStorageUrl(bucket: string, path: string) {
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   if (!baseUrl) throw new Error('Supabase-URL fehlt.')
 
   return `${baseUrl}/storage/v1/object/public/${bucket}/${path.split('/').map(encodeURIComponent).join('/')}`
+}
+
+async function assignStoredReviewAttachment(
+  supabase: ReturnType<typeof createAdminClient>,
+  attachment: any,
+  orderId: string,
+  documentType: SupplierDocumentType
+) {
+  const oldPath = attachment.file_path
+  if (!oldPath) return false
+
+  const { data: file, error: downloadError } = await supabase.storage
+    .from('inbound-email-pdfs')
+    .download(oldPath)
+
+  if (downloadError || !file) return false
+
+  const newPath = `${orderId}/${Date.now()}-${randomUUID()}-email-${safeFileName(attachment.file_name)}`
+  const content = Buffer.from(await file.arrayBuffer())
+  const { error: uploadError } = await supabase.storage
+    .from('order-pdfs')
+    .upload(newPath, content, { contentType: 'application/pdf', cacheControl: '3600', upsert: false })
+
+  if (uploadError) return false
+
+  const fileUrl = publicStorageUrl('order-pdfs', newPath)
+  const { error: pdfInsertError } = await supabase.from('order_pdfs').insert({
+    material_order_id: orderId,
+    file_name: attachment.file_name,
+    file_path: newPath,
+    file_url: fileUrl,
+    document_type: documentType,
+    price_import_status: 'pending'
+  })
+
+  if (pdfInsertError) {
+    await supabase.storage.from('order-pdfs').remove([newPath])
+    return false
+  }
+
+  const matchDetails = attachment.match_details || {}
+  const { data: updatedAttachment, error: updateError } = await supabase
+    .from('inbound_email_attachments')
+    .update({
+      status: 'assigned',
+      matched_order_id: orderId,
+      confidence: 100,
+      file_path: newPath,
+      file_url: fileUrl,
+      match_details: { ...matchDetails, documentType },
+      error_message: null,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', attachment.id)
+    .eq('status', 'review')
+    .select('id')
+    .maybeSingle()
+
+  if (updateError || !updatedAttachment) {
+    await supabase.from('order_pdfs').delete().eq('file_path', newPath)
+    await supabase.storage.from('order-pdfs').remove([newPath])
+    return false
+  }
+
+  await supabase.storage.from('inbound-email-pdfs').remove([oldPath])
+  return true
 }
 
 async function syncInboundEmail(request: Request) {
@@ -91,6 +154,41 @@ async function syncInboundEmail(request: Request) {
     failed: 0,
     errors: [] as Array<{ message: string; trackingError: string | null }>
   }
+
+  const { data: storedReviewAttachments } = await supabase
+    .from('inbound_email_attachments')
+    .select('*')
+    .eq('status', 'review')
+    .order('created_at', { ascending: true })
+    .limit(100)
+
+  for (const attachment of storedReviewAttachments || []) {
+    const details = attachment.match_details || {}
+    const storedType = details.documentType
+    const documentType: SupplierDocumentType | null = (
+      storedType === 'supplier_confirmation' || storedType === 'supplier_quote'
+    )
+      ? storedType
+      : classifyInboundSupplierDocument({
+          subject: attachment.subject,
+          fileName: attachment.file_name
+        }) || (details.isOrderConfirmation ? 'supplier_confirmation' : null)
+    const exactSuggestion = Array.isArray(details.suggestions)
+      ? details.suggestions.find((suggestion: any) => suggestion.exactOrderNumber && suggestion.orderId)
+      : null
+
+    if (!documentType || !exactSuggestion?.orderId) continue
+
+    if (await assignStoredReviewAttachment(
+      supabase,
+      attachment,
+      exactSuggestion.orderId,
+      documentType
+    )) {
+      result.assigned += 1
+    }
+  }
+
   let imapStage = 'Verbindung zum Postfach'
 
   try {
@@ -165,7 +263,11 @@ async function syncInboundEmail(request: Request) {
 
           try {
             const parsedPdf = await pdf(attachment.content)
-            const isOrderConfirmation = looksLikeOrderConfirmation(subject, parsedPdf.text)
+            const documentType = classifyInboundSupplierDocument({
+              subject,
+              fileName,
+              pdfText: parsedPdf.text
+            })
             const match = matchInboundPdfToOrder({
               subject,
               emailText,
@@ -173,7 +275,7 @@ async function syncInboundEmail(request: Request) {
               senderEmail,
               orders
             })
-            const matchedOrderId = isOrderConfirmation && match.autoAssign ? match.matchedOrderId : null
+            const matchedOrderId = documentType && match.autoAssign ? match.matchedOrderId : null
             const bucket = matchedOrderId ? 'order-pdfs' : 'inbound-email-pdfs'
             const storagePath = matchedOrderId
               ? `${matchedOrderId}/${Date.now()}-${randomUUID()}-email-${safeFileName(fileName)}`
@@ -196,7 +298,7 @@ async function syncInboundEmail(request: Request) {
                 file_name: fileName,
                 file_path: storagePath,
                 file_url: fileUrl,
-                document_type: 'supplier_confirmation',
+                document_type: documentType,
                 price_import_status: 'pending'
               })
 
@@ -214,10 +316,10 @@ async function syncInboundEmail(request: Request) {
               file_name: fileName,
               file_path: storagePath,
               file_url: fileUrl,
-              status: matchedOrderId ? 'assigned' : 'review',
+              status: matchedOrderId ? 'assigned' : (documentType ? 'review' : 'ignored'),
               matched_order_id: matchedOrderId,
               confidence: match.confidence,
-              match_details: { ...match, isOrderConfirmation }
+              match_details: { ...match, documentType }
             })
 
             if (trackingError) {
@@ -229,7 +331,8 @@ async function syncInboundEmail(request: Request) {
             }
 
             if (matchedOrderId) result.assigned += 1
-            else result.review += 1
+            else if (documentType) result.review += 1
+            else result.skipped += 1
           } catch (error: any) {
             const failureMessage = error.message || 'PDF konnte nicht verarbeitet werden.'
             const { error: trackingInsertError } = await supabase.from('inbound_email_attachments').insert({

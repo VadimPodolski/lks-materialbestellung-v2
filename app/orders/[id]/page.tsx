@@ -65,11 +65,12 @@ type OrderPdf = {
   created_at: string
 }
 
-type PdfDocumentType = 'lks_order' | 'supplier_confirmation' | 'supplier_delivery_note'
+type PdfDocumentType = 'lks_order' | 'supplier_confirmation' | 'supplier_quote' | 'supplier_delivery_note'
 
 const pdfSections: { type: PdfDocumentType; title: string; uploadText: string }[] = [
   { type: 'lks_order', title: '1. LKS-Auftrag', uploadText: 'LKS-Auftrag hier ablegen oder klicken' },
-  { type: 'supplier_confirmation', title: '2. Lieferanten-AB', uploadText: 'Lieferanten-AB hier ablegen oder klicken' }
+  { type: 'supplier_confirmation', title: '2. Lieferanten-Auftragsbestätigung', uploadText: 'Lieferanten-Auftragsbestätigung hier ablegen oder klicken' },
+  { type: 'supplier_quote', title: '3. Lieferanten-Angebot', uploadText: 'Lieferanten-Angebot hier ablegen oder klicken' }
 ]
 
 type Receipt = {
@@ -357,8 +358,12 @@ export default function OrderDetailPage() {
       item.unit_price_eur != null || item.line_total_eur != null
     ))
 
+    const hasSupplierConfirmation = orderPdfs.some(pdf => pdf.document_type === 'supplier_confirmation')
     const pendingPdf = orderPdfs.find(pdf => (
-      pdf.document_type === 'supplier_confirmation'
+      (
+        pdf.document_type === 'supplier_confirmation'
+        || (pdf.document_type === 'supplier_quote' && !hasSupplierConfirmation)
+      )
       && (pdf.price_import_status !== 'imported' || !hasStoredPositionPrice)
       && !processedPricePdfIds.current.has(pdf.id)
     ))
@@ -1245,7 +1250,7 @@ LKS-Technik GmbH & Co. KG`
         file_path: path,
         file_url: publicData.publicUrl,
         document_type: documentType,
-        price_import_status: documentType === 'supplier_confirmation' ? 'pending' : null
+        price_import_status: ['supplier_confirmation', 'supplier_quote'].includes(documentType) ? 'pending' : null
       })
     }
 
@@ -1263,7 +1268,13 @@ LKS-Technik GmbH & Co. KG`
 
     const sectionTitle = pdfSections.find(section => section.type === documentType)?.title.replace(/^\d+\.\s*/, '')
 
-    if (documentType === 'supplier_confirmation') {
+    const shouldImportPrices = documentType === 'supplier_confirmation'
+      || (
+        documentType === 'supplier_quote'
+        && !orderPdfs.some(pdf => pdf.document_type === 'supplier_confirmation')
+      )
+
+    if (shouldImportPrices) {
       const uploadedPdfs = (insertedPdfs as OrderPdf[]) || []
 
       uploadedPdfs.forEach(pdf => processedPricePdfIds.current.add(pdf.id))
@@ -1847,6 +1858,9 @@ LKS-Technik GmbH & Co. KG`
               {pdfSections.map(section => {
                 const sectionPdfs = orderPdfs.filter(pdf => pdf.document_type === section.type)
                 const isUploading = uploadingPdfType === section.type
+                const isQuote = section.type === 'supplier_quote'
+                const confirmationTakesPriority = isQuote
+                  && orderPdfs.some(pdf => pdf.document_type === 'supplier_confirmation')
 
                 return (
                   <section
@@ -1904,7 +1918,12 @@ LKS-Technik GmbH & Co. KG`
                               </span>
                               <span>{pdf.file_name}</span>
                             </a>
-                            {section.type === 'supplier_confirmation' && (
+                            {(section.type === 'supplier_confirmation' || isQuote) && (
+                              confirmationTakesPriority ? (
+                                <div className="pdf-price-import-status">
+                                  <strong>Lieferanten-Auftragsbestätigung hat Preisvorrang</strong>
+                                </div>
+                              ) : (
                               <div className={`pdf-price-import-status ${pdf.price_import_status || 'pending'}`}>
                                 <strong>
                                   {(processingPricePdfId === pdf.id || pdf.price_import_status === 'processing')
@@ -1917,6 +1936,7 @@ LKS-Technik GmbH & Co. KG`
                                 </strong>
                                 {pdf.price_import_message && <small>{pdf.price_import_message}</small>}
                               </div>
+                              )
                             )}
                             {canDeletePdfs && (
                               <ActionIconButton action="delete" label="PDF löschen" onClick={() => deleteSupplierOrderPdf(pdf)} />

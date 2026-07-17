@@ -165,7 +165,10 @@ export function matchInboundPdfToOrder(args: {
       exactOrderNumber,
       matchedFields
     }
-  }).sort((a, b) => b.score - a.score)
+  }).sort((a, b) => (
+    Number(b.exactOrderNumber) - Number(a.exactOrderNumber)
+    || b.score - a.score
+  ))
 
   const best = suggestions[0]
   const second = suggestions[1]

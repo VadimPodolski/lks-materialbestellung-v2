@@ -20,13 +20,13 @@ alter table public.order_pdfs
 update public.order_pdfs
 set price_import_status = 'pending',
     price_import_message = null
-where document_type = 'supplier_confirmation'
+where document_type in ('supplier_confirmation', 'supplier_quote')
   and coalesce(price_import_status, '') <> 'imported';
 
 update public.order_pdfs
 set price_import_status = null,
     price_import_message = null,
     prices_imported_at = null
-where document_type <> 'supplier_confirmation';
+where document_type not in ('supplier_confirmation', 'supplier_quote');
 
 commit;

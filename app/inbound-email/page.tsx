@@ -28,6 +28,7 @@ type InboundAttachment = {
   match_details: {
     extractedOrderNumbers?: string[]
     suggestions?: Suggestion[]
+    documentType?: 'supplier_confirmation' | 'supplier_quote' | null
   } | null
   material_orders: { order_number: string } | null
 }
@@ -167,7 +168,7 @@ export default function InboundEmailPage() {
       <div className="order-page-heading">
         <div>
           <h1>E-Mail-Zuordnung</h1>
-          <p className="small">PDF-Auftragsbestätigungen aus einkauf@lks-technik.de</p>
+          <p className="small">Lieferanten-Auftragsbestätigungen und Angebote aus einkauf@lks-technik.de</p>
         </div>
         <div className="actions">
           {isAdmin && (
@@ -201,6 +202,8 @@ export default function InboundEmailPage() {
         <div className="inbound-email-list">
           {filtered.map(attachment => {
             const suggestions = attachment.match_details?.suggestions || []
+            const isQuote = attachment.match_details?.documentType === 'supplier_quote'
+              || /\bKAN\s*[-:]?\s*\d+/i.test(`${attachment.subject || ''} ${attachment.file_name}`)
             return (
               <article className="card inbound-email-card" key={attachment.id}>
                 <div className="inbound-email-card-main">
@@ -248,7 +251,9 @@ export default function InboundEmailPage() {
                           ))}
                         </select>
                         <div className="actions">
-                          <button type="button" onClick={() => assign(attachment)}>Als Lieferanten-AB zuordnen</button>
+                          <button type="button" onClick={() => assign(attachment)}>
+                            Als {isQuote ? 'Lieferanten-Angebot' : 'Lieferanten-Auftragsbestätigung'} zuordnen
+                          </button>
                           <button type="button" className="secondary" onClick={() => ignore(attachment)}>Ignorieren</button>
                         </div>
                       </div>

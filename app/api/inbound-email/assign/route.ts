@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { NextResponse } from 'next/server'
 import { isAdminRequest } from '@/lib/serverAdminAuth'
 import { createAdminClient } from '@/lib/supabaseAdmin'
+import { classifyInboundSupplierDocument, type SupplierDocumentType } from '@/lib/inboundDocumentType'
 
 export const runtime = 'nodejs'
 
@@ -66,12 +67,21 @@ export async function POST(request: Request) {
 
   const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const fileUrl = `${baseUrl}/storage/v1/object/public/order-pdfs/${path.split('/').map(encodeURIComponent).join('/')}`
+  const storedDocumentType = attachment.match_details?.documentType
+  const documentType: SupplierDocumentType = (
+    storedDocumentType === 'supplier_quote' || storedDocumentType === 'supplier_confirmation'
+  )
+    ? storedDocumentType
+    : classifyInboundSupplierDocument({
+        subject: attachment.subject,
+        fileName: attachment.file_name
+      }) || 'supplier_confirmation'
   const { error: pdfError } = await supabase.from('order_pdfs').insert({
     material_order_id: order.id,
     file_name: attachment.file_name,
     file_path: path,
     file_url: fileUrl,
-    document_type: 'supplier_confirmation',
+    document_type: documentType,
     price_import_status: 'pending'
   })
 

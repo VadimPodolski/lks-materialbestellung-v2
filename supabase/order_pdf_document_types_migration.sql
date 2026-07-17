@@ -26,7 +26,7 @@ alter table public.order_pdfs
 
 alter table public.order_pdfs
   add constraint order_pdfs_document_type_check
-    check (document_type in ('lks_order', 'supplier_confirmation', 'supplier_delivery_note'));
+    check (document_type in ('lks_order', 'supplier_confirmation', 'supplier_quote', 'supplier_delivery_note'));
 
 create index if not exists order_pdfs_material_order_document_type_idx
   on public.order_pdfs (material_order_id, document_type, created_at desc);
