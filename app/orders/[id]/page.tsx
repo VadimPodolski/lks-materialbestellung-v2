@@ -350,9 +350,13 @@ export default function OrderDetailPage() {
   useEffect(() => {
     if (!order || orderItems.length === 0 || processingPricePdfId) return
 
+    const hasStoredPositionPrice = orderItems.some(item => (
+      item.unit_price_eur != null || item.line_total_eur != null
+    ))
+
     const pendingPdf = orderPdfs.find(pdf => (
       pdf.document_type === 'supplier_confirmation'
-      && pdf.price_import_status !== 'imported'
+      && (pdf.price_import_status !== 'imported' || !hasStoredPositionPrice)
       && !processedPricePdfIds.current.has(pdf.id)
     ))
 
@@ -1313,6 +1317,11 @@ LKS-Technik GmbH & Co. KG`
         })
         .eq('id', pdfFile.id)
 
+      setOrderPdfs(current => current.map(pdf => (
+        pdf.id === pdfFile.id
+          ? { ...pdf, price_import_status: 'failed', price_import_message: message, prices_imported_at: null }
+          : pdf
+      )))
       setMsg(message)
     }
 
@@ -1380,11 +1389,19 @@ LKS-Technik GmbH & Co. KG`
           })
           .eq('id', item!.id!)
           .eq('material_order_id', order.id)
+          .select('id,price_quantity,price_unit,unit_price_eur,line_total_eur')
+          .maybeSingle()
       )))
       const updateError = updateResults.find(update => update.error)?.error
 
       if (updateError) {
         await failImport(updateError.message)
+        return
+      }
+
+      const missingUpdate = updateResults.find(update => !update.data)
+      if (missingUpdate) {
+        await failImport('Der Positionspreis wurde erkannt, konnte aber nicht im Auftrag gespeichert werden.')
         return
       }
 
@@ -1401,7 +1418,25 @@ LKS-Technik GmbH & Co. KG`
         })
         .eq('id', pdfFile.id)
 
-      await load()
+      const updatedPrices = new Map(updateResults.map(result => [result.data!.id, result.data!]))
+      setOrder(current => current ? {
+        ...current,
+        order_items: (current.order_items || []).map(item => (
+          item.id && updatedPrices.has(item.id)
+            ? { ...item, ...updatedPrices.get(item.id)! }
+            : item
+        ))
+      } : current)
+      setOrderPdfs(current => current.map(pdf => (
+        pdf.id === pdfFile.id
+          ? {
+              ...pdf,
+              price_import_status: 'imported',
+              price_import_message: importMessage,
+              prices_imported_at: new Date().toISOString()
+            }
+          : pdf
+      )))
       setMsg(`${pdfFile.file_name}: ${importMessage}`)
     } catch (error: any) {
       await failImport(error.message || 'Lieferanten-AB konnte nicht ausgewertet werden.')
