@@ -32,6 +32,10 @@ create index if not exists inbound_email_attachments_order_idx
 
 alter table public.inbound_email_attachments enable row level security;
 
+grant all on table public.inbound_email_attachments to service_role;
+grant select, update on table public.inbound_email_attachments to authenticated;
+grant select on table public.inbound_email_attachments to anon;
+
 drop policy if exists inbound_email_attachments_select on public.inbound_email_attachments;
 drop policy if exists inbound_email_attachments_update on public.inbound_email_attachments;
 
@@ -56,3 +60,5 @@ create policy inbound_email_pdfs_select
   on storage.objects
   for select to authenticated
   using (bucket_id = 'inbound-email-pdfs');
+
+notify pgrst, 'reload schema';
