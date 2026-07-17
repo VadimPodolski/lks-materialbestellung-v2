@@ -672,7 +672,12 @@ LKS-Technik GmbH & Co. KG`
   }
 
   async function sendOrderEmail() {
-    if (!order || order.ordered_at || order.status === 'bestellt' || sendingOrderEmail) return
+    if (
+      !order
+      || order.ordered_at
+      || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
+      || sendingOrderEmail
+    ) return
 
     if (!order.suppliers?.email) {
       setMsg('Keine Lieferanten-E-Mail vorhanden.')
@@ -1835,8 +1840,16 @@ LKS-Technik GmbH & Co. KG`
                 type="button"
                 className="order-send-button"
                 onClick={sendOrderEmail}
-                disabled={Boolean(order.ordered_at) || order.status === 'bestellt' || sendingOrderEmail}
-                title={order.ordered_at || order.status === 'bestellt' ? 'Bestellung wurde bereits gesendet.' : undefined}
+                disabled={
+                  Boolean(order.ordered_at)
+                  || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
+                  || sendingOrderEmail
+                }
+                title={
+                  order.ordered_at || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
+                    ? 'Bestellung wurde bereits gesendet.'
+                    : undefined
+                }
               >
                 Bestellung senden
               </button>
