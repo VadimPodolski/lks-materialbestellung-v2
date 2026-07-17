@@ -88,7 +88,8 @@ async function syncInboundEmail(request: Request) {
     assigned: 0,
     review: 0,
     skipped: 0,
-    failed: 0
+    failed: 0,
+    errors: [] as Array<{ message: string; trackingError: string | null }>
   }
   let imapStage = 'Verbindung zum Postfach'
 
@@ -230,7 +231,8 @@ async function syncInboundEmail(request: Request) {
             if (matchedOrderId) result.assigned += 1
             else result.review += 1
           } catch (error: any) {
-            await supabase.from('inbound_email_attachments').insert({
+            const failureMessage = error.message || 'PDF konnte nicht verarbeitet werden.'
+            const { error: trackingInsertError } = await supabase.from('inbound_email_attachments').insert({
               source_key: sourceKey,
               message_uid: uid,
               message_id: parsed.messageId || message.envelope?.messageId || null,
@@ -242,8 +244,14 @@ async function syncInboundEmail(request: Request) {
               file_path: '',
               file_url: '',
               status: 'failed',
-              error_message: error.message || 'PDF konnte nicht verarbeitet werden.'
+              error_message: failureMessage
             })
+            if (result.errors.length < 5) {
+              result.errors.push({
+                message: failureMessage,
+                trackingError: trackingInsertError?.message || null
+              })
+            }
             result.failed += 1
           }
         }
