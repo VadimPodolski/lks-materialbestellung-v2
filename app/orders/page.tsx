@@ -74,6 +74,7 @@ type ActiveStatusMenu = { orderId: string; top: number; left: number; placement:
 
 const ARCHIVE_AFTER_DAYS = 30
 const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000
+const ordersPageCache: Partial<Record<OrderArea, { orders: Order[]; profiles: Profile[] }>> = {}
 
 function formatSortValue(value: string) {
   const dimensions = value.match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i)
@@ -139,7 +140,6 @@ function OrdersContent() {
   const { notify, dialog } = useAppDialog()
   const statusMenuCloseTimer = useRef<number | null>(null)
   const loadRequestId = useRef(0)
-  const ordersByAreaCache = useRef<Partial<Record<OrderArea, Order[]>>>({})
 
   useEffect(() => {
     setStatus(searchParams.get('status') || '')
@@ -147,12 +147,13 @@ function OrdersContent() {
   }, [searchParams])
 
   useEffect(() => {
-    const cachedOrders = ordersByAreaCache.current[orderArea]
+    const cached = ordersPageCache[orderArea]
     setSupplierFilter('')
     setCustomerFilter('')
     setMaterialThicknessFilter('')
-    if (cachedOrders) {
-      setOrders(cachedOrders)
+    if (cached) {
+      setOrders(cached.orders)
+      setProfiles(cached.profiles)
       setLoadedOrderArea(orderArea)
     }
 
@@ -230,18 +231,6 @@ function OrdersContent() {
   async function load(area: OrderArea, requestId: number) {
     const supabase = createClient()
 
-    const { data: userData } = await supabase.auth.getUser()
-
-    const user = userData.user || null
-    const email = user?.email?.toLowerCase() || ''
-
-    let admin = !LOGIN_DISABLED && email === 'v.podolski@lks-technik.de'
-
-    if (!LOGIN_DISABLED && user) {
-      const profile = await ensureCurrentUserProfile(supabase, user)
-      admin = admin || profile?.role === 'admin'
-    }
-
     const ordersSelect = `
           id,
           order_area,
@@ -289,7 +278,8 @@ function OrdersContent() {
           scrap_items(quantity)
         `
 
-    const [{ data: orderData, error: orderError }, { data: profileData }] = await Promise.all([
+    const [{ data: userData }, { data: orderData, error: orderError }, { data: profileData }] = await Promise.all([
+      supabase.auth.getUser(),
       supabase
         .from('material_orders')
         .select(ordersSelect)
@@ -297,6 +287,13 @@ function OrdersContent() {
         .order('created_at', { ascending: false }),
       supabase.from('profiles').select('id,full_name,email,role')
     ])
+
+    const user = userData.user || null
+    const email = user?.email?.toLowerCase() || ''
+    const currentProfile = (profileData as Profile[] | null)?.find(profile => profile.id === user?.id)
+    const admin = !LOGIN_DISABLED && (
+      email === 'v.podolski@lks-technik.de' || currentProfile?.role === 'admin'
+    )
 
     let nextOrders = (orderData as any) || []
 
@@ -312,11 +309,19 @@ function OrdersContent() {
 
     if (requestId !== loadRequestId.current) return
 
-    ordersByAreaCache.current[area] = nextOrders
+    const nextProfiles = (profileData as Profile[] | null) || []
+    ordersPageCache[area] = { orders: nextOrders, profiles: nextProfiles }
     setCanDeleteCurrentArea(canDeleteForOrderArea(email, admin, area))
     setOrders(nextOrders)
-    setProfiles(profileData || [])
+    setProfiles(nextProfiles)
     setLoadedOrderArea(area)
+
+    if (!LOGIN_DISABLED && user && !currentProfile) {
+      void ensureCurrentUserProfile(supabase, user).then(profile => {
+        if (requestId !== loadRequestId.current || profile?.role !== 'admin') return
+        setCanDeleteCurrentArea(canDeleteForOrderArea(email, true, area))
+      })
+    }
   }
 
   function profileName(id: string | null) {
@@ -1093,6 +1098,7 @@ function OrdersContent() {
                 key={o.id}
                 data-order-id={o.id}
                 className={`clickable-order-row ${isReorder(o.order_number) ? 'reorder-row' : ''}`}
+                onMouseEnter={() => router.prefetch(`/orders/${o.id}${showArchive ? '?archiv=1' : ''}`)}
               >
                 <td>
                   <div

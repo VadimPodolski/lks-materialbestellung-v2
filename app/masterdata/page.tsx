@@ -86,12 +86,14 @@ function MasterDataContent() {
   useEffect(() => {
     const t = searchParams.get('type') as TypeKey | null
     const allowedTypes = orderArea === '2d-laser' ? TWO_D_LASER_TYPES : ROHRLASER_TYPES
-    setType(t && allowedTypes.includes(t) ? t : orderArea === '2d-laser' ? 'formats' : 'customers')
-    load()
+    const selectedType = t && allowedTypes.includes(t) ? t : orderArea === '2d-laser' ? 'formats' : 'customers'
+    setType(selectedType)
+    load(selectedType)
   }, [searchParams])
 
-  async function load() {
+  async function load(selectedType:TypeKey = type) {
     const supabase = createClient()
+    const emptyResult = Promise.resolve({ data: null })
 
     const [
       { data: userData },
@@ -104,13 +106,27 @@ function MasterDataContent() {
       {data:mt}
     ] = await Promise.all([
       supabase.auth.getUser(),
-      supabase.from('customers').select('*').eq('order_area', orderArea).order('name'),
-      supabase.from('suppliers').select('*').order('name'),
-      supabase.from('materials').select('*').eq('order_area', orderArea).order('name'),
-      supabase.from('cross_sections').select('*').eq('order_area', orderArea).order('name'),
-      supabase.from('work_preparations').select('*').eq('order_area', orderArea).order('name'),
-      supabase.from('formats').select('*').order('width_mm', { ascending: false }),
-      supabase.from('material_thicknesses').select('id,material,thickness_mm').eq('order_area', '2d-laser').order('material').order('thickness_mm')
+      selectedType === 'customers'
+        ? supabase.from('customers').select('*').eq('order_area', orderArea).order('name')
+        : emptyResult,
+      selectedType === 'suppliers'
+        ? supabase.from('suppliers').select('*').order('name')
+        : emptyResult,
+      ['materials', 'material_thicknesses'].includes(selectedType)
+        ? supabase.from('materials').select('*').eq('order_area', orderArea).order('name')
+        : emptyResult,
+      selectedType === 'cross_sections'
+        ? supabase.from('cross_sections').select('*').eq('order_area', orderArea).order('name')
+        : emptyResult,
+      selectedType === 'work_preparations'
+        ? supabase.from('work_preparations').select('*').eq('order_area', orderArea).order('name')
+        : emptyResult,
+      selectedType === 'formats'
+        ? supabase.from('formats').select('*').order('width_mm', { ascending: false })
+        : emptyResult,
+      selectedType === 'material_thicknesses'
+        ? supabase.from('material_thicknesses').select('id,material,thickness_mm').eq('order_area', '2d-laser').order('material').order('thickness_mm')
+        : emptyResult
     ])
 
     const user = userData.user || null

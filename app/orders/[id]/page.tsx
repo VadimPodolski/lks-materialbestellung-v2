@@ -103,6 +103,19 @@ type SheetFormat = { id: string; name: string; width_mm: number; height_mm: numb
 type MaterialThickness = { id: string; material: string; thickness_mm: number; order_area: string }
 type ReceiptDraft = { quantity: string; deliveryNote: string; notes: string }
 type ScrapDraft = { quantity: string; reason: string }
+type OrderReferenceData = {
+  suppliers: Supplier[]
+  customers: MasterData[]
+  materials: MasterData[]
+  crossSections: MasterData[]
+  workPreparations: MasterData[]
+  formats: SheetFormat[]
+  packagingDefaults: (PackagingDefault & { order_area: string })[]
+  materialThicknesses: MaterialThickness[]
+}
+
+const ORDER_REFERENCE_CACHE_MS = 60_000
+let orderReferenceCache: { data: OrderReferenceData; loadedAt: number } | null = null
 
 function formatLabel(format: SheetFormat) {
   return `${format.name} ${format.width_mm}x${format.height_mm} mm`
@@ -237,20 +250,42 @@ export default function OrderDetailPage() {
 
   async function load() {
     const supabase = createClient()
+    const cachedReferences = orderReferenceCache && Date.now() - orderReferenceCache.loadedAt < ORDER_REFERENCE_CACHE_MS
+      ? orderReferenceCache.data
+      : null
+
+    const referenceDataPromise: Promise<OrderReferenceData> = cachedReferences
+      ? Promise.resolve(cachedReferences)
+      : Promise.all([
+          supabase.from('suppliers').select('id,name,email').order('name'),
+          supabase.from('customers').select('id,name,order_area').order('name'),
+          supabase.from('materials').select('id,name,order_area').order('name'),
+          supabase.from('cross_sections').select('id,name,order_area').order('name'),
+          supabase.from('work_preparations').select('id,name,order_area').order('name'),
+          supabase.from('formats').select('id,name,width_mm,height_mm').order('width_mm', { ascending: false }),
+          supabase.from('packaging_defaults').select('lookup_key,material,cross_section,pieces_per_package,order_area'),
+          supabase.from('material_thicknesses').select('id,material,thickness_mm,order_area').order('thickness_mm')
+        ]).then(results => {
+          const data: OrderReferenceData = {
+            suppliers: (results[0].data as Supplier[]) || [],
+            customers: (results[1].data as MasterData[]) || [],
+            materials: (results[2].data as MasterData[]) || [],
+            crossSections: (results[3].data as MasterData[]) || [],
+            workPreparations: (results[4].data as MasterData[]) || [],
+            formats: (results[5].data as SheetFormat[]) || [],
+            packagingDefaults: (results[6].data as (PackagingDefault & { order_area: string })[]) || [],
+            materialThicknesses: (results[7].data as MaterialThickness[]) || []
+          }
+          orderReferenceCache = { data, loadedAt: Date.now() }
+          return data
+        })
 
     const [
       { data: orderData },
       { data: receiptData },
       { data: scrapData },
       { data: pdfData },
-      { data: supplierData },
-      { data: customerData },
-      { data: materialData },
-      { data: crossData },
-      { data: workPreparationData },
-      { data: formatData },
-      { data: packagingData },
-      { data: thicknessData }
+      referenceData
     ] = await Promise.all([
       supabase
         .from('material_orders')
@@ -275,15 +310,7 @@ export default function OrderDetailPage() {
         .select('*')
         .eq('material_order_id', params.id)
         .order('created_at', { ascending: false }),
-
-      supabase.from('suppliers').select('id,name,email').order('name'),
-      supabase.from('customers').select('id,name,order_area').order('name'),
-      supabase.from('materials').select('id,name,order_area').order('name'),
-      supabase.from('cross_sections').select('id,name,order_area').order('name'),
-      supabase.from('work_preparations').select('id,name,order_area').order('name'),
-      supabase.from('formats').select('id,name,width_mm,height_mm').order('width_mm', { ascending: false }),
-      supabase.from('packaging_defaults').select('lookup_key,material,cross_section,pieces_per_package,order_area'),
-      supabase.from('material_thicknesses').select('id,material,thickness_mm,order_area').order('thickness_mm')
+      referenceDataPromise
     ])
 
     const loadedOrder = orderData as any
@@ -293,19 +320,18 @@ export default function OrderDetailPage() {
     setReceipts(receiptData || [])
     setScraps((scrapData as any) || [])
     const area = normalizeOrderArea(loadedOrder?.order_area)
-    setSuppliers((supplierData as Supplier[]) || [])
-    setCustomers(((customerData as MasterData[]) || []).filter(item => item.order_area === area))
-    setMaterials(((materialData as MasterData[]) || []).filter(item => item.order_area === area))
+    setSuppliers(referenceData.suppliers)
+    setCustomers(referenceData.customers.filter(item => item.order_area === area))
+    setMaterials(referenceData.materials.filter(item => item.order_area === area))
     setCrossSections(area === '2d-laser'
-      ? ((formatData as SheetFormat[]) || []).map(format => ({ id: format.id, name: formatLabel(format), order_area: area }))
-      : ((crossData as MasterData[]) || []).filter(item => item.order_area === area))
-    setWorkPreparations(((workPreparationData as MasterData[]) || []).filter(item => item.order_area === area))
+      ? referenceData.formats.map(format => ({ id: format.id, name: formatLabel(format), order_area: area }))
+      : referenceData.crossSections.filter(item => item.order_area === area))
+    setWorkPreparations(referenceData.workPreparations.filter(item => item.order_area === area))
     setPackagingDefaults(packagingDefaultsMap(
-      ((packagingData as (PackagingDefault & { order_area: string })[]) || [])
-        .filter(item => item.order_area === area)
+      referenceData.packagingDefaults.filter(item => item.order_area === area)
     ))
     setMaterialThicknesses(
-      ((thicknessData as MaterialThickness[]) || []).filter(item => item.order_area === area)
+      referenceData.materialThicknesses.filter(item => item.order_area === area)
     )
 
     const { data: userData } = await supabase.auth.getUser()
@@ -326,7 +352,7 @@ export default function OrderDetailPage() {
 
       setEditForm({
         customer: loadedOrder.customer || '',
-        supplier_id: loadedOrder.supplier_id || supplierData?.[0]?.id || '',
+        supplier_id: loadedOrder.supplier_id || referenceData.suppliers[0]?.id || '',
         customer_delivery_date: loadedOrder.customer_delivery_date || '',
         desired_delivery_date: loadedOrder.desired_delivery_date || '',
         notes: loadedOrder.notes || ''
@@ -874,6 +900,7 @@ LKS-Team`
     }
 
     await recalculateStatus(order.id, totalQuantity, supplierChanged ? false : Boolean(order.ordered_at))
+    orderReferenceCache = null
     setEditing(false)
     await load()
     setMsg(supplierChanged
