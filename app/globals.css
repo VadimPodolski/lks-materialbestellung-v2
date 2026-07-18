@@ -1261,6 +1261,16 @@ a.card:hover {
   justify-content: start;
   gap: 16px;
   margin-top: 28px;
+  padding: 18px 20px;
+  background: linear-gradient(90deg, #edf8f2 0%, #f7faf8 100%);
+  border: 1px solid #d3e8dc;
+  border-left: 5px solid #00a859;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(15, 70, 45, .06);
+}
+
+.order-summary-grid > p {
+  margin: 0;
 }
 
 .order-summary-grid > p > b {
