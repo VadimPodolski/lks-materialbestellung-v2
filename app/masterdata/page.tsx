@@ -427,13 +427,10 @@ function MasterDataContent() {
     }))
   }
 
-  function sortHeader(label:string, active:boolean, direction:SortDirection, onClick:()=>void) {
+  function sortHeader(label:string, active:boolean, onClick:()=>void) {
     return (
       <button type="button" className={`column-sort-button${active ? ' active' : ''}`} onClick={onClick}>
         <span>{label}</span>
-        <span className="column-sort-indicator" aria-hidden="true">
-          {active ? (direction === 'asc' ? '▲' : '▼') : '↕'}
-        </span>
       </button>
     )
   }
@@ -509,10 +506,10 @@ function MasterDataContent() {
           <table>
             <thead>
               <tr>
-                <th>{sortHeader('Name', customerSort.key === 'name', customerSort.direction, () => toggleCustomerSort('name'))}</th>
-                <th>{sortHeader('Ansprechpartner', customerSort.key === 'contact_person', customerSort.direction, () => toggleCustomerSort('contact_person'))}</th>
-                <th>{sortHeader('E-Mail', customerSort.key === 'email', customerSort.direction, () => toggleCustomerSort('email'))}</th>
-                <th>{sortHeader('Telefon', customerSort.key === 'phone', customerSort.direction, () => toggleCustomerSort('phone'))}</th>
+                <th>{sortHeader('Name', customerSort.key === 'name', () => toggleCustomerSort('name'))}</th>
+                <th>{sortHeader('Ansprechpartner', customerSort.key === 'contact_person', () => toggleCustomerSort('contact_person'))}</th>
+                <th>{sortHeader('E-Mail', customerSort.key === 'email', () => toggleCustomerSort('email'))}</th>
+                <th>{sortHeader('Telefon', customerSort.key === 'phone', () => toggleCustomerSort('phone'))}</th>
                 {isAdmin && <th>Aktionen</th>}
               </tr>
             </thead>
@@ -557,10 +554,10 @@ function MasterDataContent() {
           <table>
             <thead>
               <tr>
-                <th>{sortHeader('Name', supplierSort.key === 'name', supplierSort.direction, () => toggleSupplierSort('name'))}</th>
-                <th>{sortHeader('E-Mail', supplierSort.key === 'email', supplierSort.direction, () => toggleSupplierSort('email'))}</th>
-                <th>{sortHeader('Telefon', supplierSort.key === 'phone', supplierSort.direction, () => toggleSupplierSort('phone'))}</th>
-                <th>{sortHeader('Ansprechpartner', supplierSort.key === 'contact_person', supplierSort.direction, () => toggleSupplierSort('contact_person'))}</th>
+                <th>{sortHeader('Name', supplierSort.key === 'name', () => toggleSupplierSort('name'))}</th>
+                <th>{sortHeader('E-Mail', supplierSort.key === 'email', () => toggleSupplierSort('email'))}</th>
+                <th>{sortHeader('Telefon', supplierSort.key === 'phone', () => toggleSupplierSort('phone'))}</th>
+                <th>{sortHeader('Ansprechpartner', supplierSort.key === 'contact_person', () => toggleSupplierSort('contact_person'))}</th>
                 {isAdmin && <th>Aktionen</th>}
               </tr>
             </thead>
@@ -771,8 +768,8 @@ function MasterDataContent() {
           <table>
             <thead>
               <tr>
-                <th>{sortHeader('Material', materialThicknessSort.key === 'material', materialThicknessSort.direction, () => toggleMaterialThicknessSort('material'))}</th>
-                <th>{sortHeader('Materialstärke', materialThicknessSort.key === 'thickness_mm', materialThicknessSort.direction, () => toggleMaterialThicknessSort('thickness_mm'))}</th>
+                <th>{sortHeader('Material', materialThicknessSort.key === 'material', () => toggleMaterialThicknessSort('material'))}</th>
+                <th>{sortHeader('Materialstärke', materialThicknessSort.key === 'thickness_mm', () => toggleMaterialThicknessSort('thickness_mm'))}</th>
                 {canDeleteSelectedMasterData && <th>Aktionen</th>}
               </tr>
             </thead>

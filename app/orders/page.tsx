@@ -459,9 +459,6 @@ function OrdersContent() {
         onClick={() => toggleSort(key)}
       >
         <span>{label}</span>
-        <span className="column-sort-indicator" aria-hidden="true">
-          {isActive ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
-        </span>
       </button>
     )
   }
