@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
-import { OrderItem, formatMaterialThickness, normalizeOrderItems, orderItemAvText, orderItemQuantityText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
+import { OrderItem, formatCrossSectionMm, formatMaterialThickness, normalizeOrderItems, orderItemAvText, orderItemQuantityText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { newOrderHref, normalizeOrderArea, type OrderArea } from '@/lib/orderAreas'
@@ -1130,7 +1130,7 @@ function OrdersContent() {
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (
                       <div key={`${item.cross_section}-${item.length_mm}-${index}`}>
-                        {item.cross_section} ({orderItemQuantityText(item)})
+                        {formatCrossSectionMm(item.cross_section)} ({orderItemQuantityText(item)})
                       </div>
                     ))}
                   </div>
@@ -1324,7 +1324,7 @@ function OrdersContent() {
                     {visibleTubeStatistics.rows.map(row => (
                       <tr key={`${row.material}|${row.crossSection}`}>
                         <td><strong>{row.material}</strong></td>
-                        <td>{row.crossSection}</td>
+                        <td>{formatCrossSectionMm(row.crossSection)}</td>
                         <td className="number">{row.pieces.toLocaleString('de-DE')}</td>
                         <td className="number">{formatMeters(row.meters)}</td>
                         <td className="number">{formatTubeWeight(row.weight)}</td>

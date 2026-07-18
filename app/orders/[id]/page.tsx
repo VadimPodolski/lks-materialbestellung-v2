@@ -6,7 +6,10 @@ import { createClient, statusClass, statusLabels } from '@/lib/supabase'
 import {
   OrderItem,
   emptyOrderItem,
+  formatCrossSectionMm,
+  formatLengthMm,
   formatMaterialThickness,
+  formatOrderPosition,
   mergeOrderItems,
   normalizeOrderItems,
   orderItemAvText,
@@ -1952,9 +1955,9 @@ LKS-Team`
                         <td>{index + 1}</td>
                         <td>{item.material}</td>
                         {isTwoDLaser && <td>{formatMaterialThickness(item.material_thickness_mm)}</td>}
-                        <td>{item.cross_section}</td>
+                        <td>{formatCrossSectionMm(item.cross_section)}</td>
                         {!isTwoDLaser && <td>{orderItemAvText(item) || '-'}</td>}
-                        {!isTwoDLaser && <td>{item.length_mm || '-'} mm</td>}
+                        {!isTwoDLaser && <td>{formatLengthMm(item.length_mm)}</td>}
                         <td>{item.quantity}</td>
                         {!isTwoDLaser && (
                           <td className="tube-weight-cell">
@@ -2355,7 +2358,7 @@ LKS-Team`
                               onChange={e => setEditItem(index, 'cross_section', e.target.value === '__custom__' ? 'Sonderformat: ' : e.target.value)}
                             >
                               {crossSections.map(format => (
-                                <option key={format.id} value={format.name}>{format.name}</option>
+                                <option key={format.id} value={format.name}>{formatCrossSectionMm(format.name)}</option>
                               ))}
                               <option value="__custom__">Sonderformat</option>
                             </select>
@@ -2389,7 +2392,7 @@ LKS-Team`
                                       setActiveEditCrossIndex(null)
                                     }}
                                   >
-                                    {crossSection.name}
+                                    {formatCrossSectionMm(crossSection.name)}
                                   </button>
                                 ))}
                               </div>
@@ -2580,7 +2583,7 @@ LKS-Team`
                   <>
                     <td>
                       {s.material && s.cross_section
-                        ? `${s.material} - ${s.cross_section}, ${s.length_mm || '-'} mm`
+                        ? formatOrderPosition(s.material, s.cross_section, s.length_mm)
                         : '-'}
                     </td>
                     <td>
@@ -2618,7 +2621,7 @@ LKS-Team`
                   <>
                     <td>
                       {s.material && s.cross_section
-                        ? `${s.material} - ${s.cross_section}, ${s.length_mm || '-'} mm`
+                        ? formatOrderPosition(s.material, s.cross_section, s.length_mm)
                         : '-'}
                     </td>
                     <td>{s.quantity}</td>
@@ -2700,7 +2703,7 @@ LKS-Team`
                   <>
                     <td>
                       {r.material && r.cross_section
-                        ? `${r.material} - ${r.cross_section}, ${r.length_mm || '-'} mm`
+                        ? formatOrderPosition(r.material, r.cross_section, r.length_mm)
                         : '-'}
                     </td>
 
@@ -2750,7 +2753,7 @@ LKS-Team`
                   <>
                     <td>
                       {r.material && r.cross_section
-                        ? `${r.material} - ${r.cross_section}, ${r.length_mm || '-'} mm`
+                        ? formatOrderPosition(r.material, r.cross_section, r.length_mm)
                         : '-'}
                     </td>
                     <td>{r.received_quantity}</td>

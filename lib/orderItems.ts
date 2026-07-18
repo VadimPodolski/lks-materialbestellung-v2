@@ -151,7 +151,7 @@ export function orderItemsSummary(items: OrderItem[]) {
     .map(item => {
       const av = orderItemAvText(item)
       const thickness = item.material_thickness_mm ? ` - ${formatMaterialThickness(item.material_thickness_mm)}` : ''
-      return `${item.material}${thickness} - ${item.cross_section}${av ? ` - AV: ${av}` : ''} (${orderItemQuantityText(item)})`
+      return `${item.material}${thickness} - ${formatCrossSectionMm(item.cross_section)} - L=${formatLengthMm(item.length_mm)}${av ? ` - AV: ${av}` : ''} (${orderItemQuantityText(item)})`
     })
     .join(', ')
 }
@@ -183,13 +183,35 @@ export function formatMaterialThickness(value: number | null | undefined) {
   return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(Number(value))} mm`
 }
 
+export function formatCrossSectionMm(value: string | null | undefined) {
+  const text = String(value || '').trim()
+  if (!text) return '-'
+  return /\bmm$/i.test(text) ? text : `${text} mm`
+}
+
+export function formatLengthMm(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === '') return '-'
+  const text = String(value).trim()
+  if (!text) return '-'
+  return /\bmm$/i.test(text) ? text : `${text} mm`
+}
+
+export function formatOrderPosition(
+  material: string | null | undefined,
+  crossSection: string | null | undefined,
+  lengthMm: number | string | null | undefined
+) {
+  const materialText = String(material || '').trim() || '-'
+  return `${materialText} - ${formatCrossSectionMm(crossSection)} - L=${formatLengthMm(lengthMm)}`
+}
+
 export function orderItemsMailText(items: OrderItem[]) {
   return items
     .map((item, index) => (
       `${index + 1}. Material: ${item.material}
 ${item.material_thickness_mm ? `   Materialstärke: ${formatMaterialThickness(item.material_thickness_mm)}\n` : ''}
-   Querschnitt: ${item.cross_section}
-   Länge: ${item.length_mm || '-'} mm
+   Querschnitt: ${formatCrossSectionMm(item.cross_section)}
+   Länge: ${formatLengthMm(item.length_mm)}
    Menge: ${orderItemQuantityText(item)}`
     ))
     .join('\n\n')

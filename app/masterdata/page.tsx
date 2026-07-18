@@ -8,6 +8,7 @@ import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { isTwoDLaserDeleteManager } from '@/lib/areaPermissions'
 import { calculateTubeWeightKgPerMeter, formatTubeWeightPerMeter } from '@/lib/tubeWeight'
+import { formatCrossSectionMm } from '@/lib/orderItems'
 import ActionIconButton from '@/app/ActionIconButton'
 import { useAppDialog } from '@/app/useAppDialog'
 
@@ -662,7 +663,7 @@ function MasterDataContent() {
                             onClick={() => toggleCrossSection(c.id)}
                           >
                             <span className="cross-section-chevron" aria-hidden="true">›</span>
-                            <b>{c.name}</b>
+                            <b>{formatCrossSectionMm(c.name)}</b>
                           </button>
                           {isAdmin && (
                             <span className="cross-section-actions">

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { OrderItem, emptyOrderItem, mergeOrderItems, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
+import { OrderItem, emptyOrderItem, formatCrossSectionMm, mergeOrderItems, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
 import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
@@ -665,7 +665,7 @@ export default function NewOrderPage() {
                           onChange={e => setItem(index, 'cross_section', e.target.value === '__custom__' ? 'Sonderformat: ' : e.target.value)}
                         >
                           {crossSections.map(format => (
-                            <option key={format.id} value={format.name}>{format.name}</option>
+                            <option key={format.id} value={format.name}>{formatCrossSectionMm(format.name)}</option>
                           ))}
                           <option value="__custom__">Sonderformat</option>
                         </select>
@@ -699,7 +699,7 @@ export default function NewOrderPage() {
                                   setActiveCrossIndex(null)
                                 }}
                               >
-                                {q.name}
+                                {formatCrossSectionMm(q.name)}
                               </button>
                             ))}
                           </div>

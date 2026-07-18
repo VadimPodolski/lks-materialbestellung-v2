@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
 import {
   formatMaterialThickness,
+  formatCrossSectionMm,
+  formatLengthMm,
   OrderItem,
   orderItemQuantityText,
   orderItemsMailText
@@ -71,8 +73,8 @@ function orderItemsHtml(items: OrderItem[]) {
       <tr>
         <td width="8%" valign="top" style="width:8%;padding:14px 10px;border-bottom:1px solid #e2e8f0;color:#64748b;font-weight:700;text-align:left;">${index + 1}</td>
         <td width="32%" valign="top" style="width:32%;padding:14px 10px;border-bottom:1px solid #e2e8f0;color:#172033;font-weight:700;text-align:left;">${escapeHtml(item.material)}${thickness}</td>
-        <td width="22%" valign="top" style="width:22%;padding:14px 10px;border-bottom:1px solid #e2e8f0;text-align:left;">${escapeHtml(item.cross_section || '-')}</td>
-        <td width="19%" valign="top" style="width:19%;padding:14px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;text-align:left;">${escapeHtml(item.length_mm || '-')} mm</td>
+        <td width="22%" valign="top" style="width:22%;padding:14px 10px;border-bottom:1px solid #e2e8f0;text-align:left;">${escapeHtml(formatCrossSectionMm(item.cross_section))}</td>
+        <td width="19%" valign="top" style="width:19%;padding:14px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;text-align:left;">${escapeHtml(formatLengthMm(item.length_mm))}</td>
         <td width="19%" valign="top" style="width:19%;padding:14px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;text-align:left;">${escapeHtml(orderItemQuantityText(item))}</td>
       </tr>`
   }).join('')
