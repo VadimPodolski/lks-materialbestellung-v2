@@ -222,6 +222,13 @@ export default function OrderDetailPage() {
   const [receiptDrafts, setReceiptDrafts] = useState<Record<string, ReceiptDraft>>({})
   const [scrapDrafts, setScrapDrafts] = useState<Record<string, ScrapDraft>>({})
   const [selectedScrapIds, setSelectedScrapIds] = useState<string[]>([])
+  const selectableScrapIds = useMemo(
+    () => scraps.filter(scrap => !scrap.reordered).map(scrap => scrap.id),
+    [scraps]
+  )
+  const allSelectableScrapsSelected = selectableScrapIds.length > 0 && selectableScrapIds.every(
+    id => selectedScrapIds.includes(id)
+  )
 
   const [editingReceiptId, setEditingReceiptId] = useState('')
   const [editReceiptQty, setEditReceiptQty] = useState('')
@@ -675,6 +682,16 @@ export default function OrderDetailPage() {
         ? prev.filter(id => id !== scrapId)
         : [...prev, scrapId]
     )
+  }
+
+  function toggleAllScrapSelections() {
+    setSelectedScrapIds(previous => {
+      if (allSelectableScrapsSelected) {
+        return previous.filter(id => !selectableScrapIds.includes(id))
+      }
+
+      return Array.from(new Set([...previous, ...selectableScrapIds]))
+    })
   }
 
   function mailto() {
@@ -2356,7 +2373,17 @@ LKS-Team`
         <table>
           <thead>
             <tr>
-              <th></th>
+              <th>
+                <input
+                  type="checkbox"
+                  checked={allSelectableScrapsSelected}
+                  disabled={selectableScrapIds.length === 0}
+                  onChange={toggleAllScrapSelections}
+                  className="table-checkbox"
+                  aria-label="Alle offenen Ausschusspositionen auswählen"
+                  title="Alle offenen Ausschusspositionen auswählen"
+                />
+              </th>
               <th>Datum</th>
               <th>Position</th>
               <th>Stückzahl</th>
