@@ -189,7 +189,6 @@ export function orderItemsMailText(items: OrderItem[]) {
       `${index + 1}. Material: ${item.material}
 ${item.material_thickness_mm ? `   Materialstärke: ${formatMaterialThickness(item.material_thickness_mm)}\n` : ''}
    Querschnitt: ${item.cross_section}
-   AV: ${orderItemAvText(item) || '-'}
    Länge: ${item.length_mm || '-'} mm
    Menge: ${orderItemQuantityText(item)}`
     ))

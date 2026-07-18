@@ -646,7 +646,7 @@ Bemerkung: ${order.notes || '-'}
 
 ${orderItemsMailText(orderItems)}
 
-L-Liefertermin: ${order.desired_delivery_date ? formatDateShort(order.desired_delivery_date) : 'schnellstmöglich'}
+Liefertermin: ${order.desired_delivery_date ? formatDateShort(order.desired_delivery_date) : 'schnellstmöglich'}
 
 Mit freundlichen Grüßen
 LKS-Technik GmbH & Co. KG`
