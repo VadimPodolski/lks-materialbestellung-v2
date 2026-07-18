@@ -122,6 +122,9 @@ function OrdersContent() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
+  const [supplierFilter, setSupplierFilter] = useState('')
+  const [customerFilter, setCustomerFilter] = useState('')
+  const [materialThicknessFilter, setMaterialThicknessFilter] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('order_number')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
@@ -145,6 +148,9 @@ function OrdersContent() {
 
   useEffect(() => {
     const cachedOrders = ordersByAreaCache.current[orderArea]
+    setSupplierFilter('')
+    setCustomerFilter('')
+    setMaterialThicknessFilter('')
     if (cachedOrders) {
       setOrders(cachedOrders)
       setLoadedOrderArea(orderArea)
@@ -556,6 +562,11 @@ function OrdersContent() {
       const normalizedText = text.replace(/[\s._/-]+/g, '')
       const matchesSearch = !search || text.includes(search) || normalizedText.includes(normalizedSearch)
       const matchesStatus = !status || visibleStatus(o) === status
+      const matchesSupplier = !supplierFilter || o.suppliers?.name === supplierFilter
+      const matchesCustomer = !customerFilter || o.customer === customerFilter
+      const matchesMaterialThickness = !materialThicknessFilter || items.some(item => (
+        String(Number(item.material_thickness_mm)) === materialThicknessFilter
+      ))
       const matchesOverdue =
         !overdueOnly ||
         Boolean(
@@ -564,9 +575,23 @@ function OrdersContent() {
           !['geliefert', 'storniert'].includes(o.status)
         )
 
-      return matchesSearch && matchesStatus && matchesOverdue
+      return matchesSearch && matchesStatus && matchesSupplier && matchesCustomer && matchesMaterialThickness && matchesOverdue
     }).sort(sortMode === 'latest_order' ? latestOrderSort : sortOrders)
-  }, [listedOrders, q, status, overdueOnly, today, sortKey, sortDirection, sortMode, profiles, latestGroupTime])
+  }, [listedOrders, q, status, supplierFilter, customerFilter, materialThicknessFilter, overdueOnly, today, sortKey, sortDirection, sortMode, profiles, latestGroupTime])
+
+  const supplierFilterOptions = useMemo(() => Array.from(new Set(
+    listedOrders.map(order => order.suppliers?.name?.trim()).filter((name): name is string => Boolean(name))
+  )).sort((a, b) => a.localeCompare(b, 'de-DE', { sensitivity: 'base' })), [listedOrders])
+
+  const customerFilterOptions = useMemo(() => Array.from(new Set(
+    listedOrders.map(order => order.customer?.trim()).filter((name): name is string => Boolean(name))
+  )).sort((a, b) => a.localeCompare(b, 'de-DE', { sensitivity: 'base' })), [listedOrders])
+
+  const materialThicknessFilterOptions = useMemo(() => Array.from(new Set(
+    listedOrders.flatMap(order => normalizeOrderItems(order))
+      .map(item => Number(item.material_thickness_mm))
+      .filter(value => Number.isFinite(value) && value > 0)
+  )).sort((a, b) => a - b), [listedOrders])
 
   const statusCounts = useMemo(() => {
     return listedOrders.reduce<Record<string, number>>((counts, order) => {
@@ -927,6 +952,36 @@ function OrdersContent() {
             <option value="overdue">Nur überfällig</option>
           </select>
         </div>
+
+        <div>
+          <label>Lieferant</label>
+          <select value={supplierFilter} onChange={e => setSupplierFilter(e.target.value)}>
+            <option value="">Alle Lieferanten</option>
+            {supplierFilterOptions.map(name => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </div>
+
+        {orderArea === 'rohrlaser' && (
+          <div>
+            <label>Kunde</label>
+            <select value={customerFilter} onChange={e => setCustomerFilter(e.target.value)}>
+              <option value="">Alle Kunden</option>
+              {customerFilterOptions.map(name => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </div>
+        )}
+
+        {orderArea === '2d-laser' && (
+          <div>
+            <label>Materialstärke</label>
+            <select value={materialThicknessFilter} onChange={e => setMaterialThicknessFilter(e.target.value)}>
+              <option value="">Alle Materialstärken</option>
+              {materialThicknessFilterOptions.map(value => (
+                <option key={value} value={String(value)}>{formatMaterialThickness(value)}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div>
           <label>Sortieren nach</label>

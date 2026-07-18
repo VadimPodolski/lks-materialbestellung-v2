@@ -19,6 +19,10 @@ type WorkPreparation = { id:string; name:string }
 type SheetFormat = { id:string; name:string; width_mm:number; height_mm:number }
 type MaterialThickness = { id:string; material:string; thickness_mm:number }
 type CrossSectionCategory = 'square' | 'rectangular' | 'round'
+type SortDirection = 'asc' | 'desc'
+type CustomerSortKey = 'name' | 'contact_person' | 'email' | 'phone'
+type SupplierSortKey = 'name' | 'email' | 'phone' | 'contact_person'
+type MaterialThicknessSortKey = 'material' | 'thickness_mm'
 
 type TypeKey = 'customers' | 'suppliers' | 'materials' | 'material_thicknesses' | 'cross_sections' | 'work_preparations' | 'formats'
 
@@ -36,6 +40,16 @@ function getCrossSectionCategory(name:string): CrossSectionCategory {
   if (dimensions.length === 2) return 'round'
   if (dimensions.length >= 3 && Math.abs(dimensions[0] - dimensions[1]) < 0.001) return 'square'
   return 'rectangular'
+}
+
+function compareTableValues(a:string|number|null, b:string|number|null, direction:SortDirection) {
+  const factor = direction === 'asc' ? 1 : -1
+  if (typeof a === 'number' && typeof b === 'number') return (a - b) * factor
+
+  return String(a || '').localeCompare(String(b || ''), 'de-DE', {
+    numeric: true,
+    sensitivity: 'base'
+  }) * factor
 }
 
 function MasterDataContent() {
@@ -57,6 +71,9 @@ function MasterDataContent() {
   const [formats, setFormats] = useState<SheetFormat[]>([])
   const [materialThicknesses, setMaterialThicknesses] = useState<MaterialThickness[]>([])
   const [openCrossSectionIds, setOpenCrossSectionIds] = useState<Set<string>>(new Set())
+  const [customerSort, setCustomerSort] = useState<{ key:CustomerSortKey; direction:SortDirection }>({ key:'name', direction:'asc' })
+  const [supplierSort, setSupplierSort] = useState<{ key:SupplierSortKey; direction:SortDirection }>({ key:'name', direction:'asc' })
+  const [materialThicknessSort, setMaterialThicknessSort] = useState<{ key:MaterialThicknessSortKey; direction:SortDirection }>({ key:'material', direction:'asc' })
 
   const [customer, setCustomer] = useState({ id:'', name:'', contact_person:'', email:'', phone:'', notes:'' })
   const [supplier, setSupplier] = useState({ id:'', name:'', email:'', phone:'', contact_person:'', notes:'' })
@@ -320,8 +337,8 @@ function MasterDataContent() {
     const x = q.toLowerCase()
     return suppliers.filter(s =>
       `${s.name} ${s.contact_person || ''} ${s.email || ''} ${s.phone || ''}`.toLowerCase().includes(x)
-    )
-  }, [suppliers, q])
+    ).sort((a, b) => compareTableValues(a[supplierSort.key], b[supplierSort.key], supplierSort.direction))
+  }, [suppliers, q, supplierSort])
 
   const filteredMaterials = useMemo(() => {
     const x = q.toLowerCase()
@@ -358,8 +375,8 @@ function MasterDataContent() {
     const x = q.toLowerCase()
     return customers.filter(c =>
       `${c.name} ${c.contact_person || ''} ${c.email || ''} ${c.phone || ''}`.toLowerCase().includes(x)
-    )
-  }, [customers, q])
+    ).sort((a, b) => compareTableValues(a[customerSort.key], b[customerSort.key], customerSort.direction))
+  }, [customers, q, customerSort])
 
   const filteredFormats = useMemo(() => {
     const x = q.toLowerCase()
@@ -370,8 +387,38 @@ function MasterDataContent() {
     const x = q.toLowerCase()
     return materialThicknesses.filter(item =>
       `${item.material} ${String(item.thickness_mm).replace('.', ',')}`.toLowerCase().includes(x)
+    ).sort((a, b) => compareTableValues(a[materialThicknessSort.key], b[materialThicknessSort.key], materialThicknessSort.direction))
+  }, [materialThicknesses, q, materialThicknessSort])
+
+  function toggleCustomerSort(key:CustomerSortKey) {
+    setCustomerSort(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  function toggleSupplierSort(key:SupplierSortKey) {
+    setSupplierSort(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  function toggleMaterialThicknessSort(key:MaterialThicknessSortKey) {
+    setMaterialThicknessSort(current => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }))
+  }
+
+  function sortHeader(label:string, active:boolean, direction:SortDirection, onClick:()=>void) {
+    return (
+      <button type="button" className={`column-sort-button${active ? ' active' : ''}`} onClick={onClick}>
+        <span>{label}</span>
+        {active && <span className="column-sort-indicator" aria-hidden="true">{direction === 'asc' ? '▲' : '▼'}</span>}
+      </button>
     )
-  }, [materialThicknesses, q])
+  }
 
   return (
     <main className="container masterdata-page">
@@ -444,10 +491,10 @@ function MasterDataContent() {
           <table>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Ansprechpartner</th>
-                <th>E-Mail</th>
-                <th>Telefon</th>
+                <th>{sortHeader('Name', customerSort.key === 'name', customerSort.direction, () => toggleCustomerSort('name'))}</th>
+                <th>{sortHeader('Ansprechpartner', customerSort.key === 'contact_person', customerSort.direction, () => toggleCustomerSort('contact_person'))}</th>
+                <th>{sortHeader('E-Mail', customerSort.key === 'email', customerSort.direction, () => toggleCustomerSort('email'))}</th>
+                <th>{sortHeader('Telefon', customerSort.key === 'phone', customerSort.direction, () => toggleCustomerSort('phone'))}</th>
                 {isAdmin && <th>Aktionen</th>}
               </tr>
             </thead>
@@ -492,10 +539,10 @@ function MasterDataContent() {
           <table>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>E-Mail</th>
-                <th>Telefon</th>
-                <th>Ansprechpartner</th>
+                <th>{sortHeader('Name', supplierSort.key === 'name', supplierSort.direction, () => toggleSupplierSort('name'))}</th>
+                <th>{sortHeader('E-Mail', supplierSort.key === 'email', supplierSort.direction, () => toggleSupplierSort('email'))}</th>
+                <th>{sortHeader('Telefon', supplierSort.key === 'phone', supplierSort.direction, () => toggleSupplierSort('phone'))}</th>
+                <th>{sortHeader('Ansprechpartner', supplierSort.key === 'contact_person', supplierSort.direction, () => toggleSupplierSort('contact_person'))}</th>
                 {isAdmin && <th>Aktionen</th>}
               </tr>
             </thead>
@@ -706,8 +753,8 @@ function MasterDataContent() {
           <table>
             <thead>
               <tr>
-                <th>Material</th>
-                <th>Materialstärke</th>
+                <th>{sortHeader('Material', materialThicknessSort.key === 'material', materialThicknessSort.direction, () => toggleMaterialThicknessSort('material'))}</th>
+                <th>{sortHeader('Materialstärke', materialThicknessSort.key === 'thickness_mm', materialThicknessSort.direction, () => toggleMaterialThicknessSort('thickness_mm'))}</th>
                 {canDeleteSelectedMasterData && <th>Aktionen</th>}
               </tr>
             </thead>

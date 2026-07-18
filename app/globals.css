@@ -1175,6 +1175,11 @@ a.card:hover {
   font-weight: 600;
   text-align: left;
   white-space: nowrap;
+  gap: 6px;
+}
+
+.column-sort-indicator {
+  font-size: 9px;
 }
 
 .column-sort-button:hover,
