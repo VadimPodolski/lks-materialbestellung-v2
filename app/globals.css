@@ -1955,7 +1955,12 @@ table td {
 }
 
 .order-history-table .history-position-column {
-  width: 330px;
+  width: 480px;
+}
+
+.order-history-table th:nth-child(3),
+.order-history-table td:nth-child(3) {
+  white-space: nowrap;
 }
 
 .order-history-table .history-quantity-column {
