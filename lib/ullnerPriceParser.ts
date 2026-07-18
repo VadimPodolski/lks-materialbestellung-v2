@@ -201,7 +201,7 @@ export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirm
     positions.push({
       position: positionMatch ? Number(positionMatch[1]) : fallbackPosition,
       ...price,
-      description: lines.slice(Math.max(0, index - 5), Math.min(lines.length, index + 7)).join(' ')
+      description: priceLine
     })
     index += consumedLines - 1
   }
