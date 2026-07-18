@@ -1892,6 +1892,18 @@ table td {
   text-align: left !important;
 }
 
+.order-history-table th:last-child,
+.order-history-table td.order-history-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right !important;
+}
+
+.order-history-table td.order-history-actions .actions {
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
 .order-items-table {
   margin-bottom: 16px;
   overflow-x: auto;

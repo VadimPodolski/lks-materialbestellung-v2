@@ -234,6 +234,9 @@ export default function OrderDetailPage() {
   const [editReceiptQty, setEditReceiptQty] = useState('')
   const [editReceiptNote, setEditReceiptNote] = useState('')
   const [editReceiptComment, setEditReceiptComment] = useState('')
+  const [editingScrapId, setEditingScrapId] = useState('')
+  const [editScrapQty, setEditScrapQty] = useState('')
+  const [editScrapReason, setEditScrapReason] = useState('')
 
   const [draggingPdfType, setDraggingPdfType] = useState<PdfDocumentType | null>(null)
   const [uploadingPdfType, setUploadingPdfType] = useState<PdfDocumentType | null>(null)
@@ -662,18 +665,32 @@ export default function OrderDetailPage() {
     }))
   }
 
+  function scrapMatchesItem(scrap: Scrap, item: OrderItem) {
+    if (scrap.order_item_id && item.id) return scrap.order_item_id === item.id
+
+    return (
+      scrap.material === item.material &&
+      scrap.cross_section === item.cross_section &&
+      Number(scrap.length_mm || 0) === Number(item.length_mm || 0)
+    )
+  }
+
   function scrapQtyForItem(item: OrderItem) {
     return scraps
-      .filter(scrap => {
-        if (scrap.order_item_id && item.id) return scrap.order_item_id === item.id
-
-        return (
-          scrap.material === item.material &&
-          scrap.cross_section === item.cross_section &&
-          Number(scrap.length_mm || 0) === Number(item.length_mm || 0)
-        )
-      })
+      .filter(scrap => scrapMatchesItem(scrap, item))
       .reduce((sum, scrap) => sum + Number(scrap.quantity || 0), 0)
+  }
+
+  function orderItemForScrap(scrap: Scrap) {
+    return orderItems.find(item => scrapMatchesItem(scrap, item))
+  }
+
+  function maxScrapQuantityForEdit(scrap: Scrap) {
+    const item = orderItemForScrap(scrap)
+    if (!item) return undefined
+
+    const otherScrapQuantity = scrapQtyForItem(item) - Number(scrap.quantity || 0)
+    return Math.max(1, Number(item.quantity || 0) - otherScrapQuantity)
   }
 
   function toggleScrapSelection(scrapId: string) {
@@ -1577,6 +1594,59 @@ LKS-Team`
     }
   }
 
+  function startEditScrap(scrap: Scrap) {
+    if (scrap.reordered) return
+
+    setEditingScrapId(scrap.id)
+    setEditScrapQty(String(scrap.quantity))
+    setEditScrapReason(scrap.reason || '')
+  }
+
+  async function saveScrapEdit(scrap: Scrap) {
+    if (scrap.reordered) {
+      setMsg('Nachbestellter Ausschuss kann nicht bearbeitet werden.')
+      return
+    }
+
+    const quantity = Number(editScrapQty)
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      setMsg('Bitte eine gültige AUS-Menge eingeben.')
+      return
+    }
+
+    const item = orderItemForScrap(scrap)
+    if (!item) {
+      setMsg('Die zugehörige Bestellposition wurde nicht gefunden.')
+      return
+    }
+
+    const maxQuantity = maxScrapQuantityForEdit(scrap)
+    if (maxQuantity !== undefined && quantity > maxQuantity) {
+      setMsg(`Die gesamte AUS-Menge darf die bestellte Stückzahl von ${item.quantity} nicht überschreiten.`)
+      return
+    }
+
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('scrap_items')
+      .update({
+        quantity,
+        reason: editScrapReason.trim() || null
+      })
+      .eq('id', scrap.id)
+
+    if (error) {
+      setMsg(`Ausschuss konnte nicht geändert werden: ${error.message}`)
+      return
+    }
+
+    setEditingScrapId('')
+    setEditScrapQty('')
+    setEditScrapReason('')
+    await load()
+    setMsg('Ausschuss wurde geändert.')
+  }
+
   async function deleteScrap(scrap: Scrap) {
     if (scrap.reordered) {
       setMsg('Nachbestellter Ausschuss kann nicht gelöscht werden.')
@@ -2379,7 +2449,7 @@ LKS-Team`
           </button>
         </div>
 
-        <table>
+        <table className="order-history-table">
           <thead>
             <tr>
               <th>
@@ -2398,7 +2468,7 @@ LKS-Team`
               <th>Stückzahl</th>
               <th>Grund</th>
               <th>Status</th>
-              <th>Aktion</th>
+              <th>Aktionen</th>
             </tr>
           </thead>
 
@@ -2415,19 +2485,64 @@ LKS-Team`
                   />
                 </td>
                 <td>{new Date(s.created_at).toLocaleString('de-DE')}</td>
-                <td>
-                  {s.material && s.cross_section
-                    ? `${s.material} - ${s.cross_section}, ${s.length_mm || '-'} mm`
-                    : '-'}
-                </td>
-                <td>{s.quantity}</td>
-                <td>{s.reason || '-'}</td>
-                <td>{s.reordered ? 'Nachbestellt' : 'Offen'}</td>
-                <td>
-                  {!s.reordered && (
-                    <ActionIconButton action="delete" label="Ausschuss löschen" onClick={() => deleteScrap(s)} />
-                  )}
-                </td>
+                {editingScrapId === s.id ? (
+                  <>
+                    <td>
+                      {s.material && s.cross_section
+                        ? `${s.material} - ${s.cross_section}, ${s.length_mm || '-'} mm`
+                        : '-'}
+                    </td>
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        max={maxScrapQuantityForEdit(s)}
+                        step="1"
+                        value={editScrapQty}
+                        onChange={e => setEditScrapQty(e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        value={editScrapReason}
+                        onChange={e => setEditScrapReason(e.target.value)}
+                        placeholder="Grund"
+                      />
+                    </td>
+                    <td>Offen</td>
+                    <td className="order-history-actions">
+                      <div className="actions">
+                        <button type="button" onClick={() => saveScrapEdit(s)}>Speichern</button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setEditingScrapId('')}
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td>
+                      {s.material && s.cross_section
+                        ? `${s.material} - ${s.cross_section}, ${s.length_mm || '-'} mm`
+                        : '-'}
+                    </td>
+                    <td>{s.quantity}</td>
+                    <td>{s.reason || '-'}</td>
+                    <td>{s.reordered ? 'Nachbestellt' : 'Offen'}</td>
+                    <td className="order-history-actions">
+                      {!s.reordered && (
+                        <div className="actions">
+                          <ActionIconButton action="edit" label="Ausschuss bearbeiten" onClick={() => startEditScrap(s)} />
+                          <ActionIconButton action="delete" label="Ausschuss löschen" onClick={() => deleteScrap(s)} />
+                        </div>
+                      )}
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
@@ -2437,7 +2552,7 @@ LKS-Team`
       <div className="card">
         <h2>Wareneingänge</h2>
 
-        <table>
+        <table className="order-history-table">
           <thead>
             <tr>
               <th>Datum</th>
@@ -2485,21 +2600,23 @@ LKS-Team`
                       />
                     </td>
 
-                    <td className="actions">
-                      <button
-                        type="button"
-                        onClick={() => saveReceiptEdit(r)}
-                      >
-                        Speichern
-                      </button>
+                    <td className="order-history-actions">
+                      <div className="actions">
+                        <button
+                          type="button"
+                          onClick={() => saveReceiptEdit(r)}
+                        >
+                          Speichern
+                        </button>
 
-                      <button
-                        type="button"
-                        className="secondary"
-                        onClick={() => setEditingReceiptId('')}
-                      >
-                        Abbrechen
-                      </button>
+                        <button
+                          type="button"
+                          className="secondary"
+                          onClick={() => setEditingReceiptId('')}
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
                     </td>
                   </>
                 ) : (
@@ -2513,9 +2630,11 @@ LKS-Team`
                     <td>{r.delivery_note_number || '-'}</td>
                     <td>{r.notes || '-'}</td>
 
-                    <td className="actions">
-                      <ActionIconButton action="edit" label="Wareneingang bearbeiten" onClick={() => startEditReceipt(r)} />
-                      <ActionIconButton action="delete" label="Wareneingang löschen" onClick={() => deleteReceipt(r)} />
+                    <td className="order-history-actions">
+                      <div className="actions">
+                        <ActionIconButton action="edit" label="Wareneingang bearbeiten" onClick={() => startEditReceipt(r)} />
+                        <ActionIconButton action="delete" label="Wareneingang löschen" onClick={() => deleteReceipt(r)} />
+                      </div>
                     </td>
                   </>
                 )}
