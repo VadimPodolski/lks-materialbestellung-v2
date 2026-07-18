@@ -102,6 +102,8 @@ function emailHtml({
   const actionNote = isCancellation
     ? 'Bitte bestätigen Sie uns die Stornierung kurz per E-Mail.'
     : 'Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere AB-Nummer an.'
+  const notesText = notes?.trim() || '-'
+  const notesAreLong = notesText.length > 45
 
   return `<!doctype html>
 <html lang="de">
@@ -129,18 +131,25 @@ function emailHtml({
               <td style="padding:30px 32px 18px;">
                 <p style="margin:0 0 18px;font-size:16px;line-height:1.6;">Sehr geehrte Damen und Herren,</p>
                 <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">${intro}</p>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed;border-collapse:collapse;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
                   <tr>
-                    <td style="padding:14px 16px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Auftrag</td>
-                    <td style="padding:14px 16px;font-weight:700;">${escapeHtml(orderNumber)}</td>
-                    <td style="padding:14px 16px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Bearbeiter</td>
-                    <td style="padding:14px 16px;font-weight:700;">${escapeHtml(orderedBy || '-')}</td>
+                    <td width="14%" style="width:14%;padding:14px 16px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Auftrag</td>
+                    <td width="41%" style="width:41%;padding:14px 16px;font-weight:700;white-space:nowrap;">${escapeHtml(orderNumber)}</td>
+                    <td width="18%" style="width:18%;padding:14px 16px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Bearbeiter</td>
+                    <td width="27%" style="width:27%;padding:14px 16px;font-weight:700;">${escapeHtml(orderedBy || '-')}</td>
                   </tr>
-                  ${isCancellation ? '' : `<tr>
+                  ${isCancellation ? '' : notesAreLong ? `<tr>
+                    <td style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Liefertermin</td>
+                    <td colspan="3" style="padding:0 16px 14px;font-weight:700;color:${accent};">${escapeHtml(deliveryDate)}</td>
+                  </tr>
+                  <tr>
+                    <td valign="top" style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Bemerkung</td>
+                    <td colspan="3" style="padding:0 16px 14px;line-height:1.55;overflow-wrap:anywhere;">${escapeHtml(notesText)}</td>
+                  </tr>` : `<tr>
                     <td style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Liefertermin</td>
                     <td style="padding:0 16px 14px;font-weight:700;color:${accent};">${escapeHtml(deliveryDate)}</td>
                     <td style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Bemerkung</td>
-                    <td style="padding:0 16px 14px;">${escapeHtml(notes || '-')}</td>
+                    <td style="padding:0 16px 14px;overflow-wrap:anywhere;">${escapeHtml(notesText)}</td>
                   </tr>`}
                 </table>
               </td>
