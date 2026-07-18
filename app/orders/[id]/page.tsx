@@ -2204,11 +2204,10 @@ LKS-Team`
                 {order.suppliers?.email || ''}
               </p>
               <p><b>L-Liefertermin:</b><br />{order.desired_delivery_date ? formatDateShort(order.desired_delivery_date) : 'schnellstmöglich'}</p>
+              {order.notes && (
+                <p className="order-summary-notes"><b>Bemerkung:</b><br />{order.notes}</p>
+              )}
             </div>
-
-            {order.notes && (
-              <p><b>Bemerkung:</b><br />{order.notes}</p>
-            )}
 
             <div className="actions order-detail-actions">
               <button
