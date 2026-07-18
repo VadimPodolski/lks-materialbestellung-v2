@@ -69,11 +69,11 @@ function orderItemsHtml(items: OrderItem[]) {
 
     return `
       <tr>
-        <td valign="top" style="padding:14px 10px;border-bottom:1px solid #e2e8f0;color:#64748b;font-weight:700;">${index + 1}</td>
-        <td valign="top" style="padding:14px 10px;border-bottom:1px solid #e2e8f0;color:#172033;font-weight:700;">${escapeHtml(item.material)}${thickness}</td>
-        <td valign="top" style="padding:14px 10px;border-bottom:1px solid #e2e8f0;">${escapeHtml(item.cross_section || '-')}</td>
-        <td valign="top" style="padding:14px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${escapeHtml(item.length_mm || '-')} mm</td>
-        <td valign="top" style="padding:14px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;">${escapeHtml(orderItemQuantityText(item))}</td>
+        <td width="8%" valign="top" style="width:8%;padding:14px 10px;border-bottom:1px solid #e2e8f0;color:#64748b;font-weight:700;text-align:left;">${index + 1}</td>
+        <td width="32%" valign="top" style="width:32%;padding:14px 10px;border-bottom:1px solid #e2e8f0;color:#172033;font-weight:700;text-align:left;">${escapeHtml(item.material)}${thickness}</td>
+        <td width="22%" valign="top" style="width:22%;padding:14px 10px;border-bottom:1px solid #e2e8f0;text-align:left;">${escapeHtml(item.cross_section || '-')}</td>
+        <td width="19%" valign="top" style="width:19%;padding:14px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;text-align:left;">${escapeHtml(item.length_mm || '-')} mm</td>
+        <td width="19%" valign="top" style="width:19%;padding:14px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;text-align:left;">${escapeHtml(orderItemQuantityText(item))}</td>
       </tr>`
   }).join('')
 }
@@ -98,7 +98,7 @@ function emailHtml({
   const title = isCancellation ? 'Stornierung Ihrer Materialbestellung' : 'Materialbestellung'
   const intro = isCancellation
     ? 'Hiermit stornieren wir die nachfolgende Materialbestellung.'
-    : 'Bitte liefern Sie uns die nachfolgend aufgeführten Materialien.'
+    : 'bitte liefern Sie uns die nachfolgend aufgeführten Materialien.'
   const actionNote = isCancellation
     ? 'Bitte bestätigen Sie uns die Stornierung kurz per E-Mail.'
     : 'Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere AB-Nummer an.'
@@ -147,14 +147,14 @@ function emailHtml({
             </tr>
             <tr>
               <td style="padding:8px 32px 22px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #dbe3ec;border-radius:8px;overflow:hidden;font-size:14px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;table-layout:fixed;border-collapse:collapse;border:1px solid #dbe3ec;border-radius:8px;overflow:hidden;font-size:14px;">
                   <thead>
                     <tr style="background:#eef2f0;color:#475569;text-align:left;">
-                      <th style="padding:11px 10px;width:34px;">Pos.</th>
-                      <th style="padding:11px 10px;">Material</th>
-                      <th style="padding:11px 10px;">Querschnitt</th>
-                      <th style="padding:11px 10px;">Länge</th>
-                      <th style="padding:11px 10px;">Menge</th>
+                      <th width="8%" align="left" style="width:8%;padding:11px 10px;text-align:left;">Pos.</th>
+                      <th width="32%" align="left" style="width:32%;padding:11px 10px;text-align:left;">Material</th>
+                      <th width="22%" align="left" style="width:22%;padding:11px 10px;text-align:left;">Querschnitt</th>
+                      <th width="19%" align="left" style="width:19%;padding:11px 10px;text-align:left;">Länge</th>
+                      <th width="19%" align="left" style="width:19%;padding:11px 10px;text-align:left;">Menge</th>
                     </tr>
                   </thead>
                   <tbody>${orderItemsHtml(orderItems)}</tbody>
