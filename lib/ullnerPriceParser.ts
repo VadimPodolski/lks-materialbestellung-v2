@@ -62,12 +62,12 @@ function parsePriceLine(line: string) {
 }
 
 function normalizeUnit(value: string) {
-  return /^(?:stg|stk|st|stück)/i.test(value) ? 'Stück' : value.toLowerCase()
+  return /^(?:stck|stg|stk|st|stück)/i.test(value) ? 'Stück' : value.toLowerCase()
 }
 
 function parseGenericPriceLine(line: string) {
   const compact = line.replace(/\s+/g, '')
-  const unitPattern = '(?:Stück|Stk\\.?|Stg\\.?|St\\.?|m|kg)'
+  const unitPattern = '(?:Stück|Stck\\.?|Stk\\.?|Stg\\.?|St\\.?|m|kg)'
   const quantityPattern = new RegExp(`(\\d+(?:\\.\\d{3})*,\\d{2,3})(${unitPattern})`, 'ig')
   let quantityMatch: RegExpExecArray | null
 
@@ -196,7 +196,7 @@ export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirm
 
     if (!price) continue
 
-    const positionMatch = priceLine.match(/^(?:\d{4,})?(\d{1,3})(?=\d+[.,]\d{2,3}(?:Stück|Stk|Stg|St|m|kg))/i)
+    const positionMatch = priceLine.match(/^(?:\d{4,})?(\d{1,3})(?=\d+[.,]\d{2,3}(?:Stück|Stck|Stk|Stg|St|m|kg))/i)
     const fallbackPosition = positions.length + 1
     positions.push({
       position: positionMatch ? Number(positionMatch[1]) : fallbackPosition,

@@ -1602,7 +1602,7 @@ LKS-Team`
           }
 
           const pieceMatch = price.description.match(
-            /(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:Stück|Stk\.?|Stg\.?|Stäbe?|Stab)(?:\s|$)/i
+            /(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:Stück|Stck\.?|Stk\.?|Stg\.?|St\.?|Stäbe?|Stab)(?:\s|$)/i
           )
           if (!pieceMatch) return null
 
