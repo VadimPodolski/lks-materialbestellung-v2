@@ -46,14 +46,14 @@ export async function POST(
       confirmation = parseSupplierPriceConfirmation(parsedPdf.text)
     } catch (error: any) {
       return NextResponse.json(
-        { error: error.message || 'Die PDF wurde nicht als Lieferanten-AB erkannt.' },
+        { error: error.message || 'Die PDF wurde nicht als Lieferanten-Auftragsbestätigung oder Angebot erkannt.' },
         { status: 422 }
       )
     }
 
     if (confirmation.positions.length === 0) {
       return NextResponse.json(
-        { error: 'In dieser Lieferanten-AB wurden keine Positionspreise erkannt.' },
+        { error: 'In diesem Lieferantendokument wurden keine Positionspreise erkannt.' },
         { status: 422 }
       )
     }
@@ -72,7 +72,7 @@ export async function POST(
     return NextResponse.json(confirmation)
   } catch (error: any) {
     return NextResponse.json(
-      { error: error.message || 'Lieferanten-AB konnte nicht ausgewertet werden.' },
+      { error: error.message || 'Das Lieferantendokument konnte nicht ausgewertet werden.' },
       { status: 500 }
     )
   }

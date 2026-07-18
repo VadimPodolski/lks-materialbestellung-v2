@@ -265,10 +265,10 @@ export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirm
 
   const compactText = text.replace(/\s+/g, '')
   const isKloeckner = /(?:klöckner|kloeckner)/i.test(text)
-  const hasConfirmationTitle = /(?:Auftrags[- ]?best(?:ätigung|\.)|Bestellbestätigung|OrderConfirmation|SalesOrderConfirmation)/i.test(compactText)
+  const hasConfirmationTitle = /(?:Auftrags[- ]?best(?:ätigung|\.)|Bestellbestätigung|OrderConfirmation|SalesOrderConfirmation|Angebot|Offerte|Quotation|Quote)/i.test(compactText)
 
   if (!hasConfirmationTitle) {
-    throw new Error('Die PDF wurde nicht als Lieferanten-Auftragsbestätigung erkannt.')
+    throw new Error('Die PDF wurde nicht als Lieferanten-Auftragsbestätigung oder Angebot erkannt.')
   }
   const positions: UllnerPositionPrice[] = []
 
@@ -302,7 +302,7 @@ export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirm
     index += consumedLines - 1
   }
 
-  const confirmationNumber = text.match(/(?:Auftrags[- ]?best(?:ätigung|\.)|Bestellbestätigung|Bestellung|Order\s*Confirmation)\s*(?:Nr\.?|No\.?)?\s*[:#]?\s*([A-Z0-9/-]{4,})/i)?.[1] || null
+  const confirmationNumber = text.match(/(?:Auftrags[- ]?best(?:ätigung|\.)|Bestellbestätigung|Bestellung|Order\s*Confirmation|Angebot|Offerte|Quotation|Quote)\s*(?:s[- ]?Nr\.?|Nr\.?|No\.?)?\s*[:#]?\s*([A-Z0-9/-]{4,})/i)?.[1] || null
   const referenceNumber = text.match(/\b(?:AB-[A-Z0-9]+(?:-[A-Z0-9]+)*|TAFEL-\d+)\b/i)?.[0]
     || text.match(/(?:Ihre\s+(?:Bestell|Auftrags)(?:nummer|nr\.?)|Your\s+(?:order|reference))\s*[:#]?\s*([A-Z0-9/-]{4,})/i)?.[1]
     || null

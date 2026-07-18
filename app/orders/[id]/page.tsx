@@ -1753,7 +1753,7 @@ LKS-Team`
       )))
       setMsg(`${pdfFile.file_name}: ${importMessage}`)
     } catch (error: any) {
-      await failImport(error.message || 'Lieferanten-AB konnte nicht ausgewertet werden.')
+      await failImport(error.message || 'Das Lieferantendokument konnte nicht ausgewertet werden.')
     } finally {
       setProcessingPricePdfId('')
     }
