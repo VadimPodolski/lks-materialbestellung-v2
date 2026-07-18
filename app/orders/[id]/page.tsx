@@ -221,7 +221,11 @@ export default function OrderDetailPage() {
 
   const [receiptDrafts, setReceiptDrafts] = useState<Record<string, ReceiptDraft>>({})
   const [scrapDrafts, setScrapDrafts] = useState<Record<string, ScrapDraft>>({})
+  const [selectedReceiptIds, setSelectedReceiptIds] = useState<string[]>([])
   const [selectedScrapIds, setSelectedScrapIds] = useState<string[]>([])
+  const allReceiptsSelected = receipts.length > 0 && receipts.every(
+    receipt => selectedReceiptIds.includes(receipt.id)
+  )
   const selectableScrapIds = useMemo(
     () => scraps.filter(scrap => !scrap.reordered).map(scrap => scrap.id),
     [scraps]
@@ -699,6 +703,18 @@ export default function OrderDetailPage() {
         ? prev.filter(id => id !== scrapId)
         : [...prev, scrapId]
     )
+  }
+
+  function toggleReceiptSelection(receiptId: string) {
+    setSelectedReceiptIds(previous =>
+      previous.includes(receiptId)
+        ? previous.filter(id => id !== receiptId)
+        : [...previous, receiptId]
+    )
+  }
+
+  function toggleAllReceiptSelections() {
+    setSelectedReceiptIds(allReceiptsSelected ? [] : receipts.map(receipt => receipt.id))
   }
 
   function toggleAllScrapSelections() {
@@ -1312,9 +1328,38 @@ LKS-Team`
       .delete()
       .eq('id', receipt.id)
 
+    setSelectedReceiptIds(previous => previous.filter(id => id !== receipt.id))
     await recalculateStatus(order.id, orderItemsTotal(orderItems), Boolean(order.ordered_at))
     await load()
     setMsg('Wareneingang wurde gelöscht.')
+  }
+
+  async function deleteSelectedReceipts() {
+    if (!order || selectedReceiptIds.length === 0) return
+
+    if (!await ask({
+      title: 'Wareneingänge löschen',
+      message: `${selectedReceiptIds.length} ausgewählte Wareneingänge wirklich löschen?`,
+      confirmLabel: 'Alle löschen',
+      danger: true
+    })) return
+
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('goods_receipts')
+      .delete()
+      .in('id', selectedReceiptIds)
+
+    if (error) {
+      setMsg(`Wareneingänge konnten nicht gelöscht werden: ${error.message}`)
+      return
+    }
+
+    setSelectedReceiptIds([])
+    setEditingReceiptId('')
+    await recalculateStatus(order.id, orderItemsTotal(orderItems), Boolean(order.ordered_at))
+    await load()
+    setMsg('Ausgewählte Wareneingänge wurden gelöscht.')
   }
 
   async function uploadOrderPdfs(files: FileList | File[], documentType: PdfDocumentType) {
@@ -1670,6 +1715,36 @@ LKS-Team`
     setSelectedScrapIds(prev => prev.filter(id => id !== scrap.id))
     await load()
     setMsg('Ausschuss wurde gelöscht.')
+  }
+
+  async function deleteSelectedScraps() {
+    const deletableIds = selectedScrapIds.filter(id =>
+      scraps.some(scrap => scrap.id === id && !scrap.reordered)
+    )
+    if (deletableIds.length === 0) return
+
+    if (!await ask({
+      title: 'Ausschuss löschen',
+      message: `${deletableIds.length} ausgewählte Ausschusspositionen wirklich löschen?`,
+      confirmLabel: 'Alle löschen',
+      danger: true
+    })) return
+
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('scrap_items')
+      .delete()
+      .in('id', deletableIds)
+
+    if (error) {
+      setMsg(`Ausschusspositionen konnten nicht gelöscht werden: ${error.message}`)
+      return
+    }
+
+    setSelectedScrapIds([])
+    setEditingScrapId('')
+    await load()
+    setMsg('Ausgewählte Ausschusspositionen wurden gelöscht.')
   }
 
   async function cancelOrder() {
@@ -2444,12 +2519,28 @@ LKS-Team`
       <div className="card">
         <div className="actions" style={{ justifyContent: 'space-between' }}>
           <h2>Ausschuss</h2>
-          <button type="button" onClick={reorderSelectedScraps}>
-            Ausgewählte nachbestellen
-          </button>
+          <div className="actions">
+            {selectedScrapIds.length > 0 && (
+              <button type="button" className="danger" onClick={deleteSelectedScraps}>
+                Ausgewählte löschen
+              </button>
+            )}
+            <button type="button" onClick={reorderSelectedScraps}>
+              Ausgewählte nachbestellen
+            </button>
+          </div>
         </div>
 
         <table className="order-history-table">
+          <colgroup>
+            <col className="history-selection-column" />
+            <col className="history-date-column" />
+            <col className="history-position-column" />
+            <col className="history-quantity-column" />
+            <col className="history-detail-column" />
+            <col className="history-status-column" />
+            <col className="history-actions-column" />
+          </colgroup>
           <thead>
             <tr>
               <th>
@@ -2550,11 +2641,38 @@ LKS-Team`
       </div>
 
       <div className="card">
-        <h2>Wareneingänge</h2>
+        <div className="actions" style={{ justifyContent: 'space-between' }}>
+          <h2>Wareneingänge</h2>
+          {selectedReceiptIds.length > 0 && (
+            <button type="button" className="danger" onClick={deleteSelectedReceipts}>
+              Ausgewählte löschen
+            </button>
+          )}
+        </div>
 
         <table className="order-history-table">
+          <colgroup>
+            <col className="history-selection-column" />
+            <col className="history-date-column" />
+            <col className="history-position-column" />
+            <col className="history-quantity-column" />
+            <col className="history-detail-column" />
+            <col className="history-status-column" />
+            <col className="history-actions-column" />
+          </colgroup>
           <thead>
             <tr>
+              <th>
+                <input
+                  type="checkbox"
+                  checked={allReceiptsSelected}
+                  disabled={receipts.length === 0}
+                  onChange={toggleAllReceiptSelections}
+                  className="table-checkbox"
+                  aria-label="Alle Wareneingänge auswählen"
+                  title="Alle Wareneingänge auswählen"
+                />
+              </th>
               <th>Datum</th>
               <th>Position</th>
               <th>Stückzahl</th>
@@ -2567,6 +2685,15 @@ LKS-Team`
           <tbody>
             {receipts.map(r => (
               <tr key={r.id}>
+                <td>
+                  <input
+                    type="checkbox"
+                    checked={selectedReceiptIds.includes(r.id)}
+                    onChange={() => toggleReceiptSelection(r.id)}
+                    className="table-checkbox"
+                    aria-label="Wareneingang auswählen"
+                  />
+                </td>
                 <td>{new Date(r.received_at).toLocaleString('de-DE')}</td>
 
                 {editingReceiptId === r.id ? (

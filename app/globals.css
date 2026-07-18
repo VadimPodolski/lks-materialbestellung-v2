@@ -1899,6 +1899,34 @@ table td {
   text-align: right !important;
 }
 
+.order-history-table {
+  table-layout: fixed;
+}
+
+.order-history-table .history-selection-column {
+  width: 52px;
+}
+
+.order-history-table .history-date-column {
+  width: 210px;
+}
+
+.order-history-table .history-position-column {
+  width: 32%;
+}
+
+.order-history-table .history-quantity-column {
+  width: 125px;
+}
+
+.order-history-table .history-status-column {
+  width: 150px;
+}
+
+.order-history-table .history-actions-column {
+  width: 210px;
+}
+
 .order-history-table td.order-history-actions .actions {
   justify-content: flex-end;
   flex-wrap: nowrap;
