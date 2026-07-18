@@ -727,7 +727,7 @@ LKS-Technik GmbH & Co. KG`
     }
   }
 
-  async function recalculateStatus(orderId: string, quantity: number) {
+  async function recalculateStatus(orderId: string, quantity: number, hasBeenOrdered: boolean) {
     const supabase = createClient()
 
     const { data } = await supabase
@@ -740,9 +740,9 @@ LKS-Technik GmbH & Co. KG`
       0
     )
 
-    let newStatus = 'bestellt'
+    let newStatus = hasBeenOrdered ? 'bestellt' : 'offen'
 
-    if (sum === 0) newStatus = 'bestellt'
+    if (sum === 0) newStatus = hasBeenOrdered ? 'bestellt' : 'offen'
     else if (sum < quantity) newStatus = 'teilweise_geliefert'
     else newStatus = 'geliefert'
 
@@ -803,6 +803,7 @@ LKS-Technik GmbH & Co. KG`
 
     const firstItem = primaryOrderItem(cleanItems)
     const totalQuantity = orderItemsTotal(cleanItems)
+    const supplierChanged = (order.supplier_id || '') !== (editForm.supplier_id || '')
 
     const { error } = await supabase
       .from('material_orders')
@@ -815,7 +816,8 @@ LKS-Technik GmbH & Co. KG`
         quantity: totalQuantity,
         customer_delivery_date: twoDLaser ? null : editForm.customer_delivery_date || null,
         desired_delivery_date: editForm.desired_delivery_date || null,
-        notes: editForm.notes || null
+        notes: editForm.notes || null,
+        ...(supplierChanged ? { ordered_at: null, ordered_by: null } : {})
       })
       .eq('id', order.id)
 
@@ -852,10 +854,12 @@ LKS-Technik GmbH & Co. KG`
       await supabase.from('packaging_defaults').upsert(defaultRows)
     }
 
-    await recalculateStatus(order.id, totalQuantity)
+    await recalculateStatus(order.id, totalQuantity, supplierChanged ? false : Boolean(order.ordered_at))
     setEditing(false)
     await load()
-    setMsg('Änderungen wurden gespeichert.')
+    setMsg(supplierChanged
+      ? 'Lieferant wurde geändert. Die Bestellung kann erneut gesendet werden.'
+      : 'Änderungen wurden gespeichert.')
   }
 
   async function markOrdered() {
@@ -949,7 +953,7 @@ LKS-Technik GmbH & Co. KG`
       return
     }
 
-    await recalculateStatus(order.id, orderItemsTotal(orderItems))
+    await recalculateStatus(order.id, orderItemsTotal(orderItems), Boolean(order.ordered_at))
 
     setReceiptDrafts(prev => {
       const next = { ...prev }
@@ -1192,7 +1196,7 @@ LKS-Technik GmbH & Co. KG`
       .eq('id', receipt.id)
 
     setEditingReceiptId('')
-    await recalculateStatus(order.id, orderItemsTotal(orderItems))
+    await recalculateStatus(order.id, orderItemsTotal(orderItems), Boolean(order.ordered_at))
     await load()
     setMsg('Wareneingang wurde geändert.')
   }
@@ -1213,7 +1217,7 @@ LKS-Technik GmbH & Co. KG`
       .delete()
       .eq('id', receipt.id)
 
-    await recalculateStatus(order.id, orderItemsTotal(orderItems))
+    await recalculateStatus(order.id, orderItemsTotal(orderItems), Boolean(order.ordered_at))
     await load()
     setMsg('Wareneingang wurde gelöscht.')
   }
