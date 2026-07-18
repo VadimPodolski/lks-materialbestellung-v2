@@ -649,7 +649,7 @@ ${orderItemsMailText(orderItems)}
 Liefertermin: ${order.desired_delivery_date ? formatDateShort(order.desired_delivery_date) : 'schnellstmöglich'}
 
 Mit freundlichen Grüßen
-LKS-Technik GmbH & Co. KG`
+LKS-Team`
 
     return `mailto:${order.suppliers.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }

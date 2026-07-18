@@ -6,6 +6,7 @@ import {
   orderItemQuantityText,
   orderItemsMailText
 } from '@/lib/orderItems'
+import { lksEmailLogoBase64 } from '@/lib/lksEmailLogo'
 
 function formatDateShort(value: string) {
   const [year, month, day] = value.split('-')
@@ -38,8 +39,8 @@ function emailFooterHtml() {
                     33106 Paderborn
                   </td>
                   <td width="34%" valign="top" style="padding:0 18px 12px 0;">
-                    E-Mail: <a href="mailto:info@lks-technik.de" style="color:#0f5fa8;">info@lks-technik.de</a><br>
-                    Web: <a href="https://www.lks-technik.de" style="color:#0f5fa8;">www.lks-technik.de</a>
+                    E-Mail: <a href="mailto:info@lks-technik.de" style="color:#008f4c;">info@lks-technik.de</a><br>
+                    Web: <a href="https://www.lks-technik.de" style="color:#008f4c;">www.lks-technik.de</a>
                   </td>
                   <td width="28%" valign="top" style="padding:0 0 12px;">
                     Fon: +49 5251 78757 0<br>
@@ -93,7 +94,7 @@ function emailHtml({
   notes?: string | null
 }) {
   const deliveryDate = desiredDeliveryDate ? formatDateShort(desiredDeliveryDate) : 'schnellstmöglich'
-  const accent = isCancellation ? '#b42318' : '#0f5fa8'
+  const accent = isCancellation ? '#b42318' : '#00a859'
   const title = isCancellation ? 'Stornierung Ihrer Materialbestellung' : 'Materialbestellung'
   const intro = isCancellation
     ? 'Hiermit stornieren wir die nachfolgende Materialbestellung.'
@@ -104,16 +105,24 @@ function emailHtml({
 
   return `<!doctype html>
 <html lang="de">
-  <body style="margin:0;padding:0;background:#f3f6f9;font-family:Arial,Helvetica,sans-serif;color:#172033;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f3f6f9;">
+  <body style="margin:0;padding:0;background:#f3f5f4;font-family:Arial,Helvetica,sans-serif;color:#172033;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f3f5f4;">
       <tr>
         <td align="center" style="padding:28px 12px;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:760px;border-collapse:collapse;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 18px rgba(15,35,55,.08);">
             <tr>
-              <td style="padding:24px 32px;background:${accent};color:#ffffff;">
-                <div style="font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.85;">LKS-Technik GmbH &amp; Co. KG</div>
-                <div style="margin-top:7px;font-size:25px;font-weight:700;">${title}</div>
-                <div style="margin-top:5px;font-size:14px;opacity:.9;">Auftrag ${escapeHtml(orderNumber)}</div>
+              <td style="padding:22px 32px;background:#20252a;border-top:7px solid #00a859;color:#ffffff;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                  <tr>
+                    <td valign="middle" style="padding-right:20px;">
+                      <div style="font-size:25px;font-weight:700;">${title}</div>
+                      <div style="margin-top:7px;color:#d7dadd;font-size:14px;">Auftrag ${escapeHtml(orderNumber)}</div>
+                    </td>
+                    <td width="130" align="right" valign="middle">
+                      <img src="cid:lks-technik-logo" width="112" alt="LKS Technik" style="display:block;width:112px;max-width:112px;height:auto;border:0;">
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
             <tr>
@@ -140,7 +149,7 @@ function emailHtml({
               <td style="padding:8px 32px 22px;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #dbe3ec;border-radius:8px;overflow:hidden;font-size:14px;">
                   <thead>
-                    <tr style="background:#edf3f8;color:#475569;text-align:left;">
+                    <tr style="background:#eef2f0;color:#475569;text-align:left;">
                       <th style="padding:11px 10px;width:34px;">Pos.</th>
                       <th style="padding:11px 10px;">Material</th>
                       <th style="padding:11px 10px;">Querschnitt</th>
@@ -151,8 +160,8 @@ function emailHtml({
                   <tbody>${orderItemsHtml(orderItems)}</tbody>
                 </table>
                 ${isCancellation && notes ? `<p style="margin:18px 0 0;"><strong>Bemerkung:</strong> ${escapeHtml(notes)}</p>` : ''}
-                <div style="margin-top:22px;padding:14px 16px;border-left:4px solid ${accent};background:${isCancellation ? '#fff5f4' : '#f0f7fc'};font-size:14px;line-height:1.55;">${actionNote}</div>
-                <p style="margin:26px 0 0;font-size:15px;line-height:1.6;">Mit freundlichen Grüßen<br><strong>LKS-Technik GmbH &amp; Co. KG</strong></p>
+                <div style="margin-top:22px;padding:14px 16px;border-left:4px solid ${accent};background:${isCancellation ? '#fff5f4' : '#edf9f3'};font-size:14px;line-height:1.55;">${actionNote}</div>
+                <p style="margin:26px 0 0;font-size:15px;line-height:1.6;">Mit freundlichen Grüßen<br><strong>LKS-Team</strong></p>
               </td>
             </tr>
             ${emailFooterHtml()}
@@ -237,7 +246,7 @@ Bitte bestätigen Sie uns die Stornierung kurz per E-Mail.
 
 Mit freundlichen Grüßen
 
-LKS-Technik GmbH & Co. KG`
+LKS-Team`
       : `Sehr geehrte Damen und Herren,
 
 bitte liefern Sie uns folgendes Material:
@@ -255,7 +264,7 @@ Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren un
 
 Mit freundlichen Grüßen
 
-LKS-Technik GmbH & Co. KG`
+LKS-Team`
 
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
@@ -269,7 +278,12 @@ LKS-Technik GmbH & Co. KG`
         orderItems,
         desiredDeliveryDate,
         notes
-      })
+      }),
+      attachments: [{
+        filename: 'lks-technik-logo.png',
+        content: Buffer.from(lksEmailLogoBase64, 'base64'),
+        cid: 'lks-technik-logo'
+      }]
     })
 
     return NextResponse.json({
