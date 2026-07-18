@@ -1587,6 +1587,53 @@ LKS-Team`
         return
       }
 
+      if (!result.referenceNumber) {
+        if (extractedPositions.length !== orderItems.length || updates.length !== orderItems.length) {
+          await failImport(
+            `Keine AB-Nummer in der PDF gefunden. Die Positionen stimmen nicht überein ` +
+            `(Auftrag: ${orderItems.length}, PDF: ${extractedPositions.length}).`
+          )
+          return
+        }
+
+        function supplierPieceQuantity(price: typeof extractedPositions[number]) {
+          if (price.priceUnit.toLocaleLowerCase('de-DE') === 'stück') {
+            return Number(price.priceQuantity)
+          }
+
+          const pieceMatch = price.description.match(
+            /(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:Stück|Stk\.?|Stg\.?|Stäbe?|Stab)(?:\s|$)/i
+          )
+          if (!pieceMatch) return null
+
+          return Number(pieceMatch[1].replace(',', '.'))
+        }
+
+        const quantityMismatch = updates.find(({ price, item }) => {
+          const pdfQuantity = supplierPieceQuantity(price)
+          return pdfQuantity != null && pdfQuantity !== Number(item.quantity)
+        })
+
+        if (quantityMismatch) {
+          const pdfQuantity = supplierPieceQuantity(quantityMismatch.price)
+          await failImport(
+            `Keine AB-Nummer in der PDF gefunden. Die Stückzahl von Position ` +
+            `${quantityMismatch.price.position} stimmt nicht überein ` +
+            `(Auftrag: ${quantityMismatch.item.quantity}, PDF: ${pdfQuantity}).`
+          )
+          return
+        }
+
+        const quantityNotRecognized = updates.find(({ price }) => supplierPieceQuantity(price) == null)
+        if (quantityNotRecognized) {
+          await failImport(
+            `Keine AB-Nummer in der PDF gefunden. Die Stückzahl von Position ` +
+            `${quantityNotRecognized.price.position} konnte nicht eindeutig erkannt werden.`
+          )
+          return
+        }
+      }
+
       const updateResults = await Promise.all(updates.map(({ price, item }) => (
         supabase
           .from('order_items')

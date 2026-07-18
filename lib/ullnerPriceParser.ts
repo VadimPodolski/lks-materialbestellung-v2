@@ -207,7 +207,7 @@ export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirm
   }
 
   const confirmationNumber = text.match(/(?:Auftragsbest(?:ätigung|\.)|Bestellung)\s*[:#]?\s*([A-Z0-9-]{4,})/i)?.[1] || null
-  const referenceNumber = text.match(/(?:Referenz|Kommission|Ihre Bestellung)\s*[:#]?\s*([A-Z0-9-]+)/i)?.[1] || null
+  const referenceNumber = text.match(/\b(?:AB-[A-Z0-9]+(?:-[A-Z0-9]+)*|TAFEL-\d+)\b/i)?.[0] || null
 
   return { confirmationNumber, referenceNumber, supplierFormat: isKloeckner ? 'kloeckner' : 'generic', positions }
 }
