@@ -142,10 +142,14 @@ function emailHtml({
                     <td width="27%" style="width:27%;padding:14px 16px;font-weight:700;">${escapeHtml(orderedBy || '-')}</td>
                   </tr>
                   ${isCancellation ? '' : isScrapReorder ? `<tr>
-                    <td style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Liefertermin</td>
-                    <td style="padding:0 16px 14px;font-weight:700;color:${accent};">${escapeHtml(deliveryDate)}</td>
+                    <td valign="top" style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Liefertermin</td>
+                    <td valign="top" style="padding:0 16px 14px;font-weight:700;color:${accent};line-height:1.55;">${escapeHtml(deliveryDate)}</td>
                     <td valign="top" style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Grund</td>
-                    <td style="padding:0 16px 14px;line-height:1.55;overflow-wrap:anywhere;">${escapeHtml(scrapReason)}</td>
+                    <td valign="top" style="padding:0 16px 14px;line-height:1.55;overflow-wrap:anywhere;">${escapeHtml(scrapReason)}</td>
+                  </tr>
+                  <tr>
+                    <td valign="top" style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Bemerkung</td>
+                    <td colspan="3" valign="top" style="padding:0 16px 14px;line-height:1.55;">Nachbestellung aus Ausschuss</td>
                   </tr>` : notesAreLong ? `<tr>
                     <td style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Liefertermin</td>
                     <td colspan="3" style="padding:0 16px 14px;font-weight:700;color:${accent};">${escapeHtml(deliveryDate)}</td>
