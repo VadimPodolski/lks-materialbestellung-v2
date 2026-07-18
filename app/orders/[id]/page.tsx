@@ -1054,14 +1054,12 @@ LKS-Team`
     }))
     const firstItem = primaryOrderItem(reorderItems)
     const totalQuantity = orderItemsTotal(reorderItems)
-    const reorderNotes = `Nachbestellung aus Ausschuss (${totalQuantity} Stück)\n${selectedScraps.map(scrap => {
-      const fallbackItem = primaryOrderItem(orderItems)
-      const material = scrap.material || fallbackItem.material
-      const crossSection = scrap.cross_section || fallbackItem.cross_section
-      const lengthMm = scrap.length_mm ?? fallbackItem.length_mm
-
-      return `- ${material} - ${crossSection}, ${lengthMm || '-'} mm: ${scrap.quantity} Stück, Grund: ${scrap.reason || '-'}`
-    }).join('\n')}`
+    const scrapReasons = Array.from(new Set(
+      selectedScraps
+        .map(scrap => (scrap.reason || '').trim())
+        .filter(Boolean)
+    ))
+    const reorderNotes = `Nachbestellung aus Ausschuss - Grund: ${scrapReasons.join('; ') || '-'}`
 
     if (!await ask({
       title: 'Ausschuss nachbestellen',
@@ -1089,14 +1087,7 @@ LKS-Team`
         customer_delivery_date: order.customer_delivery_date,
         desired_delivery_date: order.desired_delivery_date,
         status: 'offen',
-        notes: `Nachbestellung aus Ausschuss (${totalQuantity} Stück)\n${selectedScraps.map(scrap => {
-          const fallbackItem = primaryOrderItem(orderItems)
-          const material = scrap.material || fallbackItem.material
-          const crossSection = scrap.cross_section || fallbackItem.cross_section
-          const lengthMm = scrap.length_mm ?? fallbackItem.length_mm
-
-          return `- ${material} - ${crossSection}, ${lengthMm || '-'} mm: ${scrap.quantity} Stück, Grund: ${scrap.reason || '-'}`
-        }).join('\n')}`,
+        notes: reorderNotes,
         created_by: userData.user?.id || null
       })
       .select('id')
