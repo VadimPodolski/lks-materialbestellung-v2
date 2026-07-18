@@ -1035,6 +1035,10 @@ LKS-Team`
   async function bookScraps() {
     if (!order) return
 
+    if (receipts.length === 0) {
+      return setMsg('Ausschuss kann erst nach einem gebuchten Wareneingang erfasst werden.')
+    }
+
     const entries = orderItems
       .map((item, index) => {
         const draftKey = orderItemOptionValue(item, index)
@@ -1051,6 +1055,10 @@ LKS-Team`
 
     if (entries.some(entry => !entry.qty || entry.qty < 1)) {
       return setMsg('Bitte nur gültige Ausschussmengen größer 0 eingeben.')
+    }
+
+    if (entries.some(entry => entry.qty + scrapQtyForItem(entry.item) > Number(entry.item.quantity))) {
+      return setMsg('Die gesamte AUS-Menge darf die bestellte Stückzahl der jeweiligen Position nicht überschreiten.')
     }
 
     const supabase = createClient()
@@ -1828,7 +1836,7 @@ LKS-Team`
                           {receivedQtyForItem(item)}
                         </td>
                         <td className="we-block">
-                          <input
+                           <input
                             type="number"
                             min="1"
                             step={item.order_unit === 'kg' ? '0.01' : '1'}
@@ -1858,6 +1866,7 @@ LKS-Team`
                           <input
                             type="number"
                             min="1"
+                            max={Math.max(Number(item.quantity) - scrapQtyForItem(item), 0)}
                             step={item.order_unit === 'kg' ? '0.01' : '1'}
                             value={draft.quantity}
                             onChange={e => setScrapDraft(item, index, 'quantity', e.target.value)}
@@ -1885,7 +1894,7 @@ LKS-Team`
                       </button>
                     </td>
                     <td className="position-booking-cell scrap-booking-cell" colSpan={3}>
-                      <button type="button" onClick={bookScraps}>
+                      <button type="button" onClick={bookScraps} disabled={receipts.length === 0}>
                         Ausschuss buchen
                       </button>
                     </td>
