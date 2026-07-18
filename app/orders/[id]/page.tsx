@@ -2110,7 +2110,7 @@ LKS-Team`
               <p><b>Bemerkung:</b><br />{order.notes}</p>
             )}
 
-            <div className="actions">
+            <div className="actions order-detail-actions">
               <button
                 type="button"
                 className="order-send-button"

@@ -1293,6 +1293,11 @@ a.card:hover {
   outline-offset: 1px;
 }
 
+.order-detail-actions {
+  margin-top: 22px;
+  margin-bottom: 24px;
+}
+
 .order-summary-grid > p > b {
   display: block;
   margin-bottom: 6px;
