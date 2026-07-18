@@ -37,7 +37,7 @@ type Order = {
   order_pdfs?: { file_name: string | null; file_url: string | null }[] | null
   suppliers: { name: string } | null
   order_items?: OrderItem[] | null
-  goods_receipts?: { received_quantity: number | null; delivery_note_number: string | null }[]
+  goods_receipts?: { received_quantity: number | null; delivery_note_number: string | null; received_at: string | null }[]
   scrap_items?: { quantity: number | null }[]
 }
 
@@ -72,7 +72,7 @@ type SortMode = 'latest_order' | SortKey
 type TubeStatisticsSortKey = 'material' | 'crossSection' | 'pieces' | 'meters' | 'weight' | 'totalPrice' | 'orders'
 type ActiveStatusMenu = { orderId: string; top: number; left: number; placement: 'top' | 'bottom' }
 
-const ARCHIVE_AFTER_DAYS = 30
+const ARCHIVE_AFTER_DAYS = 2
 const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000
 const ordersPageCache: Partial<Record<OrderArea, { orders: Order[]; profiles: Profile[] }>> = {}
 
@@ -248,7 +248,7 @@ function OrdersContent() {
           order_pdfs(file_name,file_url),
           suppliers(name),
           order_items(${orderItemsSelect}),
-          goods_receipts(received_quantity,delivery_note_number),
+          goods_receipts(received_quantity,delivery_note_number,received_at),
           scrap_items(quantity)
         `
     const ordersSelectWithoutPdfs = `
@@ -270,7 +270,7 @@ function OrdersContent() {
           supplier_order_pdf_url,
           suppliers(name),
           order_items(${orderItemsSelect}),
-          goods_receipts(received_quantity,delivery_note_number),
+          goods_receipts(received_quantity,delivery_note_number,received_at),
           scrap_items(quantity)
         `
 
@@ -521,10 +521,16 @@ function OrdersContent() {
   const today = new Date().toISOString().slice(0, 10)
 
   const archivedOrders = useMemo(() => orders.filter(order => {
-    if (visibleStatus(order) !== 'geliefert' || !order.created_at) return false
+    if (visibleStatus(order) !== 'geliefert') return false
 
-    const createdAt = new Date(order.created_at).getTime()
-    return Number.isFinite(createdAt) && createdAt <= deleteCheckTime - ARCHIVE_AFTER_MS
+    const receiptTimes = (order.goods_receipts || [])
+      .map(receipt => new Date(receipt.received_at || '').getTime())
+      .filter(Number.isFinite)
+    const deliveredAt = receiptTimes.length > 0
+      ? Math.max(...receiptTimes)
+      : new Date(order.created_at || '').getTime()
+
+    return Number.isFinite(deliveredAt) && deliveredAt <= deleteCheckTime - ARCHIVE_AFTER_MS
   }), [orders, deleteCheckTime])
 
   const listedOrders = useMemo(() => {
@@ -848,7 +854,7 @@ function OrdersContent() {
           <h1>{showArchive ? 'Archiv' : 'Bestellungen'} {orderArea === '2d-laser' ? '2D-Laser' : 'Rohrlaser'}</h1>
           {showArchive && (
             <p className="orders-archive-note">
-              Gelieferte Aufträge, die mindestens {ARCHIVE_AFTER_DAYS} Tage alt sind.
+              Aufträge, die seit mindestens {ARCHIVE_AFTER_DAYS} Tagen vollständig geliefert sind.
             </p>
           )}
         </div>
