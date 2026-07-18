@@ -1901,8 +1901,7 @@ table td {
 
 .order-history-table {
   table-layout: fixed;
-  width: 1240px;
-  max-width: 100%;
+  width: 100%;
 }
 
 .order-history-table .history-selection-column {
@@ -1926,7 +1925,7 @@ table td {
 }
 
 .order-history-table .history-status-column {
-  width: 135px;
+  width: auto;
 }
 
 .order-history-table .history-actions-column {
