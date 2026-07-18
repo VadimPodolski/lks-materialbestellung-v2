@@ -103,7 +103,10 @@ function emailHtml({
     ? 'Bitte bestätigen Sie uns die Stornierung kurz per E-Mail.'
     : 'Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere AB-Nummer an.'
   const notesText = notes?.trim() || '-'
-  const notesAreLong = notesText.length > 45
+  const scrapReorderPrefix = 'Nachbestellung aus Ausschuss - Grund:'
+  const isScrapReorder = notesText.startsWith(scrapReorderPrefix)
+  const scrapReason = isScrapReorder ? notesText.slice(scrapReorderPrefix.length).trim() || '-' : '-'
+  const notesAreLong = !isScrapReorder && notesText.length > 45
 
   return `<!doctype html>
 <html lang="de">
@@ -138,7 +141,12 @@ function emailHtml({
                     <td width="18%" style="width:18%;padding:14px 16px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Bearbeiter</td>
                     <td width="27%" style="width:27%;padding:14px 16px;font-weight:700;">${escapeHtml(orderedBy || '-')}</td>
                   </tr>
-                  ${isCancellation ? '' : notesAreLong ? `<tr>
+                  ${isCancellation ? '' : isScrapReorder ? `<tr>
+                    <td style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Liefertermin</td>
+                    <td style="padding:0 16px 14px;font-weight:700;color:${accent};">${escapeHtml(deliveryDate)}</td>
+                    <td valign="top" style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Grund</td>
+                    <td style="padding:0 16px 14px;line-height:1.55;overflow-wrap:anywhere;">${escapeHtml(scrapReason)}</td>
+                  </tr>` : notesAreLong ? `<tr>
                     <td style="padding:0 16px 14px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.05em;">Liefertermin</td>
                     <td colspan="3" style="padding:0 16px 14px;font-weight:700;color:${accent};">${escapeHtml(deliveryDate)}</td>
                   </tr>
