@@ -101,7 +101,7 @@ function emailHtml({
     : 'bitte liefern Sie uns die nachfolgend aufgeführten Materialien.'
   const actionNote = isCancellation
     ? 'Bitte bestätigen Sie uns die Stornierung kurz per E-Mail.'
-    : 'Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere AB-Nummer an.'
+    : 'Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere Auftragsnummer an und senden Sie diese bitte immer an einkauf@lks-technik.de.'
   const notesText = notes?.trim() || '-'
   const scrapReorderPrefix = 'Nachbestellung aus Ausschuss - Grund:'
   const isScrapReorder = notesText.startsWith(scrapReorderPrefix)
@@ -280,7 +280,7 @@ ${orderItemsMailText(orderItems)}
 Liefertermin: ${desiredDeliveryDate ? formatDateShort(desiredDeliveryDate) : 'schnellstmöglich'}
 Bemerkung: ${notes || '-'}
 
-Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere (AB-Nummer) an.
+Bitte geben Sie auf Ihrer Auftragsbestätigung sowie auf allen Lieferpapieren unsere Auftragsnummer an und senden Sie diese bitte immer an einkauf@lks-technik.de.
 
 
 Mit freundlichen Grüßen
