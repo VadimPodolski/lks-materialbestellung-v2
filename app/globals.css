@@ -1184,10 +1184,6 @@ a.card:hover {
   font-size: 9px;
 }
 
-.column-sort-indicator.is-hidden {
-  visibility: hidden;
-}
-
 .column-sort-button:hover,
 .column-sort-button.active {
   opacity: 1;

@@ -415,8 +415,8 @@ function MasterDataContent() {
     return (
       <button type="button" className={`column-sort-button${active ? ' active' : ''}`} onClick={onClick}>
         <span>{label}</span>
-        <span className={`column-sort-indicator${active ? '' : ' is-hidden'}`} aria-hidden="true">
-          {direction === 'asc' ? '▲' : '▼'}
+        <span className="column-sort-indicator" aria-hidden="true">
+          {active ? (direction === 'asc' ? '▲' : '▼') : '↕'}
         </span>
       </button>
     )
