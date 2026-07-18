@@ -762,10 +762,13 @@ function OrdersContent() {
   }
 
   function orderBaseNumber(orderNumber: string) {
-    return orderNumber.replace(/(?:-NB)+$/, '')
+    return orderNumber.replace(/(?:-NB)+(?:-\d+)?$/, '')
   }
 
   function orderLevel(orderNumber: string) {
+    const numberedReorder = orderNumber.match(/-NB-(\d+)$/)
+    if (numberedReorder) return Number(numberedReorder[1]) + 1
+
     return (orderNumber.match(/-NB/g) || []).length
   }
 

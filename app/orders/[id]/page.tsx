@@ -112,6 +112,25 @@ function customFormatValue(value: string) {
   return value.replace(/^(?:Eigenes Format|Sonderformat):\s*/i, '')
 }
 
+function reorderBaseOrderNumber(orderNumber: string) {
+  return orderNumber.replace(/(?:-NB)+(?:-\d+)?$/, '')
+}
+
+function nextReorderOrderNumber(baseOrderNumber: string, existingOrderNumbers: string[]) {
+  const prefix = `${baseOrderNumber}-NB`
+
+  if (!existingOrderNumbers.includes(prefix)) return prefix
+
+  const highestSuffix = existingOrderNumbers.reduce((highest, orderNumber) => {
+    if (!orderNumber.startsWith(`${prefix}-`)) return highest
+
+    const suffix = orderNumber.slice(prefix.length + 1)
+    return /^\d+$/.test(suffix) ? Math.max(highest, Number(suffix)) : highest
+  }, 0)
+
+  return `${prefix}-${String(highestSuffix + 1).padStart(2, '0')}`
+}
+
 function formatEuro(value: number | null | undefined, maximumFractionDigits = 2) {
   if (value == null) return '-'
 
@@ -1073,11 +1092,27 @@ LKS-Team`
     const { data: userData } = await supabase.auth.getUser()
     await ensureCurrentUserProfile(supabase, userData.user)
     const orderedBy = await currentUserDisplayName()
+    const baseOrderNumber = reorderBaseOrderNumber(order.order_number)
+    const { data: existingReorders, error: reorderNumberError } = await supabase
+      .from('material_orders')
+      .select('order_number')
+      .eq('order_area', order.order_area)
+      .like('order_number', `${baseOrderNumber}-NB%`)
+
+    if (reorderNumberError) {
+      setMsg(reorderNumberError.message)
+      return
+    }
+
+    const reorderOrderNumber = nextReorderOrderNumber(
+      baseOrderNumber,
+      (existingReorders || []).map(existingOrder => existingOrder.order_number)
+    )
 
     const { data, error } = await supabase
       .from('material_orders')
       .insert({
-        order_number: `${order.order_number}-NB`,
+        order_number: reorderOrderNumber,
         customer: order.customer,
         material: firstItem.material,
         cross_section: firstItem.cross_section,
@@ -1120,7 +1155,7 @@ LKS-Team`
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           supplierEmail: order.suppliers.email,
-          orderNumber: `${order.order_number}-NB`,
+          orderNumber: reorderOrderNumber,
           customer: order.customer,
           items: reorderItems,
           desiredDeliveryDate: order.desired_delivery_date,
