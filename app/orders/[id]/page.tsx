@@ -211,6 +211,7 @@ export default function OrderDetailPage() {
 
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({
+    order_number: '',
     customer: '',
     supplier_id: '',
     customer_delivery_date: '',
@@ -368,6 +369,7 @@ export default function OrderDetailPage() {
       const loadedItems = normalizeOrderItems(loadedOrder)
 
       setEditForm({
+        order_number: loadedOrder.order_number || '',
         customer: loadedOrder.customer || '',
         supplier_id: loadedOrder.supplier_id || referenceData.suppliers[0]?.id || '',
         customer_delivery_date: loadedOrder.customer_delivery_date || '',
@@ -856,6 +858,7 @@ LKS-Team`
 
     const supabase = createClient()
     const twoDLaser = normalizeOrderArea(order.order_area) === '2d-laser'
+    const orderNumber = twoDLaser ? order.order_number : editForm.order_number.trim().toUpperCase()
     const customerName = twoDLaser ? '2D-Laser' : editForm.customer.trim()
     const cleanItems = mergeOrderItems(editItems.map(item => ({
       material: item.material.trim(),
@@ -874,6 +877,24 @@ LKS-Team`
         ? Number(item.pieces_per_package || 0)
         : null
     })))
+
+    if (!twoDLaser && !/^AB-(?:[0-9]+|LAGER)(?:-NB(?:-[0-9]{2})?)?$/.test(orderNumber)) {
+      return setMsg('Bitte eine gültige AB-Nummer eintragen, zum Beispiel AB-1234567.')
+    }
+
+    if (!twoDLaser && orderNumber !== order.order_number) {
+      const { data: existingOrder, error: numberCheckError } = await supabase
+        .from('material_orders')
+        .select('id')
+        .eq('order_area', order.order_area)
+        .ilike('order_number', orderNumber)
+        .neq('id', order.id)
+        .limit(1)
+        .maybeSingle()
+
+      if (numberCheckError) return setMsg(numberCheckError.message)
+      if (existingOrder) return setMsg('Diese AB-Nummer ist bereits vergeben.')
+    }
 
     if (!twoDLaser && !customerName) {
       return setMsg('Bitte Kundennamen eintragen.')
@@ -906,6 +927,7 @@ LKS-Team`
     const { error } = await supabase
       .from('material_orders')
       .update({
+        order_number: orderNumber,
         customer: customerName,
         supplier_id: editForm.supplier_id || null,
         material: firstItem.material,
@@ -1875,7 +1897,20 @@ LKS-Team`
       <div className="actions" style={{ justifyContent: 'space-between' }}>
         <div>
           <h1>
-            Auftrag {order.order_number} — {order.customer}
+            Auftrag{' '}
+            {editing && !isTwoDLaser ? (
+              <input
+                className="order-number-heading-input"
+                value={editForm.order_number}
+                onChange={e => setEditForm(previous => ({
+                  ...previous,
+                  order_number: e.target.value.toUpperCase().replace(/\s/g, '')
+                }))}
+                aria-label="AB-Nummer bearbeiten"
+                title="AB-Nummer bearbeiten"
+              />
+            ) : order.order_number}
+            {' — '}{editing ? editForm.customer || order.customer : order.customer}
           </h1>
         </div>
 
