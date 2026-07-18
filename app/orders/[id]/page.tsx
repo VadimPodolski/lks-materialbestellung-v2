@@ -76,6 +76,33 @@ const pdfSections: { type: PdfDocumentType; title: string; uploadText: string }[
   { type: 'supplier_quote', title: '3. Lieferanten-Angebot', uploadText: 'Lieferanten-Angebot hier ablegen oder klicken' }
 ]
 
+function pdfIdentity(documentType: PdfDocumentType, fileName: string) {
+  return `${documentType}|${fileName.normalize('NFKC').trim().toLocaleLowerCase('de-DE')}`
+}
+
+function deduplicateOrderPdfs(pdfs: OrderPdf[]) {
+  const statusPriority: Record<string, number> = {
+    imported: 4,
+    processing: 3,
+    pending: 2,
+    failed: 1
+  }
+  const unique = new Map<string, OrderPdf>()
+
+  for (const pdf of pdfs) {
+    const key = pdfIdentity(pdf.document_type, pdf.file_name)
+    const existing = unique.get(key)
+    const existingPriority = existing ? statusPriority[existing.price_import_status || ''] || 0 : -1
+    const pdfPriority = statusPriority[pdf.price_import_status || ''] || 0
+
+    if (!existing || pdfPriority > existingPriority) {
+      unique.set(key, pdf)
+    }
+  }
+
+  return Array.from(unique.values())
+}
+
 type Receipt = {
   id: string
   order_item_id: string | null
@@ -334,7 +361,7 @@ export default function OrderDetailPage() {
     const loadedOrder = orderData as any
 
     setOrder(loadedOrder)
-    setOrderPdfs((pdfData as any) || [])
+    setOrderPdfs(deduplicateOrderPdfs(((pdfData as any) || []) as OrderPdf[]))
     setReceipts(receiptData || [])
     setScraps((scrapData as any) || [])
     const area = normalizeOrderArea(loadedOrder?.order_area)
@@ -1390,12 +1417,26 @@ LKS-Team`
   async function uploadOrderPdfs(files: FileList | File[], documentType: PdfDocumentType) {
     if (!order) return
 
-    const pdfFiles = Array.from(files).filter(file =>
+    const candidateFiles = Array.from(files).filter(file =>
       file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
     )
 
-    if (pdfFiles.length === 0) {
+    if (candidateFiles.length === 0) {
       setMsg('Bitte eine PDF-Datei hochladen.')
+      return
+    }
+
+    const knownPdfKeys = new Set(orderPdfs.map(pdf => pdfIdentity(pdf.document_type, pdf.file_name)))
+    const pdfFiles = candidateFiles.filter(file => {
+      const key = pdfIdentity(documentType, file.name)
+      if (knownPdfKeys.has(key)) return false
+      knownPdfKeys.add(key)
+      return true
+    })
+    const duplicateCount = candidateFiles.length - pdfFiles.length
+
+    if (pdfFiles.length === 0) {
+      setMsg('Diese PDF ist in diesem Bereich bereits vorhanden.')
       return
     }
 
@@ -1461,14 +1502,15 @@ LKS-Team`
       const uploadedPdfs = (insertedPdfs as OrderPdf[]) || []
 
       uploadedPdfs.forEach(pdf => processedPricePdfIds.current.add(pdf.id))
-      setOrderPdfs(current => [...uploadedPdfs, ...current])
+      setOrderPdfs(current => deduplicateOrderPdfs([...uploadedPdfs, ...current]))
 
       for (const pdf of uploadedPdfs) {
         await applySupplierPrices(pdf)
       }
     } else {
       await load()
-      setMsg(`${rows.length} PDF${rows.length === 1 ? '' : 's'} unter „${sectionTitle}“ hochgeladen.`)
+      setMsg(`${rows.length} PDF${rows.length === 1 ? '' : 's'} unter „${sectionTitle}“ hochgeladen.` +
+        (duplicateCount > 0 ? ` ${duplicateCount} Duplikat${duplicateCount === 1 ? '' : 'e'} übersprungen.` : ''))
     }
   }
 
@@ -1489,14 +1531,25 @@ LKS-Team`
 
     const supabase = createClient()
 
+    const { data: matchingPdfs } = await supabase
+      .from('order_pdfs')
+      .select('id,file_path')
+      .eq('material_order_id', order.id)
+      .eq('document_type', pdf.document_type)
+      .eq('file_name', pdf.file_name)
+
+    const duplicateRows = matchingPdfs?.length
+      ? matchingPdfs
+      : [{ id: pdf.id, file_path: pdf.file_path }]
+
     await supabase.storage
       .from('order-pdfs')
-      .remove([pdf.file_path])
+      .remove(duplicateRows.map(row => row.file_path))
 
     const { error } = await supabase
       .from('order_pdfs')
       .delete()
-      .eq('id', pdf.id)
+      .in('id', duplicateRows.map(row => row.id))
 
     if (error) {
       setMsg(error.message)
@@ -1504,7 +1557,7 @@ LKS-Team`
     }
 
     await load()
-    setMsg('PDF wurde gelöscht.')
+    setMsg(duplicateRows.length > 1 ? 'PDF und doppelte Kopien wurden gelöscht.' : 'PDF wurde gelöscht.')
   }
 
   async function applySupplierPrices(pdfFile: OrderPdf) {
