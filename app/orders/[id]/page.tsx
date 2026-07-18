@@ -1650,13 +1650,22 @@ LKS-Team`
           return
         }
 
-        function supplierPieceQuantity(price: typeof extractedPositions[number]) {
+        function supplierPieceQuantity(price: typeof extractedPositions[number], item: OrderItem) {
           if (price.pieceQuantity != null && Number.isFinite(Number(price.pieceQuantity))) {
             return Number(price.pieceQuantity)
           }
 
           if (price.priceUnit.toLocaleLowerCase('de-DE') === 'stück') {
             return Number(price.priceQuantity)
+          }
+
+          if (price.priceUnit.toLocaleLowerCase('de-DE') === 'm' && Number(item.length_mm) > 0) {
+            const pieces = Number(price.priceQuantity) / (Number(item.length_mm) / 1000)
+            const roundedPieces = Math.round(pieces)
+
+            if (Number.isFinite(pieces) && Math.abs(pieces - roundedPieces) < 0.01) {
+              return roundedPieces
+            }
           }
 
           const pieceMatch = price.description.match(
@@ -1668,12 +1677,12 @@ LKS-Team`
         }
 
         const quantityMismatch = updates.find(({ price, item }) => {
-          const pdfQuantity = supplierPieceQuantity(price)
+          const pdfQuantity = supplierPieceQuantity(price, item)
           return pdfQuantity != null && pdfQuantity !== Number(item.quantity)
         })
 
         if (quantityMismatch) {
-          const pdfQuantity = supplierPieceQuantity(quantityMismatch.price)
+          const pdfQuantity = supplierPieceQuantity(quantityMismatch.price, quantityMismatch.item)
           await failImport(
             `Keine AB-Nummer in der PDF gefunden. Die Stückzahl von Position ` +
             `${quantityMismatch.price.position} stimmt nicht überein ` +
@@ -1682,7 +1691,7 @@ LKS-Team`
           return
         }
 
-        const quantityNotRecognized = updates.find(({ price }) => supplierPieceQuantity(price) == null)
+        const quantityNotRecognized = updates.find(({ price, item }) => supplierPieceQuantity(price, item) == null)
         if (quantityNotRecognized) {
           await failImport(
             `Keine AB-Nummer in der PDF gefunden. Die Stückzahl von Position ` +
