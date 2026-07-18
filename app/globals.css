@@ -1901,30 +1901,36 @@ table td {
 
 .order-history-table {
   table-layout: fixed;
+  width: 1240px;
+  max-width: 100%;
 }
 
 .order-history-table .history-selection-column {
-  width: 52px;
+  width: 48px;
 }
 
 .order-history-table .history-date-column {
-  width: 210px;
+  width: 180px;
 }
 
 .order-history-table .history-position-column {
-  width: 32%;
+  width: 330px;
 }
 
 .order-history-table .history-quantity-column {
-  width: 125px;
+  width: 105px;
+}
+
+.order-history-table .history-detail-column {
+  width: 225px;
 }
 
 .order-history-table .history-status-column {
-  width: 150px;
+  width: 135px;
 }
 
 .order-history-table .history-actions-column {
-  width: 210px;
+  width: 217px;
 }
 
 .order-history-table td.order-history-actions .actions {
