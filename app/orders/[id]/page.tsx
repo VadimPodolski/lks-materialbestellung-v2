@@ -1612,6 +1612,7 @@ LKS-Team`
         position: number
         priceQuantity: number
         priceUnit: string
+        pieceQuantity: number | null
         unitPriceEur: number
         lineTotalEur: number
         description: string
@@ -1650,6 +1651,10 @@ LKS-Team`
         }
 
         function supplierPieceQuantity(price: typeof extractedPositions[number]) {
+          if (price.pieceQuantity != null && Number.isFinite(Number(price.pieceQuantity))) {
+            return Number(price.pieceQuantity)
+          }
+
           if (price.priceUnit.toLocaleLowerCase('de-DE') === 'stück') {
             return Number(price.priceQuantity)
           }
