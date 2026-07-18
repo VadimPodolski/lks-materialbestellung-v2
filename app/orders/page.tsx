@@ -445,7 +445,7 @@ function OrdersContent() {
   }
 
   function sortButton(key: SortKey, label: string) {
-    const isActive = sortKey === key
+    const isActive = sortMode !== 'latest_order' && sortKey === key
 
     return (
       <button
@@ -454,6 +454,9 @@ function OrdersContent() {
         onClick={() => toggleSort(key)}
       >
         <span>{label}</span>
+        <span className="column-sort-indicator" aria-hidden="true">
+          {isActive ? (sortDirection === 'asc' ? '▲' : '▼') : '↕'}
+        </span>
       </button>
     )
   }
