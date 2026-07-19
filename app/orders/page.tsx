@@ -1004,7 +1004,7 @@ function OrdersContent() {
       <div className="orders-table-shell" onScroll={() => setActiveStatusMenu(null)}>
       <table className={`orders-table ${orderArea === 'rohrlaser' ? 'tube-orders-table' : ''}`}>
         <colgroup>
-          {!showArchive && <col className="orders-col-status" />}
+          <col className="orders-col-status" />
           <col className="orders-col-order" />
           {orderArea === 'rohrlaser' && <col className="orders-col-customer" />}
           {orderArea === 'rohrlaser' && <col className="orders-col-date" />}
@@ -1026,7 +1026,7 @@ function OrdersContent() {
         </colgroup>
         <thead>
           <tr>
-            {!showArchive && <th>{sortButton('status', 'Status')}</th>}
+            <th>{sortButton('status', 'Status')}</th>
             <th>{sortButton('order_number', 'Auftrag')}</th>
             {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
             {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
@@ -1051,7 +1051,7 @@ function OrdersContent() {
         <tbody onClick={e => openOrderFromRow(e.target)}>
           {filtered.length === 0 && (
             <tr>
-              <td className="orders-empty-state" colSpan={orderArea === 'rohrlaser' ? (showArchive ? 17 : 18) : (showArchive ? 14 : 15)}>
+              <td className="orders-empty-state" colSpan={orderArea === 'rohrlaser' ? 18 : 15}>
                 {showArchive
                   ? 'Noch keine Aufträge im Archiv.'
                   : 'Keine Bestellungen für die gewählten Filter gefunden.'}
@@ -1081,7 +1081,7 @@ function OrdersContent() {
                 className={`clickable-order-row ${isReorder(o.order_number) ? 'reorder-row' : ''}`}
                 onMouseEnter={() => router.prefetch(`/orders/${o.id}${showArchive ? '?archiv=1' : ''}`)}
               >
-                {!showArchive && <td>
+                <td>
                   <div
                     className={`status-menu ${activeStatusMenu?.orderId === o.id ? 'open' : ''}`}
                     onMouseLeave={closeStatusMenuSoon}
@@ -1118,7 +1118,7 @@ function OrdersContent() {
                       </div>
                     )}
                   </div>
-                </td>}
+                </td>
                 <td>
                   <b>{o.order_number}</b>
                 </td>
