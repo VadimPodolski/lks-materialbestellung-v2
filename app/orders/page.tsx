@@ -145,6 +145,15 @@ function OrdersContent() {
   }, [searchParams])
 
   useEffect(() => {
+    if (!showArchive) return
+
+    setStatus('')
+    setOverdueOnly(false)
+    setMaterialThicknessFilter('')
+    if (sortMode === 'status') setSortMode('latest_order')
+  }, [showArchive, sortMode])
+
+  useEffect(() => {
     const cached = ordersPageCache[orderArea]
     setMaterialThicknessFilter('')
     if (cached) {
@@ -854,7 +863,8 @@ function OrdersContent() {
           <h1>{showArchive ? 'Archiv' : 'Bestellungen'} {orderArea === '2d-laser' ? '2D-Laser' : 'Rohrlaser'}</h1>
           {showArchive && (
             <p className="orders-archive-note">
-              Aufträge, die seit mindestens {ARCHIVE_AFTER_DAYS} Tagen vollständig geliefert sind.
+              Aufträge, die seit mindestens {ARCHIVE_AFTER_DAYS} Tagen vollständig geliefert sind.<br />
+              <b>{archivedOrders.length} {archivedOrders.length === 1 ? 'Eintrag' : 'Einträge'}</b>
             </p>
           )}
         </div>
@@ -927,7 +937,7 @@ function OrdersContent() {
           />
         </div>
 
-        <div>
+        {!showArchive && <div>
           <label>Status</label>
           <select value={status} onChange={e => setStatus(e.target.value)}>
             <option value="">Alle ({listedOrders.length})</option>
@@ -937,9 +947,9 @@ function OrdersContent() {
               </option>
             ))}
           </select>
-        </div>
+        </div>}
 
-        <div>
+        {!showArchive && <div>
           <label>Filter</label>
           <select
             value={overdueOnly ? 'overdue' : ''}
@@ -948,9 +958,9 @@ function OrdersContent() {
             <option value="">Alle</option>
             <option value="overdue">Nur überfällig</option>
           </select>
-        </div>
+        </div>}
 
-        {orderArea === '2d-laser' && (
+        {!showArchive && orderArea === '2d-laser' && (
           <div>
             <label>Materialstärke</label>
             <select value={materialThicknessFilter} onChange={e => setMaterialThicknessFilter(e.target.value)}>
@@ -978,7 +988,7 @@ function OrdersContent() {
           >
             <option value="latest_order">Letzter Auftrag</option>
             <option value="order_number">Auftragsnummer</option>
-            <option value="status">Status</option>
+            {!showArchive && <option value="status">Status</option>}
             {orderArea === 'rohrlaser' && <option value="customer">Kunde</option>}
             {orderArea === 'rohrlaser' && <option value="customer_delivery_date">K-Liefertermin</option>}
             <option value="material">Material</option>
@@ -994,7 +1004,7 @@ function OrdersContent() {
       <div className="orders-table-shell" onScroll={() => setActiveStatusMenu(null)}>
       <table className={`orders-table ${orderArea === 'rohrlaser' ? 'tube-orders-table' : ''}`}>
         <colgroup>
-          <col className="orders-col-status" />
+          {!showArchive && <col className="orders-col-status" />}
           <col className="orders-col-order" />
           {orderArea === 'rohrlaser' && <col className="orders-col-customer" />}
           {orderArea === 'rohrlaser' && <col className="orders-col-date" />}
@@ -1016,7 +1026,7 @@ function OrdersContent() {
         </colgroup>
         <thead>
           <tr>
-            <th>{sortButton('status', 'Status')}</th>
+            {!showArchive && <th>{sortButton('status', 'Status')}</th>}
             <th>{sortButton('order_number', 'Auftrag')}</th>
             {orderArea === 'rohrlaser' && <th>{sortButton('customer', 'Kunde')}</th>}
             {orderArea === 'rohrlaser' && <th>{sortButton('customer_delivery_date', 'K-Liefertermin')}</th>}
@@ -1041,7 +1051,7 @@ function OrdersContent() {
         <tbody onClick={e => openOrderFromRow(e.target)}>
           {filtered.length === 0 && (
             <tr>
-              <td className="orders-empty-state" colSpan={orderArea === 'rohrlaser' ? 18 : 15}>
+              <td className="orders-empty-state" colSpan={orderArea === 'rohrlaser' ? (showArchive ? 17 : 18) : (showArchive ? 14 : 15)}>
                 {showArchive
                   ? 'Noch keine Aufträge im Archiv.'
                   : 'Keine Bestellungen für die gewählten Filter gefunden.'}
@@ -1071,7 +1081,7 @@ function OrdersContent() {
                 className={`clickable-order-row ${isReorder(o.order_number) ? 'reorder-row' : ''}`}
                 onMouseEnter={() => router.prefetch(`/orders/${o.id}${showArchive ? '?archiv=1' : ''}`)}
               >
-                <td>
+                {!showArchive && <td>
                   <div
                     className={`status-menu ${activeStatusMenu?.orderId === o.id ? 'open' : ''}`}
                     onMouseLeave={closeStatusMenuSoon}
@@ -1108,7 +1118,7 @@ function OrdersContent() {
                       </div>
                     )}
                   </div>
-                </td>
+                </td>}
                 <td>
                   <b>{o.order_number}</b>
                 </td>
