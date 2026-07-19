@@ -1630,6 +1630,11 @@ LKS-Team`
         return
       }
 
+      const normalizedPdfName = result.supplierFormat === 'kloeckner'
+        && /^\d{5,}$/.test(String(result.confirmationNumber || '').trim())
+        ? `${String(result.confirmationNumber).trim()}.pdf`
+        : pdfFile.file_name
+
       const extractedPositions = (result.positions || []) as {
         position: number
         priceQuantity: number
@@ -1763,6 +1768,7 @@ LKS-Team`
       await supabase
         .from('order_pdfs')
         .update({
+          file_name: normalizedPdfName,
           price_import_status: 'imported',
           price_import_message: importMessage,
           prices_imported_at: new Date().toISOString()
@@ -1782,13 +1788,14 @@ LKS-Team`
         pdf.id === pdfFile.id
           ? {
               ...pdf,
+              file_name: normalizedPdfName,
               price_import_status: 'imported',
               price_import_message: importMessage,
               prices_imported_at: new Date().toISOString()
             }
           : pdf
       )))
-      setMsg(`${pdfFile.file_name}: ${importMessage}`)
+      setMsg(`${normalizedPdfName}: ${importMessage}`)
     } catch (error: any) {
       await failImport(error.message || 'Das Lieferantendokument konnte nicht ausgewertet werden.')
     } finally {
