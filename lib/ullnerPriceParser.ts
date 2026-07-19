@@ -11,7 +11,7 @@ export type UllnerPositionPrice = {
 export type UllnerPriceConfirmation = {
   confirmationNumber: string | null
   referenceNumber: string | null
-  supplierFormat: 'ullner' | 'kloeckner' | 'generic'
+  supplierFormat: 'ullner' | 'kloeckner' | 'dreckshage' | 'generic'
   positions: UllnerPositionPrice[]
 }
 
@@ -199,6 +199,32 @@ function parseGenericPriceLine(line: string) {
   return parseLooseGenericPriceLine(line)
 }
 
+function parseDreckshagePositions(text: string) {
+  const lineMarkers = Array.from(text.matchAll(/(?:^|\n)\s*(\d{1,3})\s+(?:\n\s*)?(\d{5,})(?=\s|\n)/g))
+  const markers = lineMarkers.length > 0
+    ? lineMarkers
+    : Array.from(text.matchAll(/\b(\d{1,3})\s+(\d{5,})\b/g))
+  const positions: UllnerPositionPrice[] = []
+
+  for (let index = 0; index < markers.length; index += 1) {
+    const marker = markers[index]
+    const blockStart = marker.index || 0
+    const blockEnd = markers[index + 1]?.index ?? text.length
+    const block = text.slice(blockStart, blockEnd).replace(/\s+/g, ' ').trim()
+    const price = parseGenericPriceLine(block)
+
+    if (!price) continue
+
+    positions.push({
+      position: Number(marker[1]),
+      ...price,
+      description: block
+    })
+  }
+
+  return positions
+}
+
 export function parseUllnerPriceConfirmation(text: string): UllnerPriceConfirmation {
   if (!/(?:ULLNER\s*u\.?\s*ULLNER|ullner\.de)/i.test(text)) {
     throw new Error('Die PDF wurde nicht als Ullner-Auftragsbestätigung erkannt.')
@@ -265,14 +291,15 @@ export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirm
 
   const compactText = text.replace(/\s+/g, '')
   const isKloeckner = /(?:klöckner|kloeckner)/i.test(text)
+  const isDreckshage = /dreckshage/i.test(text)
   const hasConfirmationTitle = /(?:Auftrags[- ]?best(?:ätigung|\.)|Bestellbestätigung|OrderConfirmation|SalesOrderConfirmation|Angebot|Offerte|Quotation|Quote)/i.test(compactText)
 
   if (!hasConfirmationTitle) {
     throw new Error('Die PDF wurde nicht als Lieferanten-Auftragsbestätigung oder Angebot erkannt.')
   }
-  const positions: UllnerPositionPrice[] = []
+  const positions: UllnerPositionPrice[] = isDreckshage ? parseDreckshagePositions(text) : []
 
-  for (let index = 0; index < lines.length; index += 1) {
+  for (let index = 0; positions.length === 0 && index < lines.length; index += 1) {
     let price: ReturnType<typeof parseGenericPriceLine> = null
     let priceLine = lines[index]
     let consumedLines = 1
@@ -316,5 +343,6 @@ export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirm
     || text.match(/(?:Ihre\s+(?:Bestell|Auftrags)(?:nummer|nr\.?)|Your\s+(?:order|reference))\s*[:#]?\s*([A-Z0-9/-]{4,})/i)?.[1]
     || null
 
-  return { confirmationNumber, referenceNumber, supplierFormat: isKloeckner ? 'kloeckner' : 'generic', positions }
+  const supplierFormat = isKloeckner ? 'kloeckner' : isDreckshage ? 'dreckshage' : 'generic'
+  return { confirmationNumber, referenceNumber, supplierFormat, positions }
 }
