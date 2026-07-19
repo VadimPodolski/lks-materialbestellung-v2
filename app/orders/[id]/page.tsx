@@ -1978,11 +1978,11 @@ LKS-Team`
     })) return
 
     if (!order.suppliers?.email) {
-      setMsg('Keine Lieferanten-E-Mail vorhanden. Stornierungsmail wurde nicht gesendet.')
+      setOrderMailMessage('Keine Lieferanten-E-Mail vorhanden. Stornierungsmail wurde nicht gesendet.')
       return
     }
 
-    setMsg('Stornierung wird per E-Mail versendet...')
+    setOrderMailMessage('Stornierung wird per E-Mail versendet...')
     const orderedBy = await currentUserDisplayName()
 
     const res = await fetch('/api/send-order-mail', {
@@ -2003,7 +2003,7 @@ LKS-Team`
     const data = await res.json()
 
     if (!res.ok) {
-      setMsg(data.error || 'Stornierungsmail konnte nicht gesendet werden.')
+      setOrderMailMessage(data.error || 'Stornierungsmail konnte nicht gesendet werden.')
       return
     }
 
@@ -2014,7 +2014,7 @@ LKS-Team`
       .eq('id', order.id)
 
     await load()
-    setMsg(data.warning
+    setOrderMailMessage(data.warning
       ? `Stornierung wurde gesendet, aber nicht in „Gesendete Objekte“ gespeichert: ${data.warning}`
       : 'Stornierung wurde per E-Mail gesendet, in „Gesendete Objekte“ gespeichert und der Status wurde auf Storniert gesetzt.')
   }
