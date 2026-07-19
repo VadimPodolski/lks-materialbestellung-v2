@@ -14,8 +14,25 @@ export async function ensureCurrentUserProfile(supabase: any, currentUser?: any)
     .maybeSingle()
 
   if (profileById) {
+    const profileUpdates: Record<string, string> = {}
+
     if (email && profileById.email !== email) {
-      await supabase.from('profiles').update({ email }).eq('id', user.id)
+      profileUpdates.email = email
+    }
+
+    if (!profileById.full_name && (metadataName || fallbackName)) {
+      profileUpdates.full_name = metadataName || fallbackName
+    }
+
+    if (Object.keys(profileUpdates).length > 0) {
+      const { data: updatedProfile, error } = await supabase
+        .from('profiles')
+        .update(profileUpdates)
+        .eq('id', user.id)
+        .select('id,full_name,email,role')
+        .single()
+
+      if (!error && updatedProfile) return updatedProfile
     }
 
     return profileById
@@ -41,8 +58,13 @@ export async function ensureCurrentUserProfile(supabase: any, currentUser?: any)
     if (!error) return row
   }
 
-  await supabase.from('profiles').upsert(row, { onConflict: 'id' })
-  return row
+  const { data: savedProfile, error } = await supabase
+    .from('profiles')
+    .upsert(row, { onConflict: 'id' })
+    .select('id,full_name,email,role')
+    .single()
+
+  return error ? null : savedProfile
 }
 
 function displayNameFromEmail(email: string | null) {

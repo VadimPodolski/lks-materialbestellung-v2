@@ -321,10 +321,22 @@ function OrdersContent() {
     setProfiles(nextProfiles)
     setLoadedOrderArea(area)
 
-    if (!LOGIN_DISABLED && user && !currentProfile) {
+    if (!LOGIN_DISABLED && user && (!currentProfile || !currentProfile.full_name)) {
       void ensureCurrentUserProfile(supabase, user).then(profile => {
-        if (requestId !== loadRequestId.current || profile?.role !== 'admin') return
-        setCanDeleteCurrentArea(canDeleteForOrderArea(email, true, area))
+        if (requestId !== loadRequestId.current || !profile) return
+
+        setProfiles(current => {
+          const next = current.some(item => item.id === profile.id)
+            ? current.map(item => item.id === profile.id ? profile : item)
+            : [...current, profile]
+
+          if (ordersPageCache[area]) ordersPageCache[area].profiles = next
+          return next
+        })
+
+        if (profile.role === 'admin') {
+          setCanDeleteCurrentArea(canDeleteForOrderArea(email, true, area))
+        }
       })
     }
   }
