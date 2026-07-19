@@ -229,6 +229,74 @@ function parseCompactDreckshagePrice(value: string) {
   return null
 }
 
+function enrichDreckshageDescription(value: string) {
+  const qeCode = value.match(
+    /QE\s*(\d+(?:[.,]\d+)?)\s*[.]\s*(\d+(?:[.,]\d+)?)\s*[.]\s*(\d+(?:[.,]\d+)?)\s*[.]\s*(\d{4})/i
+  )
+
+  if (!qeCode) return value
+
+  const crossSection = `${qeCode[1]} x ${qeCode[2]} x ${qeCode[3]} mm`
+  const materialNumber = `1.${qeCode[4]}`
+  return `${value} ${crossSection} ${materialNumber}`
+}
+
+function parseUnorderedDreckshagePrice(value: string) {
+  const normalized = value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim()
+  const quantityMatches = Array.from(normalized.matchAll(
+    /(\d+(?:[.,]\d+)?)\s*(Meter|Metre|Meters|Metres|mtr|lfm|m)(?=\s|$|[.,;/])/gi
+  ))
+  const moneyMatches = Array.from(normalized.matchAll(
+    /(?:\d{1,3}(?:[.\s]\d{3})+|\d+)[.,]\d{2,4}/g
+  ))
+  let best: {
+    priceQuantity: number
+    priceUnit: string
+    pieceQuantity: number | null
+    unitPriceEur: number
+    lineTotalEur: number
+    score: number
+  } | null = null
+
+  for (const quantityMatch of quantityMatches) {
+    const priceQuantity = localizedNumber(quantityMatch[1])
+    if (!Number.isFinite(priceQuantity) || priceQuantity <= 0) continue
+
+    for (let unitIndex = 0; unitIndex < moneyMatches.length; unitIndex += 1) {
+      const unitPriceEur = localizedNumber(moneyMatches[unitIndex][0])
+      if (!Number.isFinite(unitPriceEur) || unitPriceEur <= 0) continue
+
+      for (let totalIndex = 0; totalIndex < moneyMatches.length; totalIndex += 1) {
+        if (unitIndex === totalIndex) continue
+
+        const lineTotalEur = localizedNumber(moneyMatches[totalIndex][0])
+        if (!Number.isFinite(lineTotalEur) || lineTotalEur <= unitPriceEur) continue
+
+        const difference = Math.abs(priceQuantity * unitPriceEur - lineTotalEur)
+        const score = difference / Math.max(lineTotalEur, 1)
+        if (difference > 0.08 && score > 0.002) continue
+        if (best && best.score <= score) continue
+
+        const sixMeterPieces = priceQuantity / 6
+        best = {
+          priceQuantity,
+          priceUnit: 'm',
+          pieceQuantity: Math.abs(sixMeterPieces - Math.round(sixMeterPieces)) < 0.001
+            ? Math.round(sixMeterPieces)
+            : null,
+          unitPriceEur,
+          lineTotalEur,
+          score
+        }
+      }
+    }
+  }
+
+  if (!best) return null
+  const { score: _score, ...price } = best
+  return price
+}
+
 function parseDreckshagePositions(text: string) {
   const lineMarkers = Array.from(text.matchAll(/(?:^|\n)\s*(\d{1,3})\s+(?:\n\s*)?(\d{5,})(?=\s|\n)/g))
   const markers = lineMarkers.length > 0
@@ -241,20 +309,24 @@ function parseDreckshagePositions(text: string) {
     const blockStart = marker.index || 0
     const blockEnd = markers[index + 1]?.index ?? text.length
     const block = text.slice(blockStart, blockEnd).replace(/\s+/g, ' ').trim()
-    const price = parseGenericPriceLine(block) || parseCompactDreckshagePrice(block)
+    const price = parseGenericPriceLine(block)
+      || parseCompactDreckshagePrice(block)
+      || parseUnorderedDreckshagePrice(block)
 
     if (!price) continue
 
     positions.push({
       position: Number(marker[1]),
       ...price,
-      description: block
+      description: enrichDreckshageDescription(block)
     })
   }
 
   if (positions.length === 0) {
     const fullDocument = text.replace(/\s+/g, ' ').trim()
-    const price = parseGenericPriceLine(fullDocument) || parseCompactDreckshagePrice(fullDocument)
+    const price = parseGenericPriceLine(fullDocument)
+      || parseCompactDreckshagePrice(fullDocument)
+      || parseUnorderedDreckshagePrice(fullDocument)
 
     if (price) {
       const position = Number(
@@ -265,7 +337,7 @@ function parseDreckshagePositions(text: string) {
       positions.push({
         position,
         ...price,
-        description: fullDocument
+        description: enrichDreckshageDescription(fullDocument)
       })
     }
   }
