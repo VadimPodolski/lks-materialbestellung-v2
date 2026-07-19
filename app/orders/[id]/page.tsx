@@ -869,7 +869,9 @@ LKS-Team`
       }
 
       await markOrdered()
-      setMsg(`Bestellung wurde an ${order.suppliers.email} versendet.`)
+      setMsg(data.warning
+        ? `Bestellung wurde versendet, aber nicht in „Gesendete Objekte“ gespeichert: ${data.warning}`
+        : data.message || `Bestellung wurde an ${order.suppliers.email} versendet.`)
     } finally {
       setSendingOrderEmail(false)
     }
@@ -1307,6 +1309,7 @@ LKS-Team`
       }))
     )
 
+    let reorderMailWarning = ''
     if (order.suppliers?.email) {
       const res = await fetch('/api/send-order-mail', {
         method: 'POST',
@@ -1331,6 +1334,8 @@ LKS-Team`
         return
       }
 
+      reorderMailWarning = mailData.warning || ''
+
       await supabase
         .from('material_orders')
         .update({
@@ -1348,7 +1353,11 @@ LKS-Team`
 
     await load()
     setSelectedScrapIds([])
-    setMsg(order.suppliers?.email ? 'Nachbestellung wurde erzeugt und per E-Mail versendet.' : 'Nachbestellung wurde erzeugt. Keine Lieferanten-E-Mail vorhanden.')
+    setMsg(order.suppliers?.email
+      ? (reorderMailWarning
+          ? `Nachbestellung wurde versendet, aber nicht in „Gesendete Objekte“ gespeichert: ${reorderMailWarning}`
+          : 'Nachbestellung wurde erzeugt, per E-Mail versendet und in „Gesendete Objekte“ gespeichert.')
+      : 'Nachbestellung wurde erzeugt. Keine Lieferanten-E-Mail vorhanden.')
     router.push(`/orders/${data.id}`)
   }
 
@@ -1995,7 +2004,9 @@ LKS-Team`
       .eq('id', order.id)
 
     await load()
-    setMsg('Stornierung wurde per E-Mail gesendet und der Status wurde auf Storniert gesetzt.')
+    setMsg(data.warning
+      ? `Stornierung wurde gesendet, aber nicht in „Gesendete Objekte“ gespeichert: ${data.warning}`
+      : 'Stornierung wurde per E-Mail gesendet, in „Gesendete Objekte“ gespeichert und der Status wurde auf Storniert gesetzt.')
   }
 
   async function deleteOrder() {

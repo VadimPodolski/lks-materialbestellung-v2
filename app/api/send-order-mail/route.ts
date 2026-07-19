@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 import nodemailer from 'nodemailer'
+import MailComposer from 'nodemailer/lib/mail-composer'
+import { ImapFlow } from 'imapflow'
+import { randomUUID } from 'crypto'
 import {
   formatMaterialThickness,
   formatCrossSectionMm,
@@ -9,6 +12,48 @@ import {
   orderItemsMailText
 } from '@/lib/orderItems'
 import { lksEmailLogoBase64 } from '@/lib/lksEmailLogo'
+
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+async function appendToSentFolder(rawMessage: Buffer) {
+  const user = process.env.INBOUND_EMAIL_USER || process.env.SMTP_USER
+  const password = process.env.INBOUND_EMAIL_PASSWORD || process.env.SMTP_PASS
+  const host = process.env.INBOUND_EMAIL_HOST || 'imap.ionos.de'
+  const port = Number(process.env.INBOUND_EMAIL_PORT || 993)
+
+  if (!user || !password) {
+    throw new Error('IMAP-Zugang zum Einkaufspostfach fehlt.')
+  }
+
+  const client = new ImapFlow({
+    host,
+    port,
+    secure: true,
+    auth: { user, pass: password },
+    logger: false,
+    socketTimeout: 30_000
+  })
+
+  try {
+    await client.connect()
+    const mailboxes = await client.list()
+    const sentMailbox = mailboxes.find(mailbox => mailbox.specialUse === '\\Sent')
+      || mailboxes.find(mailbox => {
+        const path = mailbox.path.toLocaleLowerCase('de-DE')
+        return ['sent', 'sent items', 'gesendet', 'gesendete objekte'].some(name => path === name || path.endsWith(`/${name}`) || path.endsWith(`.${name}`))
+      })
+
+    if (!sentMailbox) {
+      throw new Error('Ordner „Gesendete Objekte“ wurde im Einkaufspostfach nicht gefunden.')
+    }
+
+    const appended = await client.append(sentMailbox.path, rawMessage, ['\\Seen'], new Date())
+    if (!appended) throw new Error('E-Mail konnte nicht in „Gesendete Objekte“ gespeichert werden.')
+  } finally {
+    if (client.usable) await client.logout().catch(() => undefined)
+  }
+}
 
 function formatDateShort(value: string) {
   const [year, month, day] = value.split('-')
@@ -289,10 +334,12 @@ Mit freundlichen Grüßen
 
 LKS-Team`
 
-    await transporter.sendMail({
+    const messageId = `<${randomUUID()}@lks-technik.de>`
+    const mailOptions = {
       from: process.env.SMTP_FROM,
       to: supplierEmail,
       subject,
+      messageId,
       text,
       html: emailHtml({
         isCancellation,
@@ -307,13 +354,32 @@ LKS-Team`
         content: Buffer.from(lksEmailLogoBase64, 'base64'),
         cid: 'lks-technik-logo'
       }]
+    }
+    const rawMessage = await new Promise<Buffer>((resolve, reject) => {
+      new MailComposer(mailOptions).compile().build((error, message) => {
+        if (error) reject(error)
+        else resolve(message)
+      })
     })
+
+    await transporter.sendMail(mailOptions)
+
+    let sentFolderSaved = true
+    let sentFolderWarning: string | null = null
+    try {
+      await appendToSentFolder(rawMessage)
+    } catch (error: any) {
+      sentFolderSaved = false
+      sentFolderWarning = error.message || 'Kopie konnte nicht in „Gesendete Objekte“ gespeichert werden.'
+    }
 
     return NextResponse.json({
       success: true,
+      sentFolderSaved,
+      warning: sentFolderWarning,
       message: isCancellation
-        ? `Stornierung wurde an ${supplierName || supplierEmail} versendet.`
-        : `Bestellung wurde an ${supplierName || supplierEmail} versendet.`
+        ? `Stornierung wurde an ${supplierName || supplierEmail} versendet${sentFolderSaved ? ' und in „Gesendete Objekte“ gespeichert' : ''}.`
+        : `Bestellung wurde an ${supplierName || supplierEmail} versendet${sentFolderSaved ? ' und in „Gesendete Objekte“ gespeichert' : ''}.`
     })
   } catch (error: any) {
     return NextResponse.json(
