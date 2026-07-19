@@ -54,6 +54,7 @@ export async function middleware(request: NextRequest) {
   const publicAuthPages = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback']
   const isPublicAuthPage = publicAuthPages.some(path => request.nextUrl.pathname.startsWith(path))
   const isApprovalPage = request.nextUrl.pathname.startsWith('/pending-approval')
+  const isEmailApprovalPage = request.nextUrl.pathname.startsWith('/approve-user')
 
   if (!user && !isPublicAuthPage) {
     const loginUrl = new URL('/login', request.url)
@@ -71,7 +72,7 @@ export async function middleware(request: NextRequest) {
     const isAdmin = profile?.role === 'admin' || user.email?.toLowerCase() === 'v.podolski@lks-technik.de'
     const isApproved = isAdmin || profile?.approved === true
 
-    if (!isApproved && !isApprovalPage && !request.nextUrl.pathname.startsWith('/auth/callback')) {
+    if (!isApproved && !isApprovalPage && !isEmailApprovalPage && !request.nextUrl.pathname.startsWith('/auth/callback')) {
       return NextResponse.redirect(new URL('/pending-approval', request.url))
     }
 

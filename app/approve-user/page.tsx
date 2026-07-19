@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { isAdminRequest } from '@/lib/serverAdminAuth'
 import { verifyApprovalToken } from '@/lib/registrationApproval'
+import AdminLoginButton from './AdminLoginButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -23,7 +24,7 @@ export default async function ApproveUserPage({
 
   if (!isAdmin) {
     const next = `/approve-user?token=${encodeURIComponent(searchParams.token || '')}`
-    return <main className="container auth-page"><div className="card auth-card"><h1>Administrator-Anmeldung erforderlich</h1><p>Bitte melde dich mit deinem Administratorkonto an, um die Registrierung zu prüfen.</p><Link href={`/login?next=${encodeURIComponent(next)}`}>Als Administrator anmelden</Link></div></main>
+    return <main className="container auth-page"><div className="card auth-card"><h1>Administrator-Anmeldung erforderlich</h1><p>Du bist nicht mit einem Administratorkonto angemeldet. Wechsle jetzt zum Administratorkonto, um diese Registrierung freizugeben.</p><AdminLoginButton nextPath={next} /></div></main>
   }
 
   if (!payload) {
