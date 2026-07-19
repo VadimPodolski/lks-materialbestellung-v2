@@ -220,15 +220,15 @@ function materialMatchesDescription(material: string | null | undefined, descrip
   const expected = String(material || '').toLocaleLowerCase('de-DE')
   const actual = description.toLocaleLowerCase('de-DE')
 
-  if (/v2a|1[.,]4301|1[.,]4307|1[.,]4541/.test(expected)) {
-    return /v2a|1[.,]4301|1[.,]4307|1[.,]4541/.test(actual)
+  if (/v2a|1\s*[.,]\s*4301|1\s*[.,]\s*4307|1\s*[.,]\s*4541/.test(expected)) {
+    return /v2a|1\s*[.,]\s*4301|1\s*[.,]\s*4307|1\s*[.,]\s*4541|x\s*5\s*crni\s*18\s*[-–]\s*10/.test(actual)
   }
 
-  if (/v4a|1[.,]4401|1[.,]4404|1[.,]4435|1[.,]4571/.test(expected)) {
-    return /v4a|1[.,]4401|1[.,]4404|1[.,]4435|1[.,]4571/.test(actual)
+  if (/v4a|1\s*[.,]\s*4401|1\s*[.,]\s*4404|1\s*[.,]\s*4435|1\s*[.,]\s*4571/.test(expected)) {
+    return /v4a|1\s*[.,]\s*4401|1\s*[.,]\s*4404|1\s*[.,]\s*4435|1\s*[.,]\s*4571/.test(actual)
   }
 
-  if (expected.includes('edelstahl')) return /edelstahl|rostfrei|1[.,]4\d{3}/.test(actual)
+  if (expected.includes('edelstahl')) return /edelstahl|rostfrei|1\s*[.,]\s*4\s*\d{3}/.test(actual)
   if (expected.includes('aluminium')) return /aluminium|\balu\b/.test(actual)
 
   const steelGrade = expected.match(/\bs\s*\d{3}\b/)?.[0].replace(/\s/g, '')
@@ -1684,8 +1684,11 @@ LKS-Team`
             return Number(price.priceQuantity)
           }
 
-          if (price.priceUnit.toLocaleLowerCase('de-DE') === 'm' && Number(item.length_mm) > 0) {
-            const pieces = Number(price.priceQuantity) / (Number(item.length_mm) / 1000)
+          if (price.priceUnit.toLocaleLowerCase('de-DE') === 'm') {
+            const lengthMeters = Number(item.length_mm) > 0
+              ? Number(item.length_mm) / 1000
+              : 6
+            const pieces = Number(price.priceQuantity) / lengthMeters
             const roundedPieces = Math.round(pieces)
 
             if (Number.isFinite(pieces) && Math.abs(pieces - roundedPieces) < 0.01) {
