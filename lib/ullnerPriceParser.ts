@@ -281,7 +281,58 @@ function parseUnorderedDreckshagePrice(value: string) {
     score: number
   } | null = null
 
+  function numericSuffixes(rawValue: string) {
+    const normalizedValue = rawValue.replace('.', '').replace(',', '.')
+    const [integerPart, decimalPart = ''] = normalizedValue.split('.')
+    const values = new Set<number>()
+
+    for (let start = 0; start < integerPart.length; start += 1) {
+      const candidate = Number(`${integerPart.slice(start)}.${decimalPart}`)
+      if (Number.isFinite(candidate) && candidate > 0) values.add(candidate)
+    }
+
+    return Array.from(values)
+  }
+
+  // Dreckshage PDFs concatenate position, article number, total and unit price,
+  // for example: "1239130772,204,95Meter". In that representation the normal
+  // money tokenizer sees "1239130772,204" instead of "772,20". Derive the
+  // total from the two meter values and verify that it occurs as a substring.
   for (const quantityMatch of quantityMatches) {
+    const priceQuantity = localizedNumber(quantityMatch[1])
+    if (!Number.isFinite(priceQuantity) || priceQuantity <= 0) continue
+
+    for (const unitMatch of quantityMatches) {
+      if (unitMatch === quantityMatch) continue
+
+      for (const unitPriceEur of numericSuffixes(unitMatch[1])) {
+        if (priceQuantity <= unitPriceEur) continue
+
+        const lineTotalEur = Math.round(priceQuantity * unitPriceEur * 100) / 100
+        const localizedTotal = lineTotalEur.toFixed(2).replace('.', ',')
+        if (!normalized.includes(localizedTotal)) continue
+
+        const sixMeterPieces = priceQuantity / 6
+        best = {
+          priceQuantity,
+          priceUnit: 'm',
+          pieceQuantity: Math.abs(sixMeterPieces - Math.round(sixMeterPieces)) < 0.001
+            ? Math.round(sixMeterPieces)
+            : null,
+          unitPriceEur,
+          lineTotalEur,
+          score: 0
+        }
+        break
+      }
+
+      if (best) break
+    }
+
+    if (best) break
+  }
+
+  for (const quantityMatch of best ? [] : quantityMatches) {
     const priceQuantity = localizedNumber(quantityMatch[1])
     if (!Number.isFinite(priceQuantity) || priceQuantity <= 0) continue
 
@@ -500,7 +551,9 @@ export function parseSupplierPriceConfirmation(text: string, supplierName = ''):
     index += consumedLines - 1
   }
 
-  const confirmationNumber = text.match(/(?:Auftrags[- ]?best(?:ätigung|\.)|Bestellbestätigung|Bestellung|Order\s*Confirmation|Angebot|Offerte|Quotation|Quote)\s*(?:s[- ]?Nr\.?|Nr\.?|No\.?)?\s*[:#]?\s*([A-Z0-9/-]{4,})/i)?.[1] || null
+  const confirmationNumber = isDreckshage
+    ? compactText.match(/ANGEBOT(?:Nr\.?)?(\d{5,})vom/i)?.[1] || null
+    : text.match(/(?:Auftrags[- ]?best(?:ätigung|\.)|Bestellbestätigung|Bestellung|Order\s*Confirmation|Angebot|Offerte|Quotation|Quote)\s*(?:s[- ]?Nr\.?|Nr\.?|No\.?)?\s*[:#]?\s*([A-Z0-9/-]{4,})/i)?.[1] || null
   const referenceNumber = text.match(/\b(?:AB-[A-Z0-9]+(?:-[A-Z0-9]+)*|TAFEL-\d+)\b/i)?.[0]
     || text.match(/(?:Ihre\s+(?:Bestell|Auftrags)(?:nummer|nr\.?)|Your\s+(?:order|reference))\s*[:#]?\s*([A-Z0-9/-]{4,})/i)?.[1]
     || null
