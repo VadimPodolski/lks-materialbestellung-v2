@@ -1305,6 +1305,14 @@ a.card:hover {
   margin-bottom: 24px;
 }
 
+.order-detail-actions button:disabled {
+  background: #94a3b8;
+  border-color: #94a3b8;
+  color: #f8fafc;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .order-summary-grid > p > b {
   display: block;
   margin-bottom: 6px;
