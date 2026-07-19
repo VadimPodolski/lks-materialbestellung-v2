@@ -216,6 +216,27 @@ function dimensionSignature(value: string | null | undefined) {
     .join('x')
 }
 
+function materialMatchesDescription(material: string | null | undefined, description: string) {
+  const expected = String(material || '').toLocaleLowerCase('de-DE')
+  const actual = description.toLocaleLowerCase('de-DE')
+
+  if (/v2a|1[.,]4301|1[.,]4307|1[.,]4541/.test(expected)) {
+    return /v2a|1[.,]4301|1[.,]4307|1[.,]4541/.test(actual)
+  }
+
+  if (/v4a|1[.,]4401|1[.,]4404|1[.,]4435|1[.,]4571/.test(expected)) {
+    return /v4a|1[.,]4401|1[.,]4404|1[.,]4435|1[.,]4571/.test(actual)
+  }
+
+  if (expected.includes('edelstahl')) return /edelstahl|rostfrei|1[.,]4\d{3}/.test(actual)
+  if (expected.includes('aluminium')) return /aluminium|\balu\b/.test(actual)
+
+  const steelGrade = expected.match(/\bs\s*\d{3}\b/)?.[0].replace(/\s/g, '')
+  if (steelGrade) return actual.replace(/\s/g, '').includes(steelGrade)
+
+  return false
+}
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -1623,7 +1644,10 @@ LKS-Team`
         const signatureMatches = signature
           ? orderItems.filter(item => dimensionSignature(item.cross_section) === signature)
           : []
-        let item = signatureMatches.length === 1 ? signatureMatches[0] : null
+        const materialMatches = signatureMatches.filter(item => materialMatchesDescription(item.material, price.description))
+        let item = materialMatches.length === 1
+          ? materialMatches[0]
+          : signatureMatches.length === 1 ? signatureMatches[0] : null
 
         if (!item && extractedPositions.length === orderItems.length) {
           item = orderItems.find((candidate, index) => (

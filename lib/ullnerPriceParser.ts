@@ -294,10 +294,19 @@ export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirm
     const positionMatch = priceLine.match(/^(?:Pos(?:ition)?\.?\s*)?0*(\d{1,4})(?=\s|[.:;-])/i)
       || priceLine.match(/^(?:\d{4,})?(\d{1,3})(?=\d+[.,]\d{2,3}(?:Stück|Stck|Stk|Stg|St|m|kg))/i)
     const fallbackPosition = positions.length + 1
+    let descriptionEnd = Math.min(lines.length, index + consumedLines + 6)
+
+    for (let descriptionIndex = index + consumedLines; descriptionIndex < descriptionEnd; descriptionIndex += 1) {
+      if (/^(?:Pos(?:ition)?\.?\s*)?0*\d{1,4}(?:\s+\d{4,}|\s*$)/i.test(lines[descriptionIndex])) {
+        descriptionEnd = descriptionIndex
+        break
+      }
+    }
+
     positions.push({
       position: positionMatch ? Number(positionMatch[1]) : fallbackPosition,
       ...price,
-      description: priceLine
+      description: lines.slice(index, descriptionEnd).join(' ')
     })
     index += consumedLines - 1
   }
