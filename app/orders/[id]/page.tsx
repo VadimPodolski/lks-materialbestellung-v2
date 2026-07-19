@@ -1678,10 +1678,10 @@ LKS-Team`
       }
 
       if (!result.referenceNumber || result.supplierFormat === 'dreckshage') {
-        if (extractedPositions.length !== orderItems.length || updates.length !== orderItems.length) {
+        if (extractedPositions.length === 0 || updates.length !== extractedPositions.length) {
           await failImport(
-            `Keine AB-Nummer in der PDF gefunden. Die Positionen stimmen nicht überein ` +
-            `(Auftrag: ${orderItems.length}, PDF: ${extractedPositions.length}).`
+            `Keine AB-Nummer in der PDF gefunden. Nicht alle PDF-Positionen konnten dem Auftrag eindeutig zugeordnet werden ` +
+            `(erkannt: ${extractedPositions.length}, zugeordnet: ${updates.length}).`
           )
           return
         }
