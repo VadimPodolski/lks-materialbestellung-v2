@@ -2008,11 +2008,17 @@ LKS-Team`
     }
 
     const supabase = createClient()
-    await supabase
+    const { error: cancellationError } = await supabase
       .from('material_orders')
       .update({ status: 'storniert' })
       .eq('id', order.id)
 
+    if (cancellationError) {
+      setOrderMailMessage(`Stornierung wurde versendet, aber der Auftragsstatus konnte nicht geändert werden: ${cancellationError.message}`)
+      return
+    }
+
+    setOrder(currentOrder => currentOrder ? { ...currentOrder, status: 'storniert' } : currentOrder)
     await load()
     setOrderMailMessage(data.warning
       ? `Stornierung wurde gesendet, aber nicht in „Gesendete Objekte“ gespeichert: ${data.warning}`
