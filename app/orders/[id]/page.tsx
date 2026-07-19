@@ -301,6 +301,7 @@ export default function OrderDetailPage() {
   const [showDetailStatusMenu, setShowDetailStatusMenu] = useState(false)
   const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
   const [sendingOrderEmail, setSendingOrderEmail] = useState(false)
+  const [orderMailMessage, setOrderMailMessage] = useState('')
   const [msg, setMsg] = useState('')
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
   const { ask, notify, dialog } = useAppDialog()
@@ -837,12 +838,12 @@ LKS-Team`
     ) return
 
     if (!order.suppliers?.email) {
-      setMsg('Keine Lieferanten-E-Mail vorhanden.')
+      setOrderMailMessage('Keine Lieferanten-E-Mail vorhanden.')
       return
     }
 
     setSendingOrderEmail(true)
-    setMsg('Bestellung wird per E-Mail versendet...')
+    setOrderMailMessage('Bestellung wird per E-Mail versendet...')
     try {
       const orderedBy = await currentUserDisplayName()
 
@@ -864,12 +865,12 @@ LKS-Team`
       const data = await res.json()
 
       if (!res.ok) {
-        setMsg(data.error || 'E-Mail konnte nicht gesendet werden.')
+        setOrderMailMessage(data.error || 'E-Mail konnte nicht gesendet werden.')
         return
       }
 
       await markOrdered()
-      setMsg(data.warning
+      setOrderMailMessage(data.warning
         ? `Bestellung wurde versendet, aber nicht in „Gesendete Objekte“ gespeichert: ${data.warning}`
         : data.message || `Bestellung wurde an ${order.suppliers.email} versendet.`)
     } finally {
@@ -1050,7 +1051,6 @@ LKS-Team`
       .eq('id', order.id)
 
     await load()
-    setMsg('Status wurde auf Bestellt gesetzt.')
   }
 
   async function changeStatus(nextStatus: string) {
@@ -2329,6 +2329,8 @@ LKS-Team`
                 />
               )}
             </div>
+
+            {orderMailMessage && <p className="success">{orderMailMessage}</p>}
 
             <div className="pdf-sections">
               {pdfSections.map(section => {
