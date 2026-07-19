@@ -47,6 +47,18 @@ export default function RegisterPage() {
       return
     }
 
+    if (data.user) {
+      const notificationResponse = await fetch('/api/registration-approval/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: data.user.id })
+      })
+
+      if (!notificationResponse.ok) {
+        setMsg('Die Registrierung wurde angelegt, aber der Administrator konnte nicht per E-Mail benachrichtigt werden.')
+      }
+    }
+
     if (data.session) {
       await ensureCurrentUserProfile(supabase, data.user)
       router.push('/orders')
@@ -54,7 +66,7 @@ export default function RegisterPage() {
       return
     }
 
-    setSuccess('Registrierung angelegt. Bitte bestätige deine E-Mail-Adresse. Anschließend wird dein Zugang von einem Administrator geprüft und freigegeben.')
+    setSuccess('Registrierung angelegt. Bitte bestätige deine E-Mail-Adresse. Der Administrator wurde über deine Registrierung informiert und prüft anschließend deinen Zugang.')
   }
 
   return (

@@ -56,7 +56,9 @@ export async function middleware(request: NextRequest) {
   const isApprovalPage = request.nextUrl.pathname.startsWith('/pending-approval')
 
   if (!user && !isPublicAuthPage) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    const loginUrl = new URL('/login', request.url)
+    loginUrl.searchParams.set('next', `${request.nextUrl.pathname}${request.nextUrl.search}`)
+    return NextResponse.redirect(loginUrl)
   }
 
   if (user) {
