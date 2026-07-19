@@ -244,7 +244,7 @@ function enrichDreckshageDescription(value: string) {
 function parseUnorderedDreckshagePrice(value: string) {
   const normalized = value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim()
   const quantityMatches = Array.from(normalized.matchAll(
-    /(\d+(?:[.,]\d+)?)\s*(Meter|Metre|Meters|Metres|mtr|lfm|m)(?=\s|$|[.,;/])/gi
+    /(\d+(?:[.,]\d+)?)\s*(Meter|Metre|Meters|Metres|mtr|lfm|m)(?![a-z])/gi
   ))
   const moneyMatches = Array.from(normalized.matchAll(
     /(?:\d{1,3}(?:[.\s]\d{3})+|\d+)[.,]\d{2,4}/g
@@ -298,6 +298,23 @@ function parseUnorderedDreckshagePrice(value: string) {
 }
 
 function parseDreckshagePositions(text: string) {
+  const fullDocument = text.replace(/\s+/g, ' ').trim()
+  const documentPrice = parseUnorderedDreckshagePrice(fullDocument)
+
+  if (documentPrice) {
+    const position = Number(
+      text.match(/(?:^|\n)\s*0*(\d{1,3})\s+(?:\n\s*)?\d{5,}(?=\s|\n)/)?.[1]
+      || text.match(/\bPos(?:ition)?\.?\s*[:#]?\s*0*(\d{1,3})\b/i)?.[1]
+      || 1
+    )
+
+    return [{
+      position,
+      ...documentPrice,
+      description: enrichDreckshageDescription(fullDocument)
+    }]
+  }
+
   const lineMarkers = Array.from(text.matchAll(/(?:^|\n)\s*(\d{1,3})\s+(?:\n\s*)?(\d{5,})(?=\s|\n)/g))
   const markers = lineMarkers.length > 0
     ? lineMarkers
@@ -323,7 +340,6 @@ function parseDreckshagePositions(text: string) {
   }
 
   if (positions.length === 0) {
-    const fullDocument = text.replace(/\s+/g, ' ').trim()
     const price = parseGenericPriceLine(fullDocument)
       || parseCompactDreckshagePrice(fullDocument)
       || parseUnorderedDreckshagePrice(fullDocument)

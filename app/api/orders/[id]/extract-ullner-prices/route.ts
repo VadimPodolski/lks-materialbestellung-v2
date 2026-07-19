@@ -64,6 +64,7 @@ export async function POST(
     if (
       orderNumber &&
       confirmation.referenceNumber &&
+      confirmation.supplierFormat !== 'dreckshage' &&
       String(orderNumber).trim().toLowerCase() !== confirmation.referenceNumber.trim().toLowerCase()
     ) {
       return NextResponse.json(

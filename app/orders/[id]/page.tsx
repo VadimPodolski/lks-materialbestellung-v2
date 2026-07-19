@@ -1646,19 +1646,22 @@ LKS-Team`
       }[]
       const usedItemIds = new Set<string>()
       const updates = extractedPositions.flatMap(price => {
+        const positionItem = orderItems.find((candidate, index) => (
+          Number(candidate.position || index + 1) === Number(price.position)
+        )) || null
         const signature = dimensionSignature(price.description)
         const signatureMatches = signature
           ? orderItems.filter(item => dimensionSignature(item.cross_section) === signature)
           : []
         const materialMatches = signatureMatches.filter(item => materialMatchesDescription(item.material, price.description))
-        let item = materialMatches.length === 1
-          ? materialMatches[0]
-          : signatureMatches.length === 1 ? signatureMatches[0] : null
+        let item = result.supplierFormat === 'dreckshage'
+          ? positionItem
+          : materialMatches.length === 1
+            ? materialMatches[0]
+            : signatureMatches.length === 1 ? signatureMatches[0] : null
 
         if (!item && extractedPositions.length === orderItems.length) {
-          item = orderItems.find((candidate, index) => (
-            Number(candidate.position || index + 1) === Number(price.position)
-          )) || null
+          item = positionItem
         }
 
         if (!item?.id || usedItemIds.has(item.id)) return []
@@ -1671,7 +1674,7 @@ LKS-Team`
         return
       }
 
-      if (!result.referenceNumber) {
+      if (!result.referenceNumber || result.supplierFormat === 'dreckshage') {
         if (extractedPositions.length !== orderItems.length || updates.length !== orderItems.length) {
           await failImport(
             `Keine AB-Nummer in der PDF gefunden. Die Positionen stimmen nicht überein ` +
