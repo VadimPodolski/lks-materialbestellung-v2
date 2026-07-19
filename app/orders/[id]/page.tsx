@@ -851,6 +851,13 @@ LKS-Team`
       return
     }
 
+    const sendConfirmed = await ask({
+      title: orderAlreadySent ? 'Bestellung erneut senden' : 'Bestellung senden',
+      message: `Bestellung ${order.order_number} wirklich an ${order.suppliers.name} senden?`,
+      confirmLabel: orderAlreadySent ? 'Erneut senden' : 'Senden'
+    })
+    if (!sendConfirmed) return
+
     setSendingOrderEmail(true)
     setOrderMailMessage('Bestellung wird per E-Mail versendet...')
     try {
