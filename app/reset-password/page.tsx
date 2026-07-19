@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
@@ -79,9 +78,6 @@ export default function ResetPasswordPage() {
           {success && <p className="success">{success}</p>}
         </form>
 
-        <p className="small auth-link-row">
-          Zur <Link href="/login">Anmeldung</Link>
-        </p>
       </div>
     </main>
   )
