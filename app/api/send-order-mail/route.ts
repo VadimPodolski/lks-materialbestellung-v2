@@ -12,6 +12,7 @@ import {
   orderItemsMailText
 } from '@/lib/orderItems'
 import { lksEmailLogoBase64 } from '@/lib/lksEmailLogo'
+import { isAdminRequest } from '@/lib/serverAdminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -257,8 +258,16 @@ export async function POST(req: Request) {
       orderedBy,
       notes,
       items,
-      mailType
+      mailType,
+      isResend
     } = body
+
+    if (isResend && !(await isAdminRequest())) {
+      return NextResponse.json(
+        { error: 'Nur Administratoren dürfen eine Bestellung erneut senden.' },
+        { status: 403 }
+      )
+    }
 
     if (!supplierEmail) {
       return NextResponse.json(

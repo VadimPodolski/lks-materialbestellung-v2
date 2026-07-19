@@ -406,7 +406,7 @@ export default function OrderDetailPage() {
 
     if (user) {
       const profile = await ensureCurrentUserProfile(supabase, user)
-      const admin = profile?.role === 'admin'
+      const admin = profile?.role === 'admin' || user.email?.toLowerCase() === 'v.podolski@lks-technik.de'
       setIsAdminUser(admin)
       setCanDeleteThisOrder(canDeleteForOrderArea(user.email, admin, area))
     } else {
@@ -830,10 +830,14 @@ LKS-Team`
   }
 
   async function sendOrderEmail() {
+    const orderAlreadySent = Boolean(
+      order?.ordered_at
+      || (order && ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status))
+    )
+
     if (
       !order
-      || order.ordered_at
-      || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
+      || (orderAlreadySent && !isAdminUser)
       || sendingOrderEmail
     ) return
 
@@ -858,7 +862,8 @@ LKS-Team`
           desiredDeliveryDate: order.desired_delivery_date,
           supplierName: order.suppliers.name,
           orderedBy,
-          notes: order.notes
+          notes: order.notes,
+          isResend: orderAlreadySent
         })
       })
 
@@ -869,7 +874,7 @@ LKS-Team`
         return
       }
 
-      await markOrdered()
+      if (!orderAlreadySent) await markOrdered()
       setOrderMailMessage(data.warning
         ? `Bestellung wurde versendet, aber nicht in „Gesendete Objekte“ gespeichert: ${data.warning}`
         : data.message || `Bestellung wurde an ${order.suppliers.email} versendet.`)
@@ -2304,17 +2309,24 @@ LKS-Team`
                 className="order-send-button"
                 onClick={sendOrderEmail}
                 disabled={
-                  Boolean(order.ordered_at)
-                  || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
+                  (!isAdminUser && (
+                    Boolean(order.ordered_at)
+                    || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
+                  ))
                   || sendingOrderEmail
                 }
                 title={
                   order.ordered_at || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
-                    ? 'Bestellung wurde bereits gesendet.'
+                    ? isAdminUser
+                      ? 'Bestellung erneut senden.'
+                      : 'Bestellung wurde bereits gesendet.'
                     : undefined
                 }
               >
-                Bestellung senden
+                {isAdminUser && (
+                  order.ordered_at
+                  || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
+                ) ? 'Bestellung erneut senden' : 'Bestellung senden'}
               </button>
 
               <button className="danger" onClick={cancelOrder}>
