@@ -56,6 +56,14 @@ type Order = {
   supplier_order_pdf_path: string | null
 }
 
+function orderHasActiveSend(order: Order | null) {
+  if (!order || order.status === 'storniert') return false
+  return Boolean(
+    order.ordered_at
+    || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
+  )
+}
+
 type OrderPdf = {
   id: string
   file_name: string
@@ -830,10 +838,7 @@ LKS-Team`
   }
 
   async function sendOrderEmail() {
-    const orderAlreadySent = Boolean(
-      order?.ordered_at
-      || (order && ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status))
-    )
+    const orderAlreadySent = orderHasActiveSend(order)
 
     if (
       !order
@@ -2069,6 +2074,7 @@ LKS-Team`
 
   const isTwoDLaser = normalizeOrderArea(order.order_area) === '2d-laser'
   const canDeletePdfs = isAdminUser || canDeleteOrder(order.created_at, new Date(deleteCheckTime))
+  const orderAlreadySent = orderHasActiveSend(order)
 
   return (
     <main className="container wide">
@@ -2309,24 +2315,18 @@ LKS-Team`
                 className="order-send-button"
                 onClick={sendOrderEmail}
                 disabled={
-                  (!isAdminUser && (
-                    Boolean(order.ordered_at)
-                    || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
-                  ))
+                  (!isAdminUser && orderAlreadySent)
                   || sendingOrderEmail
                 }
                 title={
-                  order.ordered_at || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
+                  orderAlreadySent
                     ? isAdminUser
                       ? 'Bestellung erneut senden.'
                       : 'Bestellung wurde bereits gesendet.'
                     : undefined
                 }
               >
-                {isAdminUser && (
-                  order.ordered_at
-                  || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
-                ) ? 'Bestellung erneut senden' : 'Bestellung senden'}
+                {isAdminUser && orderAlreadySent ? 'Bestellung erneut senden' : 'Bestellung senden'}
               </button>
 
               <button className="danger" onClick={cancelOrder}>
