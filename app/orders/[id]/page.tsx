@@ -1643,6 +1643,9 @@ LKS-Team`
         unitPriceEur: number
         lineTotalEur: number
         description: string
+        materialHint?: string | null
+        crossSectionHint?: string | null
+        pieceLengthMm?: number | null
       }[]
       const usedItemIds = new Set<string>()
       const updates = extractedPositions.flatMap(price => {
@@ -1710,6 +1713,29 @@ LKS-Team`
           if (!pieceMatch) return null
 
           return Number(pieceMatch[1].replace(',', '.'))
+        }
+
+        if (result.supplierFormat === 'dreckshage') {
+          const mismatch = updates.find(({ price, item }) => {
+            const materialMatches = materialMatchesDescription(
+              item.material,
+              `${price.materialHint || ''} ${price.description}`
+            )
+            const pdfCrossSection = dimensionSignature(price.crossSectionHint || price.description)
+            const crossSectionMatches = Boolean(pdfCrossSection)
+              && pdfCrossSection === dimensionSignature(item.cross_section)
+            const lengthMatches = Number(price.pieceLengthMm || 6000) === Number(item.length_mm || 6000)
+            const quantityMatches = supplierPieceQuantity(price, item) === Number(item.quantity)
+
+            return !materialMatches || !crossSectionMatches || !lengthMatches || !quantityMatches
+          })
+
+          if (mismatch) {
+            await failImport(
+              `Dreckshage-Position ${mismatch.price.position} stimmt bei Material, Querschnitt, Länge oder Stückzahl nicht mit dem Auftrag überein.`
+            )
+            return
+          }
         }
 
         const quantityMismatch = updates.find(({ price, item }) => {

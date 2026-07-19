@@ -6,6 +6,9 @@ export type UllnerPositionPrice = {
   unitPriceEur: number
   lineTotalEur: number
   description: string
+  materialHint?: string | null
+  crossSectionHint?: string | null
+  pieceLengthMm?: number | null
 }
 
 export type UllnerPriceConfirmation = {
@@ -241,6 +244,26 @@ function enrichDreckshageDescription(value: string) {
   return `${value} ${crossSection} ${materialNumber}`
 }
 
+function extractDreckshageProduct(value: string) {
+  const qeCode = value.match(
+    /QE\s*(\d+(?:[.,]\d+)?)\s*[.]\s*(\d+(?:[.,]\d+)?)\s*[.]\s*(\d+(?:[.,]\d+)?)\s*[.]\s*(\d{4})/i
+  )
+  const dimension = qeCode
+    ? `${qeCode[1]}x${qeCode[2]}x${qeCode[3]} mm`
+    : value.match(/(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*mm/i)
+
+  const crossSectionHint = typeof dimension === 'string'
+    ? dimension
+    : dimension ? `${dimension[1]}x${dimension[2]}x${dimension[3]} mm` : null
+  const grade = qeCode ? `1.${qeCode[4]}` : value.match(/1\s*[.,]\s*(4301|4307|4541)/)?.[1]
+
+  return {
+    materialHint: grade ? 'Edelstahl V2A' : null,
+    crossSectionHint,
+    pieceLengthMm: 6000
+  }
+}
+
 function parseUnorderedDreckshagePrice(value: string) {
   const normalized = value.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim()
   const quantityMatches = Array.from(normalized.matchAll(
@@ -311,7 +334,8 @@ function parseDreckshagePositions(text: string) {
     return [{
       position,
       ...documentPrice,
-      description: enrichDreckshageDescription(fullDocument)
+      description: enrichDreckshageDescription(fullDocument),
+      ...extractDreckshageProduct(fullDocument)
     }]
   }
 
@@ -335,7 +359,8 @@ function parseDreckshagePositions(text: string) {
     positions.push({
       position: Number(marker[1]),
       ...price,
-      description: enrichDreckshageDescription(block)
+      description: enrichDreckshageDescription(block),
+      ...extractDreckshageProduct(block)
     })
   }
 
@@ -353,7 +378,8 @@ function parseDreckshagePositions(text: string) {
       positions.push({
         position,
         ...price,
-        description: enrichDreckshageDescription(fullDocument)
+        description: enrichDreckshageDescription(fullDocument),
+        ...extractDreckshageProduct(fullDocument)
       })
     }
   }
