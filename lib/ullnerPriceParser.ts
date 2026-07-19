@@ -222,6 +222,24 @@ function parseDreckshagePositions(text: string) {
     })
   }
 
+  if (positions.length === 0) {
+    const fullDocument = text.replace(/\s+/g, ' ').trim()
+    const price = parseGenericPriceLine(fullDocument)
+
+    if (price) {
+      const position = Number(
+        text.match(/(?:^|\n)\s*(?:Pos(?:ition)?\.?\s*)?0*(\d{1,3})(?:\s|\n)+\d{5,}/i)?.[1]
+        || 1
+      )
+
+      positions.push({
+        position,
+        ...price,
+        description: fullDocument
+      })
+    }
+  }
+
   return positions
 }
 
@@ -279,7 +297,7 @@ export function parseUllnerPriceConfirmation(text: string): UllnerPriceConfirmat
   return { confirmationNumber, referenceNumber, supplierFormat: 'ullner', positions }
 }
 
-export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirmation {
+export function parseSupplierPriceConfirmation(text: string, supplierName = ''): UllnerPriceConfirmation {
   if (/(?:ULLNER\s*u\.?\s*ULLNER|ullner\.de)/i.test(text)) {
     return parseUllnerPriceConfirmation(text)
   }
@@ -291,7 +309,7 @@ export function parseSupplierPriceConfirmation(text: string): UllnerPriceConfirm
 
   const compactText = text.replace(/\s+/g, '')
   const isKloeckner = /(?:klöckner|kloeckner)/i.test(text)
-  const isDreckshage = /dreckshage/i.test(text)
+  const isDreckshage = /dreckshage/i.test(`${supplierName} ${text}`)
   const hasConfirmationTitle = /(?:Auftrags[- ]?best(?:ätigung|\.)|Bestellbestätigung|OrderConfirmation|SalesOrderConfirmation|Angebot|Offerte|Quotation|Quote)/i.test(compactText)
 
   if (!hasConfirmationTitle) {

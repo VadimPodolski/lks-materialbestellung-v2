@@ -1619,7 +1619,8 @@ LKS-Team`
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fileUrl: pdfFile.file_url,
-          orderNumber: order.order_number
+          orderNumber: order.order_number,
+          supplierName: order.suppliers?.name || ''
         })
       })
       const result = await response.json()

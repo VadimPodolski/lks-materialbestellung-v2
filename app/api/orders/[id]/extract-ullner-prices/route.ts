@@ -9,7 +9,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { fileUrl, orderNumber } = await request.json()
+    const { fileUrl, orderNumber, supplierName } = await request.json()
 
     if (typeof fileUrl !== 'string' || !fileUrl) {
       return NextResponse.json({ error: 'PDF-Adresse fehlt.' }, { status: 400 })
@@ -43,7 +43,10 @@ export async function POST(
     let confirmation
 
     try {
-      confirmation = parseSupplierPriceConfirmation(parsedPdf.text)
+      confirmation = parseSupplierPriceConfirmation(
+        parsedPdf.text,
+        typeof supplierName === 'string' ? supplierName : ''
+      )
     } catch (error: any) {
       return NextResponse.json(
         { error: error.message || 'Die PDF wurde nicht als Lieferanten-Auftragsbestätigung oder Angebot erkannt.' },
