@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import LoginLogoutLink from './LoginLogoutLink'
 import OrderAreaNav from './OrderAreaNav'
 import SessionTimeout from './SessionTimeout'
+import AdminNavLink from './AdminNavLink'
 
 export const metadata = {
   title: 'LKS Materialbestellung',
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <nav className="main-nav">
             <div className="nav-left">
               <Link href="/masterdata">Stammdaten</Link>
+              <AdminNavLink />
             </div>
             <Suspense fallback={<div className="nav-center order-area-switch" aria-hidden="true" />}>
               <OrderAreaNav />

@@ -53,9 +53,29 @@ export async function middleware(request: NextRequest) {
 
   const publicAuthPages = ['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback']
   const isPublicAuthPage = publicAuthPages.some(path => request.nextUrl.pathname.startsWith(path))
+  const isApprovalPage = request.nextUrl.pathname.startsWith('/pending-approval')
 
   if (!user && !isPublicAuthPage) {
     return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('approved,role,email')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const isAdmin = profile?.role === 'admin' || user.email?.toLowerCase() === 'v.podolski@lks-technik.de'
+    const isApproved = isAdmin || profile?.approved === true
+
+    if (!isApproved && !isApprovalPage && !request.nextUrl.pathname.startsWith('/auth/callback')) {
+      return NextResponse.redirect(new URL('/pending-approval', request.url))
+    }
+
+    if (isApproved && isApprovalPage) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
   }
 
   if (

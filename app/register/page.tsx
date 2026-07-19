@@ -54,7 +54,7 @@ export default function RegisterPage() {
       return
     }
 
-    setSuccess('Registrierung angelegt. Bitte bestätige deine E-Mail-Adresse über den Link in der Mail.')
+    setSuccess('Registrierung angelegt. Bitte bestätige deine E-Mail-Adresse. Anschließend wird dein Zugang von einem Administrator geprüft und freigegeben.')
   }
 
   return (
