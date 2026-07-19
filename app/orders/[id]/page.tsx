@@ -1970,7 +1970,7 @@ LKS-Team`
   }
 
   async function cancelOrder() {
-    if (!order || !await ask({
+    if (!order || !orderHasActiveSend(order) || !await ask({
       title: 'Bestellung stornieren',
       message: 'Bestellung wirklich stornieren und Stornierungsmail senden?',
       confirmLabel: 'Stornieren',
@@ -2329,7 +2329,12 @@ LKS-Team`
                 {isAdminUser && orderAlreadySent ? 'Bestellung erneut senden' : 'Bestellung senden'}
               </button>
 
-              <button className="danger" onClick={cancelOrder}>
+              <button
+                className="danger"
+                onClick={cancelOrder}
+                disabled={!orderAlreadySent}
+                title={!orderAlreadySent ? 'Die Bestellung wurde noch nicht gesendet.' : undefined}
+              >
                 Stornieren
               </button>
 
