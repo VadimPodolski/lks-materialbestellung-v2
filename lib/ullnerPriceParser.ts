@@ -64,7 +64,7 @@ function parsePriceLine(line: string) {
 
 function normalizeUnit(value: string) {
   if (/^(?:stck|stg|stk|st|stück|pcs|pc|ea)/i.test(value)) return 'Stück'
-  if (/^(?:mtr|lfm)/i.test(value)) return 'm'
+  if (/^(?:meter|metre|meters|metres|mtr|lfm|m)$/i.test(value)) return 'm'
   return value.toLowerCase()
 }
 
@@ -134,7 +134,7 @@ function extractPieceQuantity(value: string) {
 }
 
 function parseLooseGenericPriceLine(line: string) {
-  const unitPattern = 'Stück|Stck\\.?|Stk\\.?|Stg\\.?|St\\.?|ST|PCS|PC|EA|Stäbe?|Stab|kg|m|mtr|lfm'
+  const unitPattern = 'Stück|Stck\\.?|Stk\\.?|Stg\\.?|St\\.?|ST|PCS|PC|EA|Stäbe?|Stab|Meter|Metre|Meters|Metres|mtr|lfm|kg|m'
   const quantityPattern = new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*(${unitPattern})(?=\\s|$|[.,;/])`, 'gi')
   const quantityMatches = Array.from(line.matchAll(quantityPattern))
   const moneyPattern = /(?:\d{1,3}(?:[.\s]\d{3})+|\d+)[.,]\d{2,4}/g
