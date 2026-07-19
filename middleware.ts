@@ -65,15 +65,25 @@ export async function middleware(request: NextRequest) {
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('approved,role,email')
+      .select('approved,role,email,must_change_password')
       .eq('id', user.id)
       .maybeSingle()
 
     const isAdmin = profile?.role === 'admin' || user.email?.toLowerCase() === 'v.podolski@lks-technik.de'
     const isApproved = isAdmin || profile?.approved === true
+    const mustChangePassword = !isAdmin && profile?.must_change_password === true
 
     if (!isApproved && !isApprovalPage && !isEmailApprovalPage && !request.nextUrl.pathname.startsWith('/auth/callback')) {
       return NextResponse.redirect(new URL('/pending-approval', request.url))
+    }
+
+    if (
+      isApproved
+      && mustChangePassword
+      && !request.nextUrl.pathname.startsWith('/reset-password')
+      && !request.nextUrl.pathname.startsWith('/auth/callback')
+    ) {
+      return NextResponse.redirect(new URL('/reset-password?forced=1', request.url))
     }
 
     if (isApproved && isApprovalPage) {

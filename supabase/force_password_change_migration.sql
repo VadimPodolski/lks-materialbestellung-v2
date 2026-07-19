@@ -1,0 +1,7 @@
+alter table public.profiles
+  add column if not exists must_change_password boolean not null default false;
+
+update public.profiles
+set must_change_password = true
+where role <> 'admin';
+

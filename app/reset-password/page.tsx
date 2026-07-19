@@ -28,11 +28,24 @@ export default function ResetPasswordPage() {
     }
 
     const supabase = createClient()
+    const { data: userData } = await supabase.auth.getUser()
     const { error } = await supabase.auth.updateUser({ password })
 
     if (error) {
       setMsg(error.message)
       return
+    }
+
+    if (userData.user?.id) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ must_change_password: false })
+        .eq('id', userData.user.id)
+
+      if (profileError) {
+        setMsg(`Das Passwort wurde geändert, aber der Pflichtwechsel konnte nicht abgeschlossen werden: ${profileError.message}`)
+        return
+      }
     }
 
     setSuccess('Passwort wurde geändert. Du wirst zur Anmeldung weitergeleitet.')
@@ -47,6 +60,7 @@ export default function ResetPasswordPage() {
     <main className="container auth-page">
       <div className="card auth-card">
         <h1>Neues Passwort</h1>
+        <p>Bitte lege ein neues persönliches Passwort fest.</p>
 
         <form className="grid auth-form" onSubmit={updatePassword}>
           <div>
