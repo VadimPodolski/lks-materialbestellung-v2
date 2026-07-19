@@ -199,6 +199,36 @@ function parseGenericPriceLine(line: string) {
   return parseLooseGenericPriceLine(line)
 }
 
+function parseCompactDreckshagePrice(value: string) {
+  const matches = Array.from(value.matchAll(
+    /(?:^|\s)(\d+(?:[.,]\d+)?)\s*Meter\s*([\d.]+,\d{2,4})\s*Meter\s*([\d.]+,\d{2})/gi
+  ))
+
+  for (const match of matches) {
+    const priceQuantity = localizedNumber(match[1])
+    const unitPriceEur = localizedNumber(match[2])
+    const lineTotalEur = localizedNumber(match[3])
+    const difference = Math.abs(priceQuantity * unitPriceEur - lineTotalEur)
+
+    if (
+      !Number.isFinite(priceQuantity)
+      || !Number.isFinite(unitPriceEur)
+      || !Number.isFinite(lineTotalEur)
+      || difference > 0.08
+    ) continue
+
+    return {
+      priceQuantity,
+      priceUnit: 'm',
+      pieceQuantity: null,
+      unitPriceEur,
+      lineTotalEur
+    }
+  }
+
+  return null
+}
+
 function parseDreckshagePositions(text: string) {
   const lineMarkers = Array.from(text.matchAll(/(?:^|\n)\s*(\d{1,3})\s+(?:\n\s*)?(\d{5,})(?=\s|\n)/g))
   const markers = lineMarkers.length > 0
@@ -211,7 +241,7 @@ function parseDreckshagePositions(text: string) {
     const blockStart = marker.index || 0
     const blockEnd = markers[index + 1]?.index ?? text.length
     const block = text.slice(blockStart, blockEnd).replace(/\s+/g, ' ').trim()
-    const price = parseGenericPriceLine(block)
+    const price = parseGenericPriceLine(block) || parseCompactDreckshagePrice(block)
 
     if (!price) continue
 
@@ -224,7 +254,7 @@ function parseDreckshagePositions(text: string) {
 
   if (positions.length === 0) {
     const fullDocument = text.replace(/\s+/g, ' ').trim()
-    const price = parseGenericPriceLine(fullDocument)
+    const price = parseGenericPriceLine(fullDocument) || parseCompactDreckshagePrice(fullDocument)
 
     if (price) {
       const position = Number(
