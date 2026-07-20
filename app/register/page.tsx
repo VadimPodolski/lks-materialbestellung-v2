@@ -31,11 +31,13 @@ export default function RegisterPage() {
     }
 
     const supabase = createClient()
+    const normalizedEmail = email.trim().toLowerCase()
+    const emailRedirectTo = `${window.location.origin}/auth/callback?next=/orders`
     const { data, error } = await supabase.auth.signUp({
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=/orders`,
+        emailRedirectTo,
         data: {
           full_name: fullName.trim()
         }
@@ -51,11 +53,30 @@ export default function RegisterPage() {
       const notificationResponse = await fetch('/api/registration-approval/notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: data.user.id })
+        body: JSON.stringify({ userId: data.user.id, email: normalizedEmail })
       })
+      const notification = await notificationResponse.json().catch(() => ({}))
 
       if (!notificationResponse.ok) {
-        setMsg('Die Registrierung wurde angelegt, aber der Administrator konnte nicht per E-Mail benachrichtigt werden.')
+        setMsg(notification.error || 'Die Registrierung wurde angelegt, aber der Administrator konnte nicht per E-Mail benachrichtigt werden.')
+        return
+      }
+
+      if (notification.alreadyApproved) {
+        setSuccess('Für diese E-Mail-Adresse besteht bereits ein freigegebenes Konto. Du kannst dich direkt anmelden.')
+        return
+      }
+
+      if (notification.existingRegistration && notification.needsEmailConfirmation) {
+        const { error: resendError } = await supabase.auth.resend({
+          type: 'signup',
+          email: normalizedEmail,
+          options: { emailRedirectTo }
+        })
+        if (resendError) {
+          setMsg(`Die Admin-Benachrichtigung wurde versendet, die Bestätigungsmail konnte aber nicht erneut gesendet werden: ${resendError.message}`)
+          return
+        }
       }
     }
 

@@ -76,26 +76,43 @@ function registrationApprovalEmailHtml(fullName: string, email: string, approval
 
 export async function POST(request: Request) {
   try {
-    const { userId } = await request.json()
+    const { userId, email: requestedEmail } = await request.json()
     if (typeof userId !== 'string' || !/^[0-9a-f-]{36}$/i.test(userId)) {
       return NextResponse.json({ error: 'Ungültige Registrierung.' }, { status: 400 })
     }
 
     const admin = createAdminClient()
     const { data: authData, error: authError } = await admin.auth.admin.getUserById(userId)
-    const user = authData.user
-    if (authError || !user?.email) {
+    let user = authData.user
+    let existingRegistration = false
+
+    // Supabase liefert bei einer erneuten Anmeldung mit einer bereits vorhandenen
+    // E-Mail aus Sicherheitsgründen eine künstliche Benutzer-ID zurück. In diesem
+    // Fall suchen wir das echte, noch nicht freigegebene Konto, damit der Admin-Link
+    // zuverlässig erneut versendet werden kann.
+    if ((authError || !user?.email) && typeof requestedEmail === 'string' && requestedEmail.includes('@')) {
+      const normalizedEmail = requestedEmail.trim().toLocaleLowerCase('de-DE')
+      const { data: usersData, error: usersError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      if (!usersError) {
+        user = usersData.users.find(candidate => candidate.email?.toLocaleLowerCase('de-DE') === normalizedEmail) || null
+        existingRegistration = Boolean(user)
+      }
+    }
+
+    if (!user?.email) {
       return NextResponse.json({ error: 'Registrierung wurde nicht gefunden.' }, { status: 404 })
     }
+
+    const actualUserId = user.id
 
     const { data: profile } = await admin
       .from('profiles')
       .select('full_name,approved')
-      .eq('id', userId)
+      .eq('id', actualUserId)
       .maybeSingle()
 
     if (profile?.approved) {
-      return NextResponse.json({ success: true })
+      return NextResponse.json({ success: true, alreadyApproved: true })
     }
 
     const smtpHost = process.env.SMTP_HOST
@@ -107,7 +124,7 @@ export async function POST(request: Request) {
       throw new Error('SMTP-Umgebungsvariablen fehlen.')
     }
 
-    const token = createApprovalToken(userId)
+    const token = createApprovalToken(actualUserId)
     const approvalUrl = `${applicationUrl(request.url)}/approve-user?token=${encodeURIComponent(token)}`
     const fullName = profile?.full_name || user.user_metadata?.full_name || user.user_metadata?.name || '-'
     const transporter = nodemailer.createTransport({
@@ -125,7 +142,11 @@ export async function POST(request: Request) {
       html: registrationApprovalEmailHtml(String(fullName), user.email, approvalUrl)
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({
+      success: true,
+      existingRegistration,
+      needsEmailConfirmation: !user.email_confirmed_at
+    })
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Benachrichtigung konnte nicht gesendet werden.' }, { status: 500 })
   }
