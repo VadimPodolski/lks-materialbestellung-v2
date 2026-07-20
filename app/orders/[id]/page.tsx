@@ -1829,9 +1829,23 @@ LKS-Team`
           }
         }
 
+        function expectedSupplierPieceQuantity(item: OrderItem) {
+          if (!isTwoDLaserOrder) return Number(item.quantity)
+
+          // Bei Tafeln ist `quantity` die Anzahl der Pakete. Die tatsächliche
+          // Tafelanzahl kommt erst aus der Auftragsbestätigung und wird danach
+          // als pieces_per_package gespeichert.
+          if (item.order_unit === 'paket' || item.order_unit === 'kg') return null
+
+          return Number(item.quantity)
+        }
+
         const quantityMismatch = updates.find(({ price, item }) => {
+          const expectedQuantity = expectedSupplierPieceQuantity(item)
+          if (expectedQuantity == null) return false
+
           const pdfQuantity = supplierPieceQuantity(price, item)
-          return pdfQuantity != null && pdfQuantity !== Number(item.quantity)
+          return pdfQuantity != null && pdfQuantity !== expectedQuantity
         })
 
         if (quantityMismatch) {
@@ -1844,7 +1858,10 @@ LKS-Team`
           return
         }
 
-        const quantityNotRecognized = updates.find(({ price, item }) => supplierPieceQuantity(price, item) == null)
+        const quantityNotRecognized = updates.find(({ price, item }) => (
+          expectedSupplierPieceQuantity(item) != null
+          && supplierPieceQuantity(price, item) == null
+        ))
         if (quantityNotRecognized) {
           await failImport(
             `Keine AB-Nummer in der PDF gefunden. Die Stückzahl von Position ` +
