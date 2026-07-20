@@ -136,11 +136,12 @@ function formatOrderQuantity(value: number) {
 function twoDLaserActualQuantityText(item: OrderItem) {
   if (item.order_unit === 'paket') {
     const pieces = Number(item.quantity || 0) * Number(item.pieces_per_package || 0)
-    return `${formatOrderQuantity(pieces)} Stück`
+    return `${formatOrderQuantity(pieces)} ${pieces === 1 ? 'Tafel' : 'Tafeln'}`
   }
 
   if (item.order_unit === 'kg') return `${formatOrderQuantity(item.quantity)} kg`
-  return `${formatOrderQuantity(item.quantity)} Stück`
+  const quantity = Number(item.quantity || 0)
+  return `${formatOrderQuantity(quantity)} ${quantity === 1 ? 'Tafel' : 'Tafeln'}`
 }
 
 function twoDLaserTargetQuantityText(item: OrderItem) {
