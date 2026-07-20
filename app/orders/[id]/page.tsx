@@ -212,6 +212,23 @@ function formatPriceQuantity(value: number | null | undefined, unit: string | nu
   return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(Number(value))} ${unit}`
 }
 
+function formatTwoDLaserQuantity(item: OrderItem) {
+  const quantity = Number(item.quantity || 0)
+  const formatQuantity = (value: number) => new Intl.NumberFormat('de-DE', {
+    maximumFractionDigits: 2
+  }).format(value)
+
+  if (item.order_unit === 'paket') {
+    const sheets = quantity * Number(item.pieces_per_package || 0)
+    const packageLabel = quantity === 1 ? 'Paket' : 'Pakete'
+    const sheetLabel = sheets === 1 ? 'Tafel' : 'Tafeln'
+    return `${formatQuantity(quantity)} ${packageLabel} / ${formatQuantity(sheets)} ${sheetLabel}`
+  }
+
+  if (item.order_unit === 'kg') return `${formatQuantity(quantity)} kg`
+  return `${formatQuantity(quantity)} ${quantity === 1 ? 'Tafel' : 'Tafeln'}`
+}
+
 function normalizedDimensionPart(value: string) {
   const number = Number(value.replace(',', '.'))
   return Number.isFinite(number) ? String(number) : value
@@ -2286,11 +2303,7 @@ LKS-Team`
                         </td>
                         <td><strong>{formatEuro(item.line_total_eur)}</strong></td>
                         {isTwoDLaser && (
-                          <td>
-                            {item.order_unit === 'paket'
-                              ? Number(item.quantity || 0) * Number(item.pieces_per_package || 0)
-                              : item.quantity}
-                          </td>
+                          <td>{formatTwoDLaserQuantity(item)}</td>
                         )}
                         <td className={`we-block ${receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}`}>
                           {receivedQtyForItem(item)}
@@ -2365,7 +2378,18 @@ LKS-Team`
 
             <div className="grid order-summary-grid">
               {!isTwoDLaser && <p><b>Kunde:</b><br />{order.customer}</p>}
-              <p><b>Soll:</b><br />{orderItemsTotal(orderItems)}</p>
+              <p>
+                <b>Soll:</b>
+                <br />
+                {isTwoDLaser
+                  ? orderItems.map((item, index) => (
+                      <span key={`${item.order_unit}-${item.quantity}-${index}`}>
+                        {index > 0 && <br />}
+                        {formatTwoDLaserQuantity(item)}
+                      </span>
+                    ))
+                  : orderItemsTotal(orderItems)}
+              </p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
               <p><b>Ausschuss:</b><br />{scrapSum}</p>
               {!isTwoDLaser && <p><b>Gewicht:</b><br />ca. {formatTubeWeight(totalTubeWeight)}</p>}
