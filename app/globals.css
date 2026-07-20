@@ -1014,6 +1014,7 @@ a.card:hover {
 .orders-col-customer { width: 9.5%; }
 .orders-col-date { width: 5.5%; }
 .orders-col-material { width: 9%; }
+.orders-col-material-thickness { width: 6%; }
 .orders-col-positions { width: 11%; }
 .orders-col-av { width: 4%; }
 .orders-col-total-qty { width: 4%; }

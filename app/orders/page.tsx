@@ -1046,7 +1046,7 @@ function OrdersContent() {
           {orderArea === 'rohrlaser' && <col className="orders-col-customer" />}
           {orderArea === 'rohrlaser' && <col className="orders-col-date" />}
           <col className="orders-col-material" />
-          {orderArea === '2d-laser' && <col className="orders-col-material" />}
+          {orderArea === '2d-laser' && <col className="orders-col-material-thickness" />}
           <col className="orders-col-positions" />
           <col className="orders-col-total-qty" />
           <col className="orders-col-qty" />
