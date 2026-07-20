@@ -1273,6 +1273,15 @@ a.card:hover {
   margin: 0;
 }
 
+.order-summary-supplier {
+  padding-right: 12px;
+  overflow-wrap: anywhere;
+}
+
+.order-summary-delivery-date {
+  padding-left: 28px;
+}
+
 .order-summary-grid > .order-summary-notes {
   grid-column: 1 / -1;
   padding-top: 14px;
@@ -1331,6 +1340,10 @@ a.card:hover {
 @media (max-width: 800px) {
   .order-summary-grid {
     grid-template-columns: repeat(2, minmax(0, 180px));
+  }
+
+  .order-summary-delivery-date {
+    padding-left: 0;
   }
 }
 

@@ -50,6 +50,7 @@ type Order = {
   suppliers: { name: string; contact_person: string | null; email: string } | null
   order_items?: OrderItem[] | null
   ordered_at: string | null
+  ordered_by: string | null
   created_at: string
   supplier_order_pdf_name: string | null
   supplier_order_pdf_url: string | null
@@ -1078,9 +1079,15 @@ LKS-Team`
     const { data: userData } = await supabase.auth.getUser()
     const update: Record<string, string | null> = { status: nextStatus }
 
-    if (nextStatus === 'bestellt' && !order.ordered_at) {
+    const shouldRecordOrderedBy = (
+      nextStatus === 'bestellt' && (!order.ordered_at || !order.ordered_by)
+    ) || (
+      nextStatus === 'geliefert' && !order.ordered_by
+    )
+
+    if (shouldRecordOrderedBy) {
       await ensureCurrentUserProfile(supabase, userData.user)
-      update.ordered_at = new Date().toISOString()
+      if (!order.ordered_at) update.ordered_at = new Date().toISOString()
       update.ordered_by = userData.user?.id || null
     }
 
@@ -1979,7 +1986,7 @@ LKS-Team`
   }
 
   async function cancelOrder() {
-    if (!order || !orderHasActiveSend(order) || !await ask({
+    if (!order || order.status === 'geliefert' || !orderHasActiveSend(order) || !await ask({
       title: 'Bestellung stornieren',
       message: 'Bestellung wirklich stornieren und Stornierungsmail senden?',
       confirmLabel: 'Stornieren',
@@ -2310,7 +2317,7 @@ LKS-Team`
               {!isTwoDLaser && <p><b>Gewicht:</b><br />ca. {formatTubeWeight(totalTubeWeight)}</p>}
               {!isTwoDLaser && <p><b>K-Liefertermin:</b><br />{formatDateShort(order.customer_delivery_date)}</p>}
               <p><b>Preis:</b><br />{formatEuro(totalOrderPrice)}</p>
-              <p>
+              <p className="order-summary-supplier">
                 <b>Lieferant:</b>
                 <br />
                 {order.suppliers?.name || '-'}
@@ -2319,7 +2326,7 @@ LKS-Team`
                 <br />
                 {order.suppliers?.email || ''}
               </p>
-              <p><b>L-Liefertermin:</b><br />{order.desired_delivery_date ? formatDateShort(order.desired_delivery_date) : 'schnellstmöglich'}</p>
+              <p className="order-summary-delivery-date"><b>L-Liefertermin:</b><br />{order.desired_delivery_date ? formatDateShort(order.desired_delivery_date) : 'schnellstmöglich'}</p>
               {order.notes && (
                 <p className="order-summary-notes"><b>Bemerkung:</b><br />{order.notes}</p>
               )}
@@ -2348,8 +2355,14 @@ LKS-Team`
               <button
                 className="danger"
                 onClick={cancelOrder}
-                disabled={!orderAlreadySent}
-                title={!orderAlreadySent ? 'Die Bestellung wurde noch nicht gesendet.' : undefined}
+                disabled={!orderAlreadySent || order.status === 'geliefert'}
+                title={
+                  order.status === 'geliefert'
+                    ? 'Gelieferte Bestellungen können nicht storniert werden.'
+                    : !orderAlreadySent
+                      ? 'Die Bestellung wurde noch nicht gesendet.'
+                      : undefined
+                }
               >
                 Stornieren
               </button>

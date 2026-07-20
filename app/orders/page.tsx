@@ -72,7 +72,7 @@ type SortMode = 'latest_order' | SortKey
 type TubeStatisticsSortKey = 'material' | 'crossSection' | 'pieces' | 'meters' | 'weight' | 'totalPrice' | 'orders'
 type ActiveStatusMenu = { orderId: string; top: number; left: number; placement: 'top' | 'bottom' }
 
-const ARCHIVE_AFTER_DAYS = 2
+const ARCHIVE_AFTER_DAYS = 5
 const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000
 const ordersPageCache: Partial<Record<OrderArea, { orders: Order[]; profiles: Profile[] }>> = {}
 
@@ -511,9 +511,15 @@ function OrdersContent() {
     const { data: userData } = await supabase.auth.getUser()
     const update: Record<string, string | null> = { status: nextStatus }
 
-    if (nextStatus === 'bestellt' && !order.ordered_at) {
+    const shouldRecordOrderedBy = (
+      nextStatus === 'bestellt' && (!order.ordered_at || !order.ordered_by)
+    ) || (
+      nextStatus === 'geliefert' && !order.ordered_by
+    )
+
+    if (shouldRecordOrderedBy) {
       await ensureCurrentUserProfile(supabase, userData.user)
-      update.ordered_at = new Date().toISOString()
+      if (!order.ordered_at) update.ordered_at = new Date().toISOString()
       update.ordered_by = userData.user?.id || null
     }
 
