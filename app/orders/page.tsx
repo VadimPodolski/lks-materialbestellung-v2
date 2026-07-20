@@ -597,9 +597,9 @@ function OrdersContent() {
   const archivedOrders = useMemo(() => orders.filter(order => {
     if (visibleStatus(order) !== 'geliefert') return false
 
-    const orderCreatedAt = new Date(order.created_at || order.ordered_at || '').getTime()
+    const orderedAt = new Date(order.ordered_at || '').getTime()
 
-    return Number.isFinite(orderCreatedAt) && orderCreatedAt <= deleteCheckTime - ARCHIVE_AFTER_MS
+    return Number.isFinite(orderedAt) && orderedAt <= deleteCheckTime - ARCHIVE_AFTER_MS
   }), [orders, deleteCheckTime])
 
   const listedOrders = useMemo(() => {
@@ -1002,7 +1002,7 @@ function OrdersContent() {
           <h1>{showArchive ? 'Archiv' : 'Bestellungen'} {orderArea === '2d-laser' ? '2D-Laser' : 'Rohrlaser'}</h1>
           {showArchive && (
             <p className="orders-archive-note">
-              Vollständig gelieferte Aufträge, die mindestens {ARCHIVE_AFTER_DAYS} Tage alt sind.<br />
+              Vollständig gelieferte Aufträge, deren Bestellung mindestens {ARCHIVE_AFTER_DAYS} Tage zurückliegt.<br />
               <b>{archivedOrders.length} {archivedOrders.length === 1 ? 'Eintrag' : 'Einträge'}</b>
             </p>
           )}
