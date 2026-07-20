@@ -85,6 +85,11 @@ const pdfSections: { type: PdfDocumentType; title: string; uploadText: string }[
   { type: 'supplier_quote', title: '3. Lieferanten-Angebot', uploadText: 'Lieferanten-Angebot hier ablegen oder klicken' }
 ]
 
+const twoDLaserPdfSections: { type: PdfDocumentType; title: string; uploadText: string }[] = [
+  { type: 'supplier_confirmation', title: '1. Lieferanten-Auftragsbestätigung', uploadText: 'Lieferanten-Auftragsbestätigung hier ablegen oder klicken' },
+  { type: 'supplier_quote', title: '2. Lieferanten-Angebot', uploadText: 'Lieferanten-Angebot hier ablegen oder klicken' }
+]
+
 function pdfIdentity(documentType: PdfDocumentType, fileName: string) {
   return `${documentType}|${fileName.normalize('NFKC').trim().toLocaleLowerCase('de-DE')}`
 }
@@ -223,6 +228,27 @@ function dimensionSignature(value: string | null | undefined) {
     .filter(Boolean)
     .map(normalizedDimensionPart)
     .join('x')
+}
+
+function sheetFormatSignature(value: string | null | undefined) {
+  if (!value) return ''
+
+  const match = value.match(/(\d+(?:[.,]\d+)?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)/)
+  if (!match) return ''
+
+  return [match[1], match[2]]
+    .map(normalizedDimensionPart)
+    .join('x')
+}
+
+function sheetThicknessSignature(value: string | null | undefined) {
+  if (!value) return ''
+
+  const match = value.match(
+    /\d+(?:[.,]\d+)?\s*[xX×]\s*\d+(?:[.,]\d+)?\s*[xX×]\s*(\d+(?:[.,]\d+)?)\s*mm/i
+  )
+
+  return match ? normalizedDimensionPart(match[1]) : ''
 }
 
 function materialMatchesDescription(material: string | null | undefined, description: string) {
@@ -1682,21 +1708,34 @@ LKS-Team`
         crossSectionHint?: string | null
         pieceLengthMm?: number | null
       }[]
+      const isTwoDLaserOrder = normalizeOrderArea(order.order_area) === '2d-laser'
       const usedItemIds = new Set<string>()
       const updates = extractedPositions.flatMap(price => {
         const positionItem = orderItems.find((candidate, index) => (
           Number(candidate.position || index + 1) === Number(price.position)
         )) || null
-        const signature = dimensionSignature(price.description)
+        const signature = isTwoDLaserOrder
+          ? sheetFormatSignature(price.description)
+          : dimensionSignature(price.description)
         const signatureMatches = signature
-          ? orderItems.filter(item => dimensionSignature(item.cross_section) === signature)
+          ? orderItems.filter(item => (
+              isTwoDLaserOrder
+                ? sheetFormatSignature(item.cross_section) === signature
+                : dimensionSignature(item.cross_section) === signature
+            ))
           : []
-        const materialMatches = signatureMatches.filter(item => materialMatchesDescription(item.material, price.description))
+        const pdfThickness = isTwoDLaserOrder ? sheetThicknessSignature(price.description) : ''
+        const thicknessMatches = pdfThickness
+          ? signatureMatches.filter(item => (
+              normalizedDimensionPart(String(item.material_thickness_mm || '')) === pdfThickness
+            ))
+          : signatureMatches
+        const materialMatches = thicknessMatches.filter(item => materialMatchesDescription(item.material, price.description))
         let item = result.supplierFormat === 'dreckshage'
           ? positionItem
           : materialMatches.length === 1
             ? materialMatches[0]
-            : signatureMatches.length === 1 ? signatureMatches[0] : null
+            : thicknessMatches.length === 1 ? thicknessMatches[0] : null
 
         if (!item && extractedPositions.length === orderItems.length) {
           item = positionItem
@@ -1743,7 +1782,7 @@ LKS-Team`
           }
 
           const pieceMatch = price.description.match(
-            /(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:Stück|Stck\.?|Stk\.?|Stg\.?|St\.?|Stäbe?|Stab)(?:\s|$)/i
+            /(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:Stück|Stck\.?|Stk\.?|Stg\.?|St\.?|Stäbe?|Stab|Tafeln?)(?:\s|$)/i
           )
           if (!pieceMatch) return null
 
@@ -1798,20 +1837,31 @@ LKS-Team`
         }
       }
 
-      const updateResults = await Promise.all(updates.map(({ price, item }) => (
-        supabase
+      const updateResults = await Promise.all(updates.map(({ price, item }) => {
+        const confirmedPiecesPerPackage = isTwoDLaserOrder
+          && item.order_unit === 'paket'
+          && price.pieceQuantity != null
+          && Number.isInteger(Number(price.pieceQuantity))
+          && Number(price.pieceQuantity) > 0
+            ? Number(price.pieceQuantity)
+            : null
+
+        return supabase
           .from('order_items')
           .update({
             price_quantity: price.priceQuantity,
             price_unit: price.priceUnit,
             unit_price_eur: price.unitPriceEur,
-            line_total_eur: price.lineTotalEur
+            line_total_eur: price.lineTotalEur,
+            ...(confirmedPiecesPerPackage != null
+              ? { pieces_per_package: confirmedPiecesPerPackage }
+              : {})
           })
           .eq('id', item!.id!)
           .eq('material_order_id', order.id)
-          .select('id,price_quantity,price_unit,unit_price_eur,line_total_eur')
+          .select('id,price_quantity,price_unit,unit_price_eur,line_total_eur,pieces_per_package')
           .maybeSingle()
-      )))
+      }))
       const updateError = updateResults.find(update => update.error)?.error
 
       if (updateError) {
@@ -2184,13 +2234,12 @@ LKS-Team`
                     <th>{isTwoDLaser ? 'Format' : 'Querschnitt'}</th>
                     {!isTwoDLaser && <th>AV</th>}
                     {!isTwoDLaser && <th>Länge</th>}
-                    <th>{isTwoDLaser ? 'Menge' : 'Stückzahl'}</th>
+                    <th>{isTwoDLaser ? 'Einheit' : 'Stückzahl'}</th>
                     {!isTwoDLaser && <th>Gewicht</th>}
                     <th>Preis</th>
                     <th>Betrag</th>
-                    {isTwoDLaser && <th>Einheit</th>}
-                    {isTwoDLaser && <th>Stück/Paket</th>}
-                    <th>Geliefert</th>
+                    {isTwoDLaser && <th>Menge</th>}
+                    <th className="we-block">Geliefert</th>
                     <th className="we-block">WE-Menge</th>
                     <th className="we-block">Lieferschein</th>
                     <th className="we-block">WE-Bemerkung</th>
@@ -2216,7 +2265,7 @@ LKS-Team`
                         <td>{formatCrossSectionMm(item.cross_section)}</td>
                         {!isTwoDLaser && <td>{orderItemAvText(item) || '-'}</td>}
                         {!isTwoDLaser && <td>{formatLengthMm(item.length_mm)}</td>}
-                        <td>{item.quantity}</td>
+                        <td>{isTwoDLaser ? (item.order_unit === 'kg' ? 'kg' : 'Tafel') : item.quantity}</td>
                         {!isTwoDLaser && (
                           <td className="tube-weight-cell">
                             {tubeItemWeight == null || tubeWeightPerMeter == null ? '-' : (
@@ -2236,9 +2285,14 @@ LKS-Team`
                           )}
                         </td>
                         <td><strong>{formatEuro(item.line_total_eur)}</strong></td>
-                        {isTwoDLaser && <td>{item.order_unit === 'paket' ? 'Paket' : item.order_unit === 'kg' ? 'kg' : 'Stück'}</td>}
-                        {isTwoDLaser && <td>{item.order_unit === 'paket' ? item.pieces_per_package || '-' : '-'}</td>}
-                        <td className={receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}>
+                        {isTwoDLaser && (
+                          <td>
+                            {item.order_unit === 'paket'
+                              ? Number(item.quantity || 0) * Number(item.pieces_per_package || 0)
+                              : item.quantity}
+                          </td>
+                        )}
+                        <td className={`we-block ${receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}`}>
                           {receivedQtyForItem(item)}
                         </td>
                         <td className="we-block">
@@ -2293,8 +2347,8 @@ LKS-Team`
                 </tbody>
                 <tfoot>
                   <tr className="position-booking-row">
-                    <td colSpan={isTwoDLaser ? 10 : 9} />
-                    <td className="position-booking-cell we-booking-cell" colSpan={isTwoDLaser ? 3 : 4}>
+                    <td colSpan={isTwoDLaser ? 8 : 9} />
+                    <td className="position-booking-cell we-booking-cell" colSpan={4}>
                       <button type="button" onClick={receiveGoods}>
                         Wareneingang buchen
                       </button>
@@ -2378,8 +2432,8 @@ LKS-Team`
 
             {orderMailMessage && <p className="success">{orderMailMessage}</p>}
 
-            <div className="pdf-sections">
-              {pdfSections.map(section => {
+            <div className={`pdf-sections${isTwoDLaser ? ' two-columns' : ''}`}>
+              {(isTwoDLaser ? twoDLaserPdfSections : pdfSections).map(section => {
                 const sectionPdfs = orderPdfs.filter(pdf => pdf.document_type === section.type)
                 const isUploading = uploadingPdfType === section.type
                 const isQuote = section.type === 'supplier_quote'

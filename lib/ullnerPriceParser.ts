@@ -128,7 +128,7 @@ function localizedNumber(value: string) {
 
 function extractPieceQuantity(value: string) {
   const matches = Array.from(value.matchAll(
-    /(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:Stück|Stck\.?|Stk\.?|Stg\.?|St\.?|ST|PCS|PC|EA|Stäbe?|Stab)(?=\s|$|[.,;])/gi
+    /(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:Stück|Stck\.?|Stk\.?|Stg\.?|St\.?|ST|PCS|PC|EA|Stäbe?|Stab|Tafeln?)(?=\s|$|[.,;])/gi
   ))
   if (matches.length === 0) return null
 
@@ -524,11 +524,17 @@ export function parseUllnerPriceConfirmation(text: string): UllnerPriceConfirmat
             }
           }
 
+          const description = lines
+            .slice(index + 1, Math.min(descriptionEnd, priceIndex + 6))
+            .join(' ')
+
           positions.push({
             position,
             ...price,
-            pieceQuantity: price.priceUnit === 'Stück' ? price.priceQuantity : extractPieceQuantity(lines.slice(index + 1, priceIndex + 1).join(' ')),
-            description: lines.slice(index + 1, Math.min(descriptionEnd, priceIndex + 6)).join(' ')
+            pieceQuantity: price.priceUnit === 'Stück'
+              ? price.priceQuantity
+              : extractPieceQuantity(description),
+            description
           })
           index = priceIndex
           break
@@ -539,7 +545,7 @@ export function parseUllnerPriceConfirmation(text: string): UllnerPriceConfirmat
 
   const confirmationNumber = text.match(/KAB\s+(\d+)/i)?.[1] || null
   const referenceNumber = text.match(/Referenznummer:\s*([A-Z0-9-]+)/i)?.[1]
-    || text.match(/Kommission:\s*A?(AB-\d+)/i)?.[1]
+    || text.match(/Kommission:\s*((?:AB-\d+|TAFEL-\d+))/i)?.[1]
     || null
 
   return { confirmationNumber, referenceNumber, supplierFormat: 'ullner', positions }

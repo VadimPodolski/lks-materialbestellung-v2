@@ -110,6 +110,25 @@ function orderTotalPrice(items: OrderItem[]) {
   return hasPrice ? total : null
 }
 
+function twoDLaserTotalWeight(items: OrderItem[]) {
+  if (items.length === 0) return null
+
+  const weights = items.map(item => {
+    if ((item.price_unit || '').trim().toLocaleLowerCase('de-DE') === 'kg' && item.price_quantity != null) {
+      return Number(item.price_quantity)
+    }
+
+    if (item.order_unit === 'kg') {
+      return Number(item.quantity || 0)
+    }
+
+    return null
+  })
+
+  if (weights.some(weight => weight == null || !Number.isFinite(weight))) return null
+  return weights.reduce<number>((sum, weight) => sum + Number(weight), 0)
+}
+
 function OrdersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1034,7 +1053,7 @@ function OrdersContent() {
           <col className="orders-col-qty" />
           {orderArea === 'rohrlaser' && <col className="orders-col-av" />}
           <col className="orders-col-price" />
-          {orderArea === 'rohrlaser' && <col className="orders-col-weight" />}
+          <col className="orders-col-weight" />
           <col className="orders-col-supplier" />
           <col className="orders-col-date" />
           <col className="orders-col-person" />
@@ -1056,7 +1075,7 @@ function OrdersContent() {
             <th>{sortButton('scrap', 'Ausschuss')}</th>
             {orderArea === 'rohrlaser' && <th>AV</th>}
             <th>{sortButton('total_price', 'Preis')}</th>
-            {orderArea === 'rohrlaser' && <th>Gesamtgewicht</th>}
+            <th>Gesamtgewicht</th>
             <th>{sortButton('supplier', 'Lieferant')}</th>
             <th>{sortButton('desired_delivery_date', 'L-Liefertermin')}</th>
             <th>{sortButton('created_by', 'Erstellt von')}</th>
@@ -1069,7 +1088,7 @@ function OrdersContent() {
         <tbody onClick={e => openOrderFromRow(e.target)}>
           {filtered.length === 0 && (
             <tr>
-              <td className="orders-empty-state" colSpan={orderArea === 'rohrlaser' ? 18 : 15}>
+              <td className="orders-empty-state" colSpan={orderArea === 'rohrlaser' ? 18 : 16}>
                 {showArchive
                   ? 'Noch keine Aufträge im Archiv.'
                   : 'Keine Bestellungen für die gewählten Filter gefunden.'}
@@ -1087,6 +1106,9 @@ function OrdersContent() {
             const totalTubeWeight = tubeWeights.length > 0 && tubeWeights.every(weight => weight != null)
               ? tubeWeights.reduce((sum, weight) => sum + Number(weight), 0)
               : null
+            const totalOrderWeight = orderArea === 'rohrlaser'
+              ? totalTubeWeight
+              : twoDLaserTotalWeight(orderItems)
             const orderStatus = visibleStatus(o)
             const pdf = o.order_pdfs?.[0]
             const pdfUrl = pdf?.file_url || o.supplier_order_pdf_url
@@ -1208,11 +1230,9 @@ function OrdersContent() {
                   </div>
                 </td>}
                 <td className="order-total-price">{totalPrice == null ? '-' : formatEuro(totalPrice)}</td>
-                {orderArea === 'rohrlaser' && (
-                  <td className="order-total-weight">
-                    {totalTubeWeight == null ? '-' : formatTubeWeight(totalTubeWeight)}
-                  </td>
-                )}
+                <td className="order-total-weight">
+                  {totalOrderWeight == null ? '-' : formatTubeWeight(totalOrderWeight)}
+                </td>
                 <td>{o.suppliers?.name || '-'}</td>
                 <td>{formatSupplierDeliveryDate(o.desired_delivery_date)}</td>
                 <td>
