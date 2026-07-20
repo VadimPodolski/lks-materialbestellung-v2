@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { OrderItem, emptyOrderItem, formatCrossSectionMm, mergeOrderItems, orderItemsTotal, primaryOrderItem } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
-import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
+import { packagingDefaultKey, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
 
 type Supplier = { id: string; name: string }
 type Customer = { id: string; name: string }
@@ -129,7 +129,7 @@ export default function NewOrderPage() {
         cross_section: item.cross_section || crossSection,
         order_unit: area === '2d-laser' ? (item.order_unit || 'paket') : 'stück',
         pieces_per_package: area === '2d-laser'
-          ? loadedPackagingDefaults[packagingDefaultKey(area, item.material || material, item.cross_section || crossSection)] || null
+          ? loadedPackagingDefaults[packagingDefaultKey(area, item.material || material, item.cross_section || crossSection)] || 1
           : null,
         length_mm: area === '2d-laser' ? null : item.length_mm
       } : item)
@@ -318,7 +318,7 @@ export default function NewOrderPage() {
           ...item,
           order_unit: orderUnit,
           pieces_per_package: orderUnit === 'paket'
-            ? packagingDefaults[packagingDefaultKey(orderArea, item.material, item.cross_section)] || null
+            ? packagingDefaults[packagingDefaultKey(orderArea, item.material, item.cross_section)] || 1
             : null
         }
       }
@@ -328,7 +328,7 @@ export default function NewOrderPage() {
       if (orderArea === '2d-laser' && (key === 'material' || key === 'cross_section') && nextItem.order_unit === 'paket') {
         nextItem.pieces_per_package = packagingDefaults[
           packagingDefaultKey(orderArea, nextItem.material, nextItem.cross_section)
-        ] || null
+        ] || 1
       }
 
       return nextItem
@@ -393,7 +393,7 @@ export default function NewOrderPage() {
         ? (item.order_unit === 'paket' ? 'paket' : item.order_unit === 'kg' ? 'kg' : 'stück')
         : 'stück',
       pieces_per_package: orderArea === '2d-laser' && item.order_unit === 'paket'
-        ? Number(item.pieces_per_package || 0)
+        ? Number(item.pieces_per_package || 1)
         : null
     })))
 
@@ -405,10 +405,6 @@ export default function NewOrderPage() {
 
     if (orderArea === '2d-laser' && cleanItems.some(item => !item.material_thickness_mm || item.material_thickness_mm <= 0)) {
       return setMsg('Bitte bei jeder Position eine Materialstärke eingeben.')
-    }
-
-    if (orderArea === '2d-laser' && cleanItems.some(item => item.order_unit === 'paket' && !item.pieces_per_package)) {
-      return setMsg('Bitte bei jeder Paket-Position die Stückzahl pro Paket angeben.')
     }
 
     try {
@@ -509,11 +505,6 @@ export default function NewOrderPage() {
     )
 
     if (itemError) return setMsg(itemError.message)
-
-    const defaultRows = packagingDefaultRows(orderArea, cleanItems)
-    if (defaultRows.length > 0) {
-      await supabase.from('packaging_defaults').upsert(defaultRows)
-    }
 
     router.push(`/orders/${data.id}`)
   }
@@ -747,17 +738,6 @@ export default function NewOrderPage() {
 
                   {orderArea === '2d-laser' && (
                     <div>
-                      <label>Einheit</label>
-                      <select value={item.order_unit || 'paket'} onChange={e => setItem(index, 'order_unit', e.target.value)}>
-                        <option value="paket">Paket</option>
-                        <option value="stück">Stück</option>
-                        <option value="kg">kg</option>
-                      </select>
-                    </div>
-                  )}
-
-                  {orderArea === '2d-laser' && (
-                    <div>
                       <label>Menge</label>
                       <input
                         type="number"
@@ -772,15 +752,12 @@ export default function NewOrderPage() {
 
                   {orderArea === '2d-laser' && (
                     <div>
-                      <label>Stück pro Paket</label>
-                      <input
-                        type="number"
-                        min="1"
-                        value={item.pieces_per_package || ''}
-                        onChange={e => setItem(index, 'pieces_per_package', e.target.value)}
-                        disabled={item.order_unit !== 'paket'}
-                        required={item.order_unit === 'paket'}
-                      />
+                      <label>Einheit</label>
+                      <select value={item.order_unit || 'paket'} onChange={e => setItem(index, 'order_unit', e.target.value)}>
+                        <option value="paket">Paket</option>
+                        <option value="stück">Stück</option>
+                        <option value="kg">kg</option>
+                      </select>
                     </div>
                   )}
 
