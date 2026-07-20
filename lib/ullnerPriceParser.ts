@@ -202,6 +202,59 @@ function parseGenericPriceLine(line: string) {
   return parseLooseGenericPriceLine(line)
 }
 
+function parseKloecknerPositions(text: string) {
+  const markers = Array.from(text.matchAll(
+    /(?:^|\n)\s*0*(\d{1,4})\s*Artikel-Nr\.?\s+\d+/gi
+  ))
+  const positions: UllnerPositionPrice[] = []
+
+  for (let index = 0; index < markers.length; index += 1) {
+    const marker = markers[index]
+    const blockStart = marker.index || 0
+    const blockEnd = markers[index + 1]?.index ?? text.length
+    const block = text.slice(blockStart, blockEnd).replace(/\s+/g, ' ').trim()
+    const priceMatch = block.match(
+      /(\d+(?:[.,]\d+)?)\s*ST\s+([\d.]+)\s*MM\s*([\d.]+,\d{3})\s*M\s*([\d.]+,\d{2,4})\s+1\s*M\s*([\d.]+,\d{2})/i
+    )
+
+    if (!priceMatch) continue
+
+    const pieceQuantity = localizedNumber(priceMatch[1])
+    const pieceLengthMm = Number(priceMatch[2].replace(/\./g, ''))
+    const priceQuantity = germanNumber(priceMatch[3])
+    const unitPriceEur = germanNumber(priceMatch[4])
+    const lineTotalEur = germanNumber(priceMatch[5])
+    const difference = Math.abs(priceQuantity * unitPriceEur - lineTotalEur)
+
+    if (
+      !Number.isFinite(pieceQuantity)
+      || !Number.isFinite(pieceLengthMm)
+      || !Number.isFinite(priceQuantity)
+      || !Number.isFinite(unitPriceEur)
+      || !Number.isFinite(lineTotalEur)
+      || difference > 0.08
+    ) continue
+
+    const supplierPosition = Number(marker[1])
+    const position = supplierPosition >= 10 && supplierPosition % 10 === 0
+      ? supplierPosition / 10
+      : supplierPosition
+
+    positions.push({
+      position,
+      priceQuantity,
+      priceUnit: 'm',
+      pieceQuantity,
+      pieceLengthMm,
+      unitPriceEur,
+      lineTotalEur,
+      description: block
+    })
+  }
+
+  return positions
+}
+
 function parseCompactDreckshagePrice(value: string) {
   const matches = Array.from(value.matchAll(
     /(?:^|\s)(\d+(?:[.,]\d+)?)\s*Meter\s*([\d.]+,\d{2,4})\s*Meter\s*([\d.]+,\d{2})/gi
@@ -510,45 +563,49 @@ export function parseSupplierPriceConfirmation(text: string, supplierName = ''):
   if (!hasConfirmationTitle) {
     throw new Error('Die PDF wurde nicht als Lieferanten-Auftragsbestätigung oder Angebot erkannt.')
   }
-  const positions: UllnerPositionPrice[] = isDreckshage ? parseDreckshagePositions(text) : []
+  const positions: UllnerPositionPrice[] = isDreckshage
+    ? parseDreckshagePositions(text)
+    : isKloeckner ? parseKloecknerPositions(text) : []
 
-  for (let index = 0; positions.length === 0 && index < lines.length; index += 1) {
-    let price: ReturnType<typeof parseGenericPriceLine> = null
-    let priceLine = lines[index]
-    let consumedLines = 1
+  if (positions.length === 0) {
+    for (let index = 0; index < lines.length; index += 1) {
+      let price: ReturnType<typeof parseGenericPriceLine> = null
+      let priceLine = lines[index]
+      let consumedLines = 1
 
-    for (let lineCount = 1; lineCount <= 10 && index + lineCount <= lines.length; lineCount += 1) {
-      const candidate = lines.slice(index, index + lineCount).join(' ')
-      const parsedPrice = parseGenericPriceLine(candidate)
+      for (let lineCount = 1; lineCount <= 10 && index + lineCount <= lines.length; lineCount += 1) {
+        const candidate = lines.slice(index, index + lineCount).join(' ')
+        const parsedPrice = parseGenericPriceLine(candidate)
 
-      if (parsedPrice) {
-        price = parsedPrice
-        priceLine = candidate
-        consumedLines = lineCount
-        break
+        if (parsedPrice) {
+          price = parsedPrice
+          priceLine = candidate
+          consumedLines = lineCount
+          break
+        }
       }
-    }
 
-    if (!price) continue
+      if (!price) continue
 
-    const positionMatch = priceLine.match(/^(?:Pos(?:ition)?\.?\s*)?0*(\d{1,4})(?=\s|[.:;-])/i)
-      || priceLine.match(/^(?:\d{4,})?(\d{1,3})(?=\d+[.,]\d{2,3}(?:Stück|Stck|Stk|Stg|St|m|kg))/i)
-    const fallbackPosition = positions.length + 1
-    let descriptionEnd = Math.min(lines.length, index + consumedLines + 6)
+      const positionMatch = priceLine.match(/^(?:Pos(?:ition)?\.?\s*)?0*(\d{1,4})(?=\s|[.:;-])/i)
+        || priceLine.match(/^(?:\d{4,})?(\d{1,3})(?=\d+[.,]\d{2,3}(?:Stück|Stck|Stk|Stg|St|m|kg))/i)
+      const fallbackPosition = positions.length + 1
+      let descriptionEnd = Math.min(lines.length, index + consumedLines + 6)
 
-    for (let descriptionIndex = index + consumedLines; descriptionIndex < descriptionEnd; descriptionIndex += 1) {
-      if (/^(?:Pos(?:ition)?\.?\s*)?0*\d{1,4}(?:\s+\d{4,}|\s*$)/i.test(lines[descriptionIndex])) {
-        descriptionEnd = descriptionIndex
-        break
+      for (let descriptionIndex = index + consumedLines; descriptionIndex < descriptionEnd; descriptionIndex += 1) {
+        if (/^(?:Pos(?:ition)?\.?\s*)?0*\d{1,4}(?:\s+\d{4,}|\s*$)/i.test(lines[descriptionIndex])) {
+          descriptionEnd = descriptionIndex
+          break
+        }
       }
-    }
 
-    positions.push({
-      position: positionMatch ? Number(positionMatch[1]) : fallbackPosition,
-      ...price,
-      description: lines.slice(index, descriptionEnd).join(' ')
-    })
-    index += consumedLines - 1
+      positions.push({
+        position: positionMatch ? Number(positionMatch[1]) : fallbackPosition,
+        ...price,
+        description: lines.slice(index, descriptionEnd).join(' ')
+      })
+      index += consumedLines - 1
+    }
   }
 
   const confirmationNumber = isDreckshage
