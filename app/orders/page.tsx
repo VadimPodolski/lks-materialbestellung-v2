@@ -1298,8 +1298,11 @@ function OrdersContent() {
                   {orderArea === '2d-laser' ? (
                     <div className="order-position-lines">
                       {orderItems.map((item, index) => (
-                        <div key={`${item.order_unit}-${item.quantity}-${index}`}>
-                          {twoDLaserTargetQuantityText(item)}
+                        <div className="two-d-target-quantity" key={`${item.order_unit}-${item.quantity}-${index}`}>
+                          <span>{twoDLaserTargetQuantityText(item)}</span>
+                          {item.order_unit === 'paket' && Number(item.pieces_per_package || 0) > 0 && (
+                            <small>{twoDLaserActualQuantityText(item)}</small>
+                          )}
                         </div>
                       ))}
                     </div>

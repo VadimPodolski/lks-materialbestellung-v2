@@ -1390,6 +1390,17 @@ a.card:hover {
   min-width: 120px;
 }
 
+.two-d-target-quantity {
+  display: grid;
+  gap: 2px;
+}
+
+.two-d-target-quantity small {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .order-summary-grid {
   grid-template-columns: repeat(9, minmax(0, 180px));
   justify-content: start;
