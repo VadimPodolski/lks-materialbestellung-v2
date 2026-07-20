@@ -801,7 +801,7 @@ Auftrag: ${order.order_number}
 Kunde: ${order.customer}
 Bemerkung: ${order.notes || '-'}
 
-${orderItemsMailText(orderItems)}
+${orderItemsMailText(orderItems, normalizeOrderArea(order.order_area) === '2d-laser')}
 
 Liefertermin: ${order.desired_delivery_date ? formatDateShort(order.desired_delivery_date) : 'schnellstmöglich'}
 
@@ -871,6 +871,7 @@ LKS-Team`
           orderNumber: order.order_number,
           customer: order.customer,
           items: orderItems,
+          orderArea: order.order_area,
           desiredDeliveryDate: order.desired_delivery_date,
           supplierName: order.suppliers.name,
           orderedBy,
@@ -1336,6 +1337,7 @@ LKS-Team`
           orderNumber: reorderOrderNumber,
           customer: order.customer,
           items: reorderItems,
+          orderArea: order.order_area,
           desiredDeliveryDate: order.desired_delivery_date,
           supplierName: order.suppliers.name,
           orderedBy,
@@ -2001,6 +2003,7 @@ LKS-Team`
         orderNumber: order.order_number,
         customer: order.customer,
         items: orderItems,
+        orderArea: order.order_area,
         supplierName: order.suppliers.name,
         orderedBy,
         notes: order.notes

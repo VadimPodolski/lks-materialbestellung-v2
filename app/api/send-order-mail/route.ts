@@ -9,6 +9,7 @@ import {
   formatLengthMm,
   OrderItem,
   orderItemQuantityText,
+  orderItemQuantityWithoutPackageSizeText,
   orderItemsMailText
 } from '@/lib/orderItems'
 import { lksEmailLogoBase64 } from '@/lib/lksEmailLogo'
@@ -109,8 +110,19 @@ function emailFooterHtml() {
     </tr>`
 }
 
-function orderItemsHtml(items: OrderItem[]) {
+function orderItemsHtml(items: OrderItem[], isTwoDLaser: boolean) {
   return items.map((item, index) => {
+    if (isTwoDLaser) {
+      return `
+      <tr>
+        <td width="8%" valign="top" style="width:8%;padding:14px 10px;border-bottom:1px solid #e2e8f0;color:#64748b;font-weight:700;text-align:left;">${index + 1}</td>
+        <td width="25%" valign="top" style="width:25%;padding:14px 10px;border-bottom:1px solid #e2e8f0;color:#172033;font-weight:700;text-align:left;">${escapeHtml(item.material)}</td>
+        <td width="17%" valign="top" style="width:17%;padding:14px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;text-align:left;">${escapeHtml(formatMaterialThickness(item.material_thickness_mm))}</td>
+        <td width="27%" valign="top" style="width:27%;padding:14px 10px;border-bottom:1px solid #e2e8f0;text-align:left;">${escapeHtml(formatCrossSectionMm(item.cross_section))}</td>
+        <td width="23%" valign="top" style="width:23%;padding:14px 10px;border-bottom:1px solid #e2e8f0;white-space:nowrap;text-align:left;">${escapeHtml(orderItemQuantityWithoutPackageSizeText(item))}</td>
+      </tr>`
+    }
+
     const thickness = item.material_thickness_mm
       ? `<div style="margin-top:4px;color:#64748b;font-size:12px;">Materialstärke: ${escapeHtml(formatMaterialThickness(item.material_thickness_mm))}</div>`
       : ''
@@ -131,6 +143,7 @@ function emailHtml({
   orderNumber,
   orderedBy,
   orderItems,
+  orderArea,
   desiredDeliveryDate,
   notes
 }: {
@@ -138,9 +151,11 @@ function emailHtml({
   orderNumber: string
   orderedBy: string
   orderItems: OrderItem[]
+  orderArea?: string | null
   desiredDeliveryDate?: string | null
   notes?: string | null
 }) {
+  const isTwoDLaser = orderArea === '2d-laser'
   const deliveryDate = desiredDeliveryDate ? formatDateShort(desiredDeliveryDate) : 'schnellstmöglich'
   const accent = isCancellation ? '#b42318' : '#00a859'
   const title = isCancellation ? 'Stornierung Ihrer Materialbestellung' : 'Materialbestellung'
@@ -220,13 +235,14 @@ function emailHtml({
                   <thead>
                     <tr style="background:#eef2f0;color:#475569;text-align:left;">
                       <th width="8%" align="left" style="width:8%;padding:11px 10px;text-align:left;">Pos.</th>
-                      <th width="32%" align="left" style="width:32%;padding:11px 10px;text-align:left;">Material</th>
-                      <th width="22%" align="left" style="width:22%;padding:11px 10px;text-align:left;">Querschnitt</th>
-                      <th width="19%" align="left" style="width:19%;padding:11px 10px;text-align:left;">Länge</th>
-                      <th width="19%" align="left" style="width:19%;padding:11px 10px;text-align:left;">Menge</th>
+                      <th width="${isTwoDLaser ? '25%' : '32%'}" align="left" style="width:${isTwoDLaser ? '25%' : '32%'};padding:11px 10px;text-align:left;">Material</th>
+                      ${isTwoDLaser ? '<th width="17%" align="left" style="width:17%;padding:11px 10px;text-align:left;">Stärke</th>' : ''}
+                      <th width="${isTwoDLaser ? '27%' : '22%'}" align="left" style="width:${isTwoDLaser ? '27%' : '22%'};padding:11px 10px;text-align:left;">Querschnitt</th>
+                      ${isTwoDLaser ? '' : '<th width="19%" align="left" style="width:19%;padding:11px 10px;text-align:left;">Länge</th>'}
+                      <th width="${isTwoDLaser ? '23%' : '19%'}" align="left" style="width:${isTwoDLaser ? '23%' : '19%'};padding:11px 10px;text-align:left;">Menge</th>
                     </tr>
                   </thead>
-                  <tbody>${orderItemsHtml(orderItems)}</tbody>
+                  <tbody>${orderItemsHtml(orderItems, isTwoDLaser)}</tbody>
                 </table>
                 ${isCancellation && notes ? `<p style="margin:18px 0 0;"><strong>Bemerkung:</strong> ${escapeHtml(notes)}</p>` : ''}
                 <div style="margin-top:22px;padding:14px 16px;border-left:4px solid ${accent};background:${isCancellation ? '#fff5f4' : '#edf9f3'};font-size:14px;line-height:1.55;">${actionNote}</div>
@@ -258,6 +274,7 @@ export async function POST(req: Request) {
       orderedBy,
       notes,
       items,
+      orderArea,
       mailType,
       isResend
     } = body
@@ -314,7 +331,7 @@ hiermit stornieren wir unsere Materialbestellung.
 Auftrag: ${orderNumber}
 Bearbeiter: ${orderedBy || '-'}
 
-${orderItemsMailText(orderItems)}
+${orderItemsMailText(orderItems, orderArea === '2d-laser')}
 
 Bemerkung: ${notes || '-'}
 
@@ -331,7 +348,7 @@ bitte liefern Sie uns folgendes Material:
 Auftrag: ${orderNumber}
 Bearbeiter: ${orderedBy || '-'}
 
-${orderItemsMailText(orderItems)}
+${orderItemsMailText(orderItems, orderArea === '2d-laser')}
 
 Liefertermin: ${desiredDeliveryDate ? formatDateShort(desiredDeliveryDate) : 'schnellstmöglich'}
 Bemerkung: ${notes || '-'}
@@ -355,6 +372,7 @@ LKS-Team`
         orderNumber,
         orderedBy,
         orderItems,
+        orderArea,
         desiredDeliveryDate,
         notes
       }),

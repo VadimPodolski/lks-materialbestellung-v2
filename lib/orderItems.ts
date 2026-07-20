@@ -178,6 +178,14 @@ export function orderItemQuantityText(item: OrderItem) {
   return `${item.quantity} Stück`
 }
 
+export function orderItemQuantityWithoutPackageSizeText(item: OrderItem) {
+  if (item.order_unit === 'paket') {
+    return `${item.quantity} Paket${item.quantity === 1 ? '' : 'e'}`
+  }
+
+  return orderItemQuantityText(item)
+}
+
 export function formatMaterialThickness(value: number | null | undefined) {
   if (!value) return '-'
   return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(Number(value))} mm`
@@ -205,15 +213,19 @@ export function formatOrderPosition(
   return `${materialText} - ${formatCrossSectionMm(crossSection)} - L=${formatLengthMm(lengthMm)}`
 }
 
-export function orderItemsMailText(items: OrderItem[]) {
+export function orderItemsMailText(items: OrderItem[], isTwoDLaser = false) {
   return items
-    .map((item, index) => (
-      `${index + 1}. Material: ${item.material}
+    .map((item, index) => isTwoDLaser
+      ? `${index + 1}. Material: ${item.material}
+   Stärke: ${formatMaterialThickness(item.material_thickness_mm)}
+   Querschnitt: ${formatCrossSectionMm(item.cross_section)}
+   Menge: ${orderItemQuantityWithoutPackageSizeText(item)}`
+      : `${index + 1}. Material: ${item.material}
 ${item.material_thickness_mm ? `   Materialstärke: ${formatMaterialThickness(item.material_thickness_mm)}\n` : ''}
    Querschnitt: ${formatCrossSectionMm(item.cross_section)}
    Länge: ${formatLengthMm(item.length_mm)}
    Menge: ${orderItemQuantityText(item)}`
-    ))
+    )
     .join('\n\n')
 }
 
