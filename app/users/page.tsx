@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import ActionIconButton from '@/app/ActionIconButton'
 import { useAppDialog } from '@/app/useAppDialog'
@@ -47,6 +47,34 @@ export default function UsersPage() {
   const [message, setMessage] = useState('')
   const [success, setSuccess] = useState('')
   const [form, setForm] = useState<UserForm | null>(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending'>('all')
+  const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'admin'>('all')
+  const [sortMode, setSortMode] = useState('created_desc')
+
+  const visibleProfiles = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase('de-DE')
+    const filtered = profiles.filter(profile => {
+      const matchesSearch = !query || `${profile.full_name || ''} ${profile.email || ''}`
+        .toLocaleLowerCase('de-DE')
+        .includes(query)
+      const matchesStatus = statusFilter === 'all'
+        || (statusFilter === 'approved' ? profile.approved : !profile.approved)
+      const matchesRole = roleFilter === 'all' || profile.role === roleFilter
+      return matchesSearch && matchesStatus && matchesRole
+    })
+
+    return [...filtered].sort((a, b) => {
+      if (sortMode === 'name_asc') return (a.full_name || '').localeCompare(b.full_name || '', 'de-DE')
+      if (sortMode === 'name_desc') return (b.full_name || '').localeCompare(a.full_name || '', 'de-DE')
+      if (sortMode === 'email_asc') return (a.email || '').localeCompare(b.email || '', 'de-DE')
+      if (sortMode === 'email_desc') return (b.email || '').localeCompare(a.email || '', 'de-DE')
+      if (sortMode === 'created_asc') return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+      if (sortMode === 'status') return Number(a.approved) - Number(b.approved)
+      if (sortMode === 'role') return a.role.localeCompare(b.role, 'de-DE')
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    })
+  }, [profiles, roleFilter, search, sortMode, statusFilter])
 
   const load = useCallback(async () => {
     const supabase = createClient()
@@ -211,7 +239,56 @@ export default function UsersPage() {
       {message && <p className="error">{message}</p>}
       {success && <p className="success">{success}</p>}
       {loading ? <p>Lade Benutzer...</p> : (
-        <div className="table-wrap">
+        <>
+          <div className="users-list-toolbar">
+            <div className="users-count-summary">
+              <strong>{profiles.length} Benutzer</strong>
+              <span>{visibleProfiles.length} angezeigt</span>
+            </div>
+
+            <div className="users-filter-controls">
+              <div>
+                <label htmlFor="users-search">Suche</label>
+                <input
+                  id="users-search"
+                  value={search}
+                  onChange={event => setSearch(event.target.value)}
+                  placeholder="Name oder E-Mail..."
+                />
+              </div>
+              <div>
+                <label htmlFor="users-status-filter">Status</label>
+                <select id="users-status-filter" value={statusFilter} onChange={event => setStatusFilter(event.target.value as typeof statusFilter)}>
+                  <option value="all">Alle Status</option>
+                  <option value="pending">Wartet auf Freigabe</option>
+                  <option value="approved">Freigegeben</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="users-role-filter">Rolle</label>
+                <select id="users-role-filter" value={roleFilter} onChange={event => setRoleFilter(event.target.value as typeof roleFilter)}>
+                  <option value="all">Alle Rollen</option>
+                  <option value="user">Benutzer</option>
+                  <option value="admin">Administrator</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="users-sort">Sortierung</label>
+                <select id="users-sort" value={sortMode} onChange={event => setSortMode(event.target.value)}>
+                  <option value="created_desc">Neueste zuerst</option>
+                  <option value="created_asc">Älteste zuerst</option>
+                  <option value="name_asc">Name A–Z</option>
+                  <option value="name_desc">Name Z–A</option>
+                  <option value="email_asc">E-Mail A–Z</option>
+                  <option value="email_desc">E-Mail Z–A</option>
+                  <option value="status">Offene zuerst</option>
+                  <option value="role">Nach Rolle</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="table-wrap">
           <table className="users-table">
             <thead>
               <tr>
@@ -224,7 +301,10 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {profiles.map(profile => {
+              {visibleProfiles.length === 0 && (
+                <tr><td colSpan={6} className="users-empty-state">Keine Benutzer für die gewählten Filter gefunden.</td></tr>
+              )}
+              {visibleProfiles.map(profile => {
                 const isCurrentUser = profile.id === currentUserId
                 const isProtectedAdmin = profile.email?.toLowerCase() === 'v.podolski@lks-technik.de'
                 const actionBusy = busy.endsWith(profile.id)
@@ -288,7 +368,8 @@ export default function UsersPage() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       {form && (
