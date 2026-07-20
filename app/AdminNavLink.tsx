@@ -9,10 +9,19 @@ export default function AdminNavLink() {
 
   useEffect(() => {
     const supabase = createClient()
+    let active = true
+    let refreshTimer: number | undefined
 
-    void supabase.auth.getUser().then(async ({ data }) => {
-      const user = data.user
-      if (!user) return
+    async function refreshAdmin(user: { id: string; email?: string } | null) {
+      if (!user) {
+        if (active) setIsAdmin(false)
+        return
+      }
+
+      if (user.email?.toLowerCase() === 'v.podolski@lks-technik.de') {
+        if (active) setIsAdmin(true)
+        return
+      }
 
       const { data: profile } = await supabase
         .from('profiles')
@@ -20,8 +29,25 @@ export default function AdminNavLink() {
         .eq('id', user.id)
         .maybeSingle()
 
-      setIsAdmin(profile?.role === 'admin' || user.email?.toLowerCase() === 'v.podolski@lks-technik.de')
+      if (active) setIsAdmin(profile?.role === 'admin')
+    }
+
+    void supabase.auth.getUser().then(({ data }) => refreshAdmin(data.user))
+
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer)
+      refreshTimer = window.setTimeout(() => {
+        void refreshAdmin(session?.user || null)
+      }, 0)
     })
+
+    return () => {
+      active = false
+      if (refreshTimer !== undefined) window.clearTimeout(refreshTimer)
+      subscription.unsubscribe()
+    }
   }, [])
 
   return isAdmin ? <Link href="/users">Benutzer</Link> : null
