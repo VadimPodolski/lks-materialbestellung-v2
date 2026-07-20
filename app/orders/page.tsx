@@ -77,13 +77,6 @@ const ARCHIVE_AFTER_DAYS = 5
 const ARCHIVE_AFTER_MS = ARCHIVE_AFTER_DAYS * 24 * 60 * 60 * 1000
 const ordersPageCache: Partial<Record<OrderArea, { orders: Order[]; profiles: Profile[] }>> = {}
 
-function formatSortValue(value: string) {
-  const dimensions = value.match(/(\d+(?:[.,]\d+)?)\s*x\s*(\d+(?:[.,]\d+)?)/i)
-  if (!dimensions) return 0
-
-  return Number(dimensions[1].replace(',', '.')) * Number(dimensions[2].replace(',', '.'))
-}
-
 function formatMeters(value: number) {
   return `${value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} m`
 }
@@ -679,48 +672,6 @@ function OrdersContent() {
     }, {})
   }, [listedOrders])
 
-  const formatCards = useMemo(() => {
-    if (orderArea !== '2d-laser' || loadedOrderArea !== orderArea) return []
-
-    const formats = new Map<string, {
-      format: string
-      sheets: number
-      kilograms: number
-      orderIds: Set<string>
-    }>()
-
-    for (const order of orders) {
-      if (order.status === 'storniert') continue
-
-      for (const item of normalizeOrderItems(order)) {
-        const format = item.cross_section.trim() || 'Ohne Format'
-        const key = format.toLocaleLowerCase('de-DE')
-        const current = formats.get(key) || {
-          format,
-          sheets: 0,
-          kilograms: 0,
-          orderIds: new Set<string>()
-        }
-
-        if (item.order_unit === 'kg') {
-          current.kilograms += Number(item.quantity || 0)
-        } else if (item.order_unit === 'paket') {
-          current.sheets += Number(item.quantity || 0) * Number(item.pieces_per_package || 0)
-        } else {
-          current.sheets += Number(item.quantity || 0)
-        }
-
-        current.orderIds.add(order.id)
-        formats.set(key, current)
-      }
-    }
-
-    return Array.from(formats.values()).sort((a, b) => (
-      formatSortValue(b.format) - formatSortValue(a.format) ||
-      a.format.localeCompare(b.format, 'de-DE')
-    ))
-  }, [orders, orderArea, loadedOrderArea])
-
   const twoDStatistics = useMemo(() => {
     const variants = new Map<string, {
       material: string
@@ -1063,40 +1014,20 @@ function OrdersContent() {
         </div>
 
         {!showArchive && orderArea === '2d-laser' && (
-          <section className="format-summary" aria-label="Bestellte Tafeln nach Format">
-            <h2>Bestellte Tafeln nach Format</h2>
-            <div className="format-summary-cards">
-              <button
-                type="button"
-                className="tube-statistics-card"
-                onClick={() => setShowTwoDStatistics(true)}
-              >
-                <span className="tube-statistics-card-icon" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none">
-                    <path d="M5 19V11M12 19V5M19 19v-6" />
-                  </svg>
-                </span>
-                <span className="tube-statistics-card-copy">
-                  <strong>Statistik</strong>
-                </span>
-              </button>
-              {loadedOrderArea !== orderArea ? (
-                <p className="small">Tafeln werden geladen...</p>
-              ) : formatCards.length > 0 ? formatCards.map(card => (
-                <article className="format-summary-card" key={card.format}>
-                  <strong>{card.format}</strong>
-                  <span>
-                    {card.sheets > 0 && `${card.sheets.toLocaleString('de-DE')} Tafeln`}
-                    {card.sheets > 0 && card.kilograms > 0 && ' · '}
-                    {card.kilograms > 0 && `${card.kilograms.toLocaleString('de-DE')} kg`}
-                  </span>
-                  <small>{card.orderIds.size} {card.orderIds.size === 1 ? 'Auftrag' : 'Aufträge'}</small>
-                </article>
-              )) : (
-                <p className="small">Noch keine Tafeln bestellt.</p>
-              )}
-            </div>
-          </section>
+          <button
+            type="button"
+            className="tube-statistics-card"
+            onClick={() => setShowTwoDStatistics(true)}
+          >
+            <span className="tube-statistics-card-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M5 19V11M12 19V5M19 19v-6" />
+              </svg>
+            </span>
+            <span className="tube-statistics-card-copy">
+              <strong>Statistik</strong>
+            </span>
+          </button>
         )}
 
         {!showArchive && orderArea === 'rohrlaser' && (

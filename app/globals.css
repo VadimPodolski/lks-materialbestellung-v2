@@ -1669,43 +1669,6 @@ a.card:hover {
   }
 }
 
-.format-summary {
-  text-align: center;
-}
-
-.format-summary h2 {
-  margin: 0 0 10px;
-  font-size: 16px;
-}
-
-.format-summary-cards {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
-}
-
-.format-summary-card {
-  display: grid;
-  gap: 4px;
-  min-width: 180px;
-  padding: 12px 14px;
-  border: 1px solid #dbe3ef;
-  border-radius: 12px;
-  background: #fff;
-  box-shadow: 0 6px 18px rgba(15, 23, 42, .06);
-  text-align: left;
-}
-
-.format-summary-card span {
-  color: #2563eb;
-  font-weight: 700;
-}
-
-.format-summary-card small {
-  color: #64748b;
-}
-
 .tube-statistics-card {
   align-self: start;
   justify-self: center;
