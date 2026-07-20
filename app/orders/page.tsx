@@ -70,6 +70,7 @@ type SortKey =
 type SortDirection = 'asc' | 'desc'
 type SortMode = 'latest_order' | SortKey
 type TubeStatisticsSortKey = 'material' | 'crossSection' | 'pieces' | 'meters' | 'weight' | 'totalPrice' | 'orders'
+type TwoDStatisticsSortKey = 'material' | 'thickness' | 'format' | 'sheets' | 'packages' | 'weight' | 'totalPrice' | 'orders'
 type ActiveStatusMenu = { orderId: string; top: number; left: number; placement: 'top' | 'bottom' }
 
 const ARCHIVE_AFTER_DAYS = 5
@@ -177,6 +178,11 @@ function OrdersContent() {
   const [tubeStatisticsMaterial, setTubeStatisticsMaterial] = useState('')
   const [tubeStatisticsSortKey, setTubeStatisticsSortKey] = useState<TubeStatisticsSortKey>('pieces')
   const [tubeStatisticsSortDirection, setTubeStatisticsSortDirection] = useState<SortDirection>('desc')
+  const [showTwoDStatistics, setShowTwoDStatistics] = useState(false)
+  const [twoDStatisticsSearch, setTwoDStatisticsSearch] = useState('')
+  const [twoDStatisticsMaterial, setTwoDStatisticsMaterial] = useState('')
+  const [twoDStatisticsSortKey, setTwoDStatisticsSortKey] = useState<TwoDStatisticsSortKey>('sheets')
+  const [twoDStatisticsSortDirection, setTwoDStatisticsSortDirection] = useState<SortDirection>('desc')
   const [activeStatusMenu, setActiveStatusMenu] = useState<ActiveStatusMenu | null>(null)
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null)
   const [deleteCheckTime, setDeleteCheckTime] = useState(() => Date.now())
@@ -222,15 +228,18 @@ function OrdersContent() {
   }, [])
 
   useEffect(() => {
-    if (!showTubeStatistics) return
+    if (!showTubeStatistics && !showTwoDStatistics) return
 
     function closeStatisticsOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') setShowTubeStatistics(false)
+      if (event.key === 'Escape') {
+        setShowTubeStatistics(false)
+        setShowTwoDStatistics(false)
+      }
     }
 
     window.addEventListener('keydown', closeStatisticsOnEscape)
     return () => window.removeEventListener('keydown', closeStatisticsOnEscape)
-  }, [showTubeStatistics])
+  }, [showTubeStatistics, showTwoDStatistics])
 
   function clearStatusMenuCloseTimer() {
     if (statusMenuCloseTimer.current !== null) {
@@ -712,6 +721,127 @@ function OrdersContent() {
     ))
   }, [orders, orderArea, loadedOrderArea])
 
+  const twoDStatistics = useMemo(() => {
+    const variants = new Map<string, {
+      material: string
+      thickness: number | null
+      format: string
+      sheets: number
+      packages: number
+      weight: number
+      totalPrice: number
+      orderIds: Set<string>
+    }>()
+
+    if (orderArea !== '2d-laser' || loadedOrderArea !== orderArea) return { rows: [] }
+
+    for (const order of orders) {
+      if (order.status === 'storniert') continue
+
+      for (const item of normalizeOrderItems(order)) {
+        const material = item.material.trim() || 'Ohne Materialangabe'
+        const thicknessValue = Number(item.material_thickness_mm)
+        const thickness = Number.isFinite(thicknessValue) && thicknessValue > 0 ? thicknessValue : null
+        const format = item.cross_section.trim() || 'Ohne Format'
+        const quantity = Number(item.quantity || 0)
+        const packages = item.order_unit === 'paket' ? quantity : 0
+        const sheets = item.order_unit === 'paket'
+          ? quantity * Number(item.pieces_per_package || 0)
+          : item.order_unit === 'kg' ? 0 : quantity
+        const priceUnit = (item.price_unit || '').trim().toLocaleLowerCase('de-DE')
+        const weight = priceUnit === 'kg' && item.price_quantity != null
+          ? Number(item.price_quantity)
+          : item.order_unit === 'kg' ? quantity : 0
+        const itemPrice = item.line_total_eur == null
+          ? Number(item.unit_price_eur || 0) * Number(item.price_quantity || 0)
+          : Number(item.line_total_eur)
+        const key = [material.toLocaleLowerCase('de-DE'), thickness ?? '', format.toLocaleLowerCase('de-DE')].join('|')
+        const current = variants.get(key) || {
+          material,
+          thickness,
+          format,
+          sheets: 0,
+          packages: 0,
+          weight: 0,
+          totalPrice: 0,
+          orderIds: new Set<string>()
+        }
+
+        current.sheets += sheets
+        current.packages += packages
+        current.weight += weight
+        current.totalPrice += itemPrice
+        current.orderIds.add(order.id)
+        variants.set(key, current)
+      }
+    }
+
+    return { rows: Array.from(variants.values()) }
+  }, [orders, orderArea, loadedOrderArea])
+
+  const twoDStatisticsMaterials = useMemo(() => (
+    Array.from(new Set(twoDStatistics.rows.map(row => row.material))).sort((a, b) => (
+      a.localeCompare(b, 'de-DE', { numeric: true, sensitivity: 'base' })
+    ))
+  ), [twoDStatistics.rows])
+
+  const visibleTwoDStatistics = useMemo(() => {
+    const search = twoDStatisticsSearch.trim().toLocaleLowerCase('de-DE')
+    const rows = twoDStatistics.rows
+      .filter(row => !twoDStatisticsMaterial || row.material === twoDStatisticsMaterial)
+      .filter(row => !search || `${row.material} ${row.thickness ?? ''} ${row.format}`.toLocaleLowerCase('de-DE').includes(search))
+      .sort((a, b) => {
+        const direction = twoDStatisticsSortDirection === 'asc' ? 1 : -1
+
+        if (twoDStatisticsSortKey === 'thickness') return ((a.thickness || 0) - (b.thickness || 0)) * direction
+        if (twoDStatisticsSortKey === 'sheets') return (a.sheets - b.sheets) * direction
+        if (twoDStatisticsSortKey === 'packages') return (a.packages - b.packages) * direction
+        if (twoDStatisticsSortKey === 'weight') return (a.weight - b.weight) * direction
+        if (twoDStatisticsSortKey === 'totalPrice') return (a.totalPrice - b.totalPrice) * direction
+        if (twoDStatisticsSortKey === 'orders') return (a.orderIds.size - b.orderIds.size) * direction
+
+        const aValue = twoDStatisticsSortKey === 'material' ? a.material : a.format
+        const bValue = twoDStatisticsSortKey === 'material' ? b.material : b.format
+        return aValue.localeCompare(bValue, 'de-DE', { numeric: true, sensitivity: 'base' }) * direction
+      })
+    const orderIds = new Set<string>()
+    for (const row of rows) for (const orderId of row.orderIds) orderIds.add(orderId)
+
+    return {
+      rows,
+      totalSheets: rows.reduce((sum, row) => sum + row.sheets, 0),
+      totalPackages: rows.reduce((sum, row) => sum + row.packages, 0),
+      totalWeight: rows.reduce((sum, row) => sum + row.weight, 0),
+      totalPrice: rows.reduce((sum, row) => sum + row.totalPrice, 0),
+      orderCount: orderIds.size
+    }
+  }, [twoDStatistics, twoDStatisticsSearch, twoDStatisticsMaterial, twoDStatisticsSortKey, twoDStatisticsSortDirection])
+
+  function toggleTwoDStatisticsSort(key: TwoDStatisticsSortKey) {
+    if (twoDStatisticsSortKey === key) {
+      setTwoDStatisticsSortDirection(current => current === 'asc' ? 'desc' : 'asc')
+      return
+    }
+    setTwoDStatisticsSortKey(key)
+    setTwoDStatisticsSortDirection(key === 'material' || key === 'format' ? 'asc' : 'desc')
+  }
+
+  function twoDStatisticsSortButton(key: TwoDStatisticsSortKey, label: string) {
+    const active = twoDStatisticsSortKey === key
+    return (
+      <button
+        type="button"
+        className={`tube-statistics-sort${active ? ' active' : ''}`}
+        onClick={() => toggleTwoDStatisticsSort(key)}
+      >
+        <span>{label}</span>
+        <span className="tube-statistics-sort-arrow" aria-hidden="true">
+          {active ? (twoDStatisticsSortDirection === 'asc' ? '↑' : '↓') : '↕'}
+        </span>
+      </button>
+    )
+  }
+
   const tubeStatistics = useMemo(() => {
     const tubes = new Map<string, {
       material: string
@@ -936,6 +1066,20 @@ function OrdersContent() {
           <section className="format-summary" aria-label="Bestellte Tafeln nach Format">
             <h2>Bestellte Tafeln nach Format</h2>
             <div className="format-summary-cards">
+              <button
+                type="button"
+                className="tube-statistics-card"
+                onClick={() => setShowTwoDStatistics(true)}
+              >
+                <span className="tube-statistics-card-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M5 19V11M12 19V5M19 19v-6" />
+                  </svg>
+                </span>
+                <span className="tube-statistics-card-copy">
+                  <strong>Statistik</strong>
+                </span>
+              </button>
               {loadedOrderArea !== orderArea ? (
                 <p className="small">Tafeln werden geladen...</p>
               ) : formatCards.length > 0 ? formatCards.map(card => (
@@ -1317,6 +1461,128 @@ function OrdersContent() {
         </tbody>
       </table>
       </div>
+
+      {showTwoDStatistics && orderArea === '2d-laser' && (
+        <div className="modal-backdrop tube-statistics-backdrop" role="presentation" onMouseDown={() => setShowTwoDStatistics(false)}>
+          <section
+            className="modal tube-statistics-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="two-d-statistics-title"
+            onMouseDown={event => event.stopPropagation()}
+          >
+            <header className="tube-statistics-modal-header">
+              <div>
+                <span className="tube-statistics-eyebrow">2D-Laser</span>
+                <h2 id="two-d-statistics-title">Bestellstatistik</h2>
+                <p>Alle nicht stornierten Aufträge, zusammengefasst nach Material, Stärke und Format.</p>
+              </div>
+              <button
+                type="button"
+                className="tube-statistics-close"
+                aria-label="Statistik schließen"
+                onClick={() => setShowTwoDStatistics(false)}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className="tube-statistics-controls">
+              <div>
+                <label htmlFor="two-d-statistics-search">Suche</label>
+                <input
+                  id="two-d-statistics-search"
+                  type="search"
+                  value={twoDStatisticsSearch}
+                  onChange={event => setTwoDStatisticsSearch(event.target.value)}
+                  placeholder="Material, Stärke oder Format suchen..."
+                />
+              </div>
+              <div>
+                <label htmlFor="two-d-statistics-material">Filter</label>
+                <select
+                  id="two-d-statistics-material"
+                  value={twoDStatisticsMaterial}
+                  onChange={event => setTwoDStatisticsMaterial(event.target.value)}
+                >
+                  <option value="">Alle Materialien</option>
+                  {twoDStatisticsMaterials.map(material => (
+                    <option key={material} value={material}>{material}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="tube-statistics-totals">
+              <div>
+                <span>Varianten gesamt</span>
+                <strong>{visibleTwoDStatistics.rows.length.toLocaleString('de-DE')}</strong>
+              </div>
+              <div>
+                <span>Tafeln gesamt</span>
+                <strong>{visibleTwoDStatistics.totalSheets.toLocaleString('de-DE')}</strong>
+              </div>
+              <div>
+                <span>Pakete gesamt</span>
+                <strong>{visibleTwoDStatistics.totalPackages.toLocaleString('de-DE')}</strong>
+              </div>
+              <div>
+                <span>Gewicht gesamt</span>
+                <strong>{formatTubeWeight(visibleTwoDStatistics.totalWeight)}</strong>
+              </div>
+              <div>
+                <span>Gesamtpreis</span>
+                <strong>{formatEuro(visibleTwoDStatistics.totalPrice)}</strong>
+              </div>
+              <div>
+                <span>Aufträge</span>
+                <strong>{visibleTwoDStatistics.orderCount.toLocaleString('de-DE')}</strong>
+              </div>
+            </div>
+
+            <div className="tube-statistics-table-shell">
+              {loadedOrderArea !== orderArea ? (
+                <p className="small">Statistik wird geladen...</p>
+              ) : visibleTwoDStatistics.rows.length > 0 ? (
+                <table className="tube-statistics-table">
+                  <thead>
+                    <tr>
+                      <th>{twoDStatisticsSortButton('material', 'Material')}</th>
+                      <th>{twoDStatisticsSortButton('thickness', 'Stärke')}</th>
+                      <th>{twoDStatisticsSortButton('format', 'Format')}</th>
+                      <th className="number">{twoDStatisticsSortButton('sheets', 'Tafeln')}</th>
+                      <th className="number">{twoDStatisticsSortButton('packages', 'Pakete')}</th>
+                      <th className="number">{twoDStatisticsSortButton('weight', 'Gewicht')}</th>
+                      <th className="number">{twoDStatisticsSortButton('totalPrice', 'Gesamtpreis')}</th>
+                      <th className="number">{twoDStatisticsSortButton('orders', 'Aufträge')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visibleTwoDStatistics.rows.map(row => (
+                      <tr key={`${row.material}|${row.thickness ?? ''}|${row.format}`}>
+                        <td><strong>{row.material}</strong></td>
+                        <td>{row.thickness ? formatMaterialThickness(row.thickness) : '–'}</td>
+                        <td>{row.format}</td>
+                        <td className="number">{row.sheets.toLocaleString('de-DE')}</td>
+                        <td className="number">{row.packages.toLocaleString('de-DE')}</td>
+                        <td className="number">{row.weight > 0 ? formatTubeWeight(row.weight) : '–'}</td>
+                        <td className="number">{row.totalPrice > 0 ? formatEuro(row.totalPrice) : '–'}</td>
+                        <td className="number">{row.orderIds.size.toLocaleString('de-DE')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="tube-statistics-empty">
+                  {twoDStatistics.rows.length > 0
+                    ? 'Keine passenden Einträge gefunden.'
+                    : 'Noch keine 2D-Laser-Bestellungen vorhanden.'}
+                </div>
+              )}
+            </div>
+          </section>
+        </div>
+      )}
 
       {showTubeStatistics && orderArea === 'rohrlaser' && (
         <div className="modal-backdrop tube-statistics-backdrop" role="presentation" onMouseDown={() => setShowTubeStatistics(false)}>
