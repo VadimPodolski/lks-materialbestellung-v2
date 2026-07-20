@@ -210,7 +210,13 @@ export function formatOrderPosition(
   lengthMm: number | string | null | undefined
 ) {
   const materialText = String(material || '').trim() || '-'
-  return `${materialText} - ${formatCrossSectionMm(crossSection)} - L=${formatLengthMm(lengthMm)}`
+  const positionText = `${materialText} - ${formatCrossSectionMm(crossSection)}`
+
+  if (lengthMm === null || lengthMm === undefined || lengthMm === '') {
+    return positionText
+  }
+
+  return `${positionText} - L=${formatLengthMm(lengthMm)}`
 }
 
 export function orderItemsMailText(items: OrderItem[], isTwoDLaser = false) {
