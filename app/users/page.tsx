@@ -24,6 +24,19 @@ type UserForm = {
 
 const emptyForm: UserForm = { id: '', fullName: '', email: '', role: 'user' }
 
+function formatRegistrationDate(value: string | null) {
+  if (!value) return '-'
+
+  return new Intl.DateTimeFormat('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  }).format(new Date(value))
+}
+
 export default function UsersPage() {
   const router = useRouter()
   const { ask, notify, dialog } = useAppDialog()
@@ -221,7 +234,7 @@ export default function UsersPage() {
                     <td><b>{profile.full_name || '-'}</b>{isCurrentUser && <small className="current-user-label">Du</small>}</td>
                     <td>{profile.email || '-'}</td>
                     <td>{profile.role === 'admin' ? 'Administrator' : 'Benutzer'}</td>
-                    <td>{profile.created_at ? new Date(profile.created_at).toLocaleString('de-DE') : '-'}</td>
+                    <td>{formatRegistrationDate(profile.created_at)}</td>
                     <td>
                       <span className={`user-status ${profile.approved ? 'approved' : 'pending'}`}>
                         {profile.approved ? 'Freigegeben' : 'Wartet auf Freigabe'}
