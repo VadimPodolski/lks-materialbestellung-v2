@@ -155,7 +155,9 @@ export async function DELETE(request: Request) {
     const admin = createAdminClient()
     const { data, error: userError } = await admin.auth.admin.getUserById(id)
     if (userError || !data.user) {
-      return NextResponse.json({ error: 'Benutzer wurde nicht gefunden.' }, { status: 404 })
+      const { error: profileError } = await admin.from('profiles').delete().eq('id', id)
+      if (profileError) throw profileError
+      return NextResponse.json({ success: true, message: 'Verwaistes Benutzerprofil wurde gelöscht.' })
     }
     if (normalizedEmail(data.user.email) === protectedAdminEmail) {
       return NextResponse.json({ error: 'Dieses Administratorkonto ist geschützt.' }, { status: 400 })
