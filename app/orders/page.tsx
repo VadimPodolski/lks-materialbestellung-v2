@@ -129,6 +129,31 @@ function twoDLaserTotalWeight(items: OrderItem[]) {
   return weights.reduce<number>((sum, weight) => sum + Number(weight), 0)
 }
 
+function formatOrderQuantity(value: number) {
+  return Number(value || 0).toLocaleString('de-DE', { maximumFractionDigits: 2 })
+}
+
+function twoDLaserActualQuantityText(item: OrderItem) {
+  if (item.order_unit === 'paket') {
+    const pieces = Number(item.quantity || 0) * Number(item.pieces_per_package || 0)
+    return `${formatOrderQuantity(pieces)} Stück`
+  }
+
+  if (item.order_unit === 'kg') return `${formatOrderQuantity(item.quantity)} kg`
+  return `${formatOrderQuantity(item.quantity)} Stück`
+}
+
+function twoDLaserTargetQuantityText(item: OrderItem) {
+  const quantity = Number(item.quantity || 0)
+
+  if (item.order_unit === 'paket') {
+    return `${formatOrderQuantity(quantity)} ${quantity === 1 ? 'Paket' : 'Pakete'}`
+  }
+
+  if (item.order_unit === 'kg') return `${formatOrderQuantity(quantity)} kg`
+  return `${formatOrderQuantity(quantity)} Stück`
+}
+
 function OrdersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1186,12 +1211,24 @@ function OrdersContent() {
                   <div className="order-position-lines">
                     {orderItems.map((item, index) => (
                       <div key={`${item.cross_section}-${item.length_mm}-${index}`}>
-                        {formatCrossSectionMm(item.cross_section)} ({orderItemQuantityText(item)})
+                        {formatCrossSectionMm(item.cross_section)} ({orderArea === '2d-laser'
+                          ? twoDLaserActualQuantityText(item)
+                          : orderItemQuantityText(item)})
                       </div>
                     ))}
                   </div>
                 </td>
-                <td>{o.quantity}</td>
+                <td>
+                  {orderArea === '2d-laser' ? (
+                    <div className="order-position-lines">
+                      {orderItems.map((item, index) => (
+                        <div key={`${item.order_unit}-${item.quantity}-${index}`}>
+                          {twoDLaserTargetQuantityText(item)}
+                        </div>
+                      ))}
+                    </div>
+                  ) : o.quantity}
+                </td>
                <td
   className={
     delivered >= o.quantity
