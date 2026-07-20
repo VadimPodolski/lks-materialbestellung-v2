@@ -2273,6 +2273,9 @@ LKS-Team`
                       ? calculateTubeWeightKgPerMeter(item.cross_section, item.material)
                       : null
                     const tubeItemWeight = !isTwoDLaser ? calculateTubeItemWeightKg(item) : null
+                    const twoDLaserQuantityParts = isTwoDLaser
+                      ? formatTwoDLaserQuantity(item).split(' / ')
+                      : []
 
                     return (
                       <tr key={`${item.cross_section}-${index}`}>
@@ -2303,7 +2306,10 @@ LKS-Team`
                         </td>
                         <td><strong>{formatEuro(item.line_total_eur)}</strong></td>
                         {isTwoDLaser && (
-                          <td>{formatTwoDLaserQuantity(item)}</td>
+                          <td className="order-position-price">
+                            <strong>{twoDLaserQuantityParts[0]}</strong>
+                            {twoDLaserQuantityParts[1] && <small>{twoDLaserQuantityParts[1]}</small>}
+                          </td>
                         )}
                         <td className={`we-block ${receivedQtyForItem(item) >= item.quantity ? 'qty-delivered complete' : receivedQtyForItem(item) > 0 ? 'qty-delivered partial' : ''}`}>
                           {receivedQtyForItem(item)}
