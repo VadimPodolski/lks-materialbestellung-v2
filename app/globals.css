@@ -874,19 +874,25 @@ a.card:hover {
 }
 
 .users-actions {
-  display: flex;
+  display: grid;
+  grid-template-columns: 52px 168px 132px 52px;
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
 }
 
 .users-actions .user-action-text {
+  width: 100%;
   min-height: 38px;
   padding: 8px 12px;
 }
 
+.users-actions .square-action-button {
+  justify-self: center;
+}
+
 .admin-protected-label {
-  min-width: 105px;
+  width: 100%;
   color: #64748b;
   text-align: center;
 }
