@@ -858,6 +858,75 @@ a.card:hover {
   justify-content: center;
 }
 
+.users-page-heading {
+  align-items: flex-end;
+}
+
+.users-page-heading > .actions {
+  align-items: center;
+}
+
+.users-table th:last-child,
+.users-table td:last-child {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.users-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.users-actions .user-action-text {
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.admin-protected-label {
+  min-width: 105px;
+  color: #64748b;
+  text-align: center;
+}
+
+.current-user-label {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #475569;
+  font-weight: 600;
+}
+
+.user-status {
+  display: inline-flex;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.user-status.approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.user-status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.user-form-modal {
+  width: min(560px, 92vw);
+}
+
+.user-form-actions {
+  justify-content: flex-end;
+  margin-top: 20px !important;
+}
+
 /* Suggestions */
 .suggestions {
   background: white;

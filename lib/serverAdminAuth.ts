@@ -1,10 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-export async function isAdminRequest() {
+export async function getAdminRequestUser() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !anonKey) return false
+  if (!url || !anonKey) return null
 
   const cookieStore = cookies()
   const supabase = createServerClient(url, anonKey, {
@@ -18,8 +18,8 @@ export async function isAdminRequest() {
   })
   const { data } = await supabase.auth.getUser()
   const user = data.user
-  if (!user) return false
-  if (user.email?.trim().toLowerCase() === 'v.podolski@lks-technik.de') return true
+  if (!user) return null
+  if (user.email?.trim().toLowerCase() === 'v.podolski@lks-technik.de') return user
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -27,7 +27,11 @@ export async function isAdminRequest() {
     .eq('id', user.id)
     .maybeSingle()
 
-  return profile?.role === 'admin'
+  return profile?.role === 'admin' ? user : null
+}
+
+export async function isAdminRequest() {
+  return Boolean(await getAdminRequestUser())
 }
 
 export async function isCronOrAdminRequest(request: Request) {
