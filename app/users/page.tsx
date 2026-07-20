@@ -22,6 +22,9 @@ type UserForm = {
   role: 'user' | 'admin'
 }
 
+type UserSortKey = 'name' | 'email' | 'role' | 'created' | 'status'
+type UserSortMode = `${UserSortKey}_asc` | `${UserSortKey}_desc`
+
 const emptyForm: UserForm = { id: '', fullName: '', email: '', role: 'user' }
 
 function formatRegistrationDate(value: string | null) {
@@ -50,7 +53,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending'>('all')
   const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'admin'>('all')
-  const [sortMode, setSortMode] = useState('created_desc')
+  const [sortMode, setSortMode] = useState<UserSortMode>('created_desc')
 
   const visibleProfiles = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('de-DE')
@@ -70,11 +73,32 @@ export default function UsersPage() {
       if (sortMode === 'email_asc') return (a.email || '').localeCompare(b.email || '', 'de-DE')
       if (sortMode === 'email_desc') return (b.email || '').localeCompare(a.email || '', 'de-DE')
       if (sortMode === 'created_asc') return new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
-      if (sortMode === 'status') return Number(a.approved) - Number(b.approved)
-      if (sortMode === 'role') return a.role.localeCompare(b.role, 'de-DE')
+      if (sortMode === 'status_asc') return Number(a.approved) - Number(b.approved)
+      if (sortMode === 'status_desc') return Number(b.approved) - Number(a.approved)
+      if (sortMode === 'role_asc') return a.role.localeCompare(b.role, 'de-DE')
+      if (sortMode === 'role_desc') return b.role.localeCompare(a.role, 'de-DE')
       return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
     })
   }, [profiles, roleFilter, search, sortMode, statusFilter])
+
+  function toggleColumnSort(key: UserSortKey) {
+    setSortMode(current => current === `${key}_asc` ? `${key}_desc` : `${key}_asc`)
+  }
+
+  function sortButton(key: UserSortKey, label: string) {
+    const isActive = sortMode.startsWith(`${key}_`)
+
+    return (
+      <button
+        type="button"
+        className={`column-sort-button${isActive ? ' active' : ''}`}
+        onClick={() => toggleColumnSort(key)}
+        title={`${label} sortieren`}
+      >
+        {label}
+      </button>
+    )
+  }
 
   const load = useCallback(async () => {
     const supabase = createClient()
@@ -274,15 +298,17 @@ export default function UsersPage() {
               </div>
               <div>
                 <label htmlFor="users-sort">Sortierung</label>
-                <select id="users-sort" value={sortMode} onChange={event => setSortMode(event.target.value)}>
+                <select id="users-sort" value={sortMode} onChange={event => setSortMode(event.target.value as UserSortMode)}>
                   <option value="created_desc">Neueste zuerst</option>
                   <option value="created_asc">Älteste zuerst</option>
                   <option value="name_asc">Name A–Z</option>
                   <option value="name_desc">Name Z–A</option>
                   <option value="email_asc">E-Mail A–Z</option>
                   <option value="email_desc">E-Mail Z–A</option>
-                  <option value="status">Offene zuerst</option>
-                  <option value="role">Nach Rolle</option>
+                  <option value="status_asc">Offene zuerst</option>
+                  <option value="status_desc">Freigegebene zuerst</option>
+                  <option value="role_asc">Nach Rolle A–Z</option>
+                  <option value="role_desc">Nach Rolle Z–A</option>
                 </select>
               </div>
             </div>
@@ -292,11 +318,11 @@ export default function UsersPage() {
           <table className="users-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>E-Mail</th>
-                <th>Rolle</th>
-                <th>Registriert</th>
-                <th>Status</th>
+                <th>{sortButton('name', 'Name')}</th>
+                <th>{sortButton('email', 'E-Mail')}</th>
+                <th>{sortButton('role', 'Rolle')}</th>
+                <th>{sortButton('created', 'Registriert')}</th>
+                <th>{sortButton('status', 'Status')}</th>
                 <th>Aktionen</th>
               </tr>
             </thead>
