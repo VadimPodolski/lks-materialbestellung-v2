@@ -535,12 +535,12 @@ export default function NewOrderPage() {
         </div>
 
         {orderArea === 'rohrlaser' && (
-          <div style={{ position: 'relative' }}>
+          <div className="combo-box">
             <label>Kunde</label>
             <input value={form.customer} onChange={e => set('customer', e.target.value)} required />
 
             {customerSuggestions.length > 0 && (
-              <div className="suggestions">
+              <div className="combo-options">
                 {customerSuggestions.map(c => (
                   <button type="button" key={c.id} onClick={() => set('customer', c.name)}>
                     {c.name}
