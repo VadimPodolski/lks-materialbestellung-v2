@@ -255,6 +255,85 @@ function parseKloecknerPositions(text: string) {
   return positions
 }
 
+function splitPaderQuantityAndTotal(value: string, unitPriceEur: number) {
+  const compact = value.replace(/\s+/g, '')
+  const candidates: { priceQuantity: number; lineTotalEur: number; difference: number }[] = []
+
+  for (let index = 1; index < compact.length; index += 1) {
+    const quantityText = compact.slice(0, index)
+    const totalText = compact.slice(index)
+
+    if (!/^\d+(?:\.\d{3})*,\d{2,3}$/.test(quantityText)) continue
+    if (!/^\d+(?:\.\d{3})*,\d{2}$/.test(totalText)) continue
+
+    const priceQuantity = germanNumber(quantityText)
+    const lineTotalEur = germanNumber(totalText)
+    candidates.push({
+      priceQuantity,
+      lineTotalEur,
+      difference: Math.abs(priceQuantity * unitPriceEur - lineTotalEur)
+    })
+  }
+
+  return candidates
+    .filter(candidate => candidate.difference <= 0.08)
+    .sort((a, b) => a.difference - b.difference)[0] || null
+}
+
+function parsePaderStahlPositions(text: string) {
+  const lines = text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+  const positions: UllnerPositionPrice[] = []
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const compact = lines[index].replace(/\s+/g, '')
+    const row = compact.match(/^(\d+[\d.]*,\d{2})STK([\d.]+,\d{2,4})[^A-Z0-9]*MTRMTR([\d.,]+)/i)
+    if (!row) continue
+
+    const unitPriceEur = germanNumber(row[2])
+    const totals = splitPaderQuantityAndTotal(row[3], unitPriceEur)
+    if (!totals) continue
+
+    const description = lines.slice(index, Math.min(lines.length, index + 5)).join(' ')
+    const lengthMatch = description.match(/HL\s*(\d+(?:[.,]\d+)?)\s*mm/i)
+    const pieceLengthMm = lengthMatch ? localizedNumber(lengthMatch[1]) : null
+    const calculatedPieces = pieceLengthMm && pieceLengthMm > 0
+      ? totals.priceQuantity / (pieceLengthMm / 1000)
+      : null
+    const roundedPieces = calculatedPieces == null ? null : Math.round(calculatedPieces)
+    const pieceQuantity = calculatedPieces != null
+      && roundedPieces != null
+      && Math.abs(calculatedPieces - roundedPieces) < 0.01
+        ? roundedPieces
+        : null
+    const combinedPositionAndQuantity = row[1]
+    const pieceText = pieceQuantity == null
+      ? ''
+      : pieceQuantity.toFixed(2).replace('.', ',')
+    const positionText = pieceText && combinedPositionAndQuantity.endsWith(pieceText)
+      ? combinedPositionAndQuantity.slice(0, -pieceText.length)
+      : ''
+    const position = /^\d{1,3}$/.test(positionText)
+      ? Number(positionText)
+      : positions.length + 1
+
+    positions.push({
+      position,
+      priceQuantity: totals.priceQuantity,
+      priceUnit: 'm',
+      pieceQuantity,
+      pieceLengthMm,
+      unitPriceEur,
+      lineTotalEur: totals.lineTotalEur,
+      description
+    })
+  }
+
+  return positions
+}
+
 function parseCompactDreckshagePrice(value: string) {
   const matches = Array.from(value.matchAll(
     /(?:^|\s)(\d+(?:[.,]\d+)?)\s*Meter\s*([\d.]+,\d{2,4})\s*Meter\s*([\d.]+,\d{2})/gi
@@ -564,6 +643,7 @@ export function parseSupplierPriceConfirmation(text: string, supplierName = ''):
   const compactText = text.replace(/\s+/g, '')
   const isKloeckner = /(?:klöckner|kloeckner)/i.test(text)
   const isDreckshage = /dreckshage/i.test(`${supplierName} ${text}`)
+  const isPaderStahl = /pader[- ]?stahl/i.test(`${supplierName} ${text}`)
   const hasConfirmationTitle = /(?:Auftrags[- ]?best(?:ätigung|\.)|Bestellbestätigung|OrderConfirmation|SalesOrderConfirmation|Angebot|Offerte|Quotation|Quote)/i.test(compactText)
 
   if (!hasConfirmationTitle) {
@@ -571,7 +651,9 @@ export function parseSupplierPriceConfirmation(text: string, supplierName = ''):
   }
   const positions: UllnerPositionPrice[] = isDreckshage
     ? parseDreckshagePositions(text)
-    : isKloeckner ? parseKloecknerPositions(text) : []
+    : isKloeckner
+      ? parseKloecknerPositions(text)
+      : isPaderStahl ? parsePaderStahlPositions(text) : []
 
   if (positions.length === 0) {
     for (let index = 0; index < lines.length; index += 1) {
@@ -616,6 +698,10 @@ export function parseSupplierPriceConfirmation(text: string, supplierName = ''):
 
   const confirmationNumber = isDreckshage
     ? compactText.match(/ANGEBOT(?:Nr\.?)?(\d{5,})vom/i)?.[1] || null
+    : isPaderStahl
+      ? text.match(/<PDFMail>A(\d+)/i)?.[1]
+        || text.match(/Beleg-Nr\.?\s*:?\s*(\d{5,})/i)?.[1]
+        || null
     : text.match(/(?:Auftrags[- ]?best(?:ätigung|\.)|Bestellbestätigung|Bestellung|Order\s*Confirmation|Angebot|Offerte|Quotation|Quote)\s*(?:s[- ]?Nr\.?|Nr\.?|No\.?)?\s*[:#]?\s*([A-Z0-9/-]{4,})/i)?.[1] || null
   const referenceNumber = text.match(/\b(?:AB-[A-Z0-9]+(?:-[A-Z0-9]+)*|TAFEL-\d+)\b/i)?.[0]
     || text.match(/(?:Ihre\s+(?:Bestell|Auftrags)(?:nummer|nr\.?)|Your\s+(?:order|reference))\s*[:#]?\s*([A-Z0-9/-]{4,})/i)?.[1]
