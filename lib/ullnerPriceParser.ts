@@ -33,14 +33,17 @@ function splitUnitPriceAndTotal(value: string, quantity: number) {
     if (!/^\d+(?:\.\d{3})*,\d{2,4}$/.test(unitPriceText)) continue
     if (!/^\d+(?:\.\d{3})*,\d{2}$/.test(totalText)) continue
 
-    const unitPrice = germanNumber(unitPriceText)
+    const printedUnitPrice = germanNumber(unitPriceText)
     const total = germanNumber(totalText)
 
-    candidates.push({
-      unitPrice,
-      total,
-      difference: Math.abs(quantity * unitPrice - total)
-    })
+    for (const priceBase of [1, 100, 1000]) {
+      const unitPrice = printedUnitPrice / priceBase
+      candidates.push({
+        unitPrice,
+        total,
+        difference: Math.abs(quantity * unitPrice - total)
+      })
+    }
   }
 
   return candidates.sort((a, b) => a.difference - b.difference)[0] || null
