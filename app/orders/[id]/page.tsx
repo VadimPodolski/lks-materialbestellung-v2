@@ -563,8 +563,8 @@ export default function OrderDetailPage() {
   useEffect(() => {
     if (!order || orderItems.length === 0 || processingPricePdfId) return
 
-    const hasStoredPositionPrice = orderItems.some(item => (
-      item.unit_price_eur != null || item.line_total_eur != null
+    const hasUnpricedPosition = orderItems.some(item => (
+      item.unit_price_eur == null || item.line_total_eur == null
     ))
 
     const hasSupplierConfirmation = orderPdfs.some(pdf => pdf.document_type === 'supplier_confirmation')
@@ -573,7 +573,7 @@ export default function OrderDetailPage() {
         pdf.document_type === 'supplier_confirmation'
         || (pdf.document_type === 'supplier_quote' && !hasSupplierConfirmation)
       )
-      && (pdf.price_import_status !== 'imported' || !hasStoredPositionPrice)
+      && (pdf.price_import_status !== 'imported' || hasUnpricedPosition)
       && !processedPricePdfIds.current.has(pdf.id)
     ))
 
