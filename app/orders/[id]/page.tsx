@@ -229,6 +229,41 @@ function formatTwoDLaserQuantity(item: OrderItem) {
   return `${formatQuantity(quantity)} ${quantity === 1 ? 'Tafel' : 'Tafeln'}`
 }
 
+function formatTwoDLaserTotalQuantity(items: OrderItem[]) {
+  const formatQuantity = (value: number) => new Intl.NumberFormat('de-DE', {
+    maximumFractionDigits: 2
+  }).format(value)
+  const totals = items.reduce((sum, item) => {
+    const quantity = Number(item.quantity || 0)
+
+    if (item.order_unit === 'paket') {
+      sum.packages += quantity
+      sum.sheets += quantity * Number(item.pieces_per_package || 0)
+    } else if (item.order_unit === 'kg') {
+      sum.kilograms += quantity
+    } else {
+      sum.sheets += quantity
+    }
+
+    return sum
+  }, { packages: 0, sheets: 0, kilograms: 0 })
+  const quantities: string[] = []
+
+  if (totals.packages > 0) {
+    const packageLabel = totals.packages === 1 ? 'Paket' : 'Pakete'
+    const sheetLabel = totals.sheets === 1 ? 'Tafel' : 'Tafeln'
+    quantities.push(
+      `${formatQuantity(totals.packages)} ${packageLabel} / ${formatQuantity(totals.sheets)} ${sheetLabel}`
+    )
+  } else if (totals.sheets > 0) {
+    quantities.push(`${formatQuantity(totals.sheets)} ${totals.sheets === 1 ? 'Tafel' : 'Tafeln'}`)
+  }
+
+  if (totals.kilograms > 0) quantities.push(`${formatQuantity(totals.kilograms)} kg`)
+
+  return quantities.join(' + ') || '0 Tafeln'
+}
+
 function normalizedDimensionPart(value: string) {
   const number = Number(value.replace(',', '.'))
   return Number.isFinite(number) ? String(number) : value
@@ -2405,12 +2440,7 @@ LKS-Team`
                 <b>Soll:</b>
                 <br />
                 {isTwoDLaser
-                  ? orderItems.map((item, index) => (
-                      <span key={`${item.order_unit}-${item.quantity}-${index}`}>
-                        {index > 0 && <br />}
-                        {formatTwoDLaserQuantity(item)}
-                      </span>
-                    ))
+                  ? formatTwoDLaserTotalQuantity(orderItems)
                   : orderItemsTotal(orderItems)}
               </p>
               <p><b>Geliefert:</b><br />{receivedSum} / {orderItemsTotal(orderItems)}</p>
