@@ -162,7 +162,6 @@ function OrdersContent() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
-  const [materialThicknessFilter, setMaterialThicknessFilter] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('order_number')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
@@ -193,13 +192,11 @@ function OrdersContent() {
 
     setStatus('')
     setOverdueOnly(false)
-    setMaterialThicknessFilter('')
     if (sortMode === 'status') setSortMode('latest_order')
   }, [showArchive, sortMode])
 
   useEffect(() => {
     const cached = ordersPageCache[orderArea]
-    setMaterialThicknessFilter('')
     if (cached) {
       setOrders(cached.orders)
       setProfiles(cached.profiles)
@@ -638,9 +635,6 @@ function OrdersContent() {
       const normalizedText = text.replace(/[\s._/-]+/g, '')
       const matchesSearch = !search || text.includes(search) || normalizedText.includes(normalizedSearch)
       const matchesStatus = !status || visibleStatus(o) === status
-      const matchesMaterialThickness = !materialThicknessFilter || items.some(item => (
-        String(Number(item.material_thickness_mm)) === materialThicknessFilter
-      ))
       const matchesOverdue =
         !overdueOnly ||
         Boolean(
@@ -649,15 +643,9 @@ function OrdersContent() {
           !['geliefert', 'storniert'].includes(o.status)
         )
 
-      return matchesSearch && matchesStatus && matchesMaterialThickness && matchesOverdue
+      return matchesSearch && matchesStatus && matchesOverdue
     }).sort(sortMode === 'latest_order' ? latestOrderSort : sortOrders)
-  }, [listedOrders, q, status, materialThicknessFilter, overdueOnly, today, sortKey, sortDirection, sortMode, profiles, latestGroupTime])
-
-  const materialThicknessFilterOptions = useMemo(() => Array.from(new Set(
-    listedOrders.flatMap(order => normalizeOrderItems(order))
-      .map(item => Number(item.material_thickness_mm))
-      .filter(value => Number.isFinite(value) && value > 0)
-  )).sort((a, b) => a - b), [listedOrders])
+  }, [listedOrders, q, status, overdueOnly, today, sortKey, sortDirection, sortMode, profiles, latestGroupTime])
 
   const statusCounts = useMemo(() => {
     return listedOrders.reduce<Record<string, number>>((counts, order) => {
@@ -1092,18 +1080,6 @@ function OrdersContent() {
             <option value="overdue">Nur überfällig</option>
           </select>
         </div>}
-
-        {!showArchive && orderArea === '2d-laser' && (
-          <div>
-            <label>Materialstärke</label>
-            <select value={materialThicknessFilter} onChange={e => setMaterialThicknessFilter(e.target.value)}>
-              <option value="">Alle Materialstärken</option>
-              {materialThicknessFilterOptions.map(value => (
-                <option key={value} value={String(value)}>{formatMaterialThickness(value)}</option>
-              ))}
-            </select>
-          </div>
-        )}
 
         <div>
           <label>Sortieren nach</label>
