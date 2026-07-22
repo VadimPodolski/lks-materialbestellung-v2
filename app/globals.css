@@ -1795,7 +1795,7 @@ button.tube-statistics-close {
 
 .tube-statistics-controls {
   display: grid;
-  grid-template-columns: minmax(260px, 1.5fr) minmax(220px, 1fr);
+  grid-template-columns: minmax(260px, 1.5fr) minmax(200px, 1fr) minmax(140px, 0.55fr);
   gap: 14px;
   padding: 18px 26px;
   background: #f8fafc;

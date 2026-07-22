@@ -149,6 +149,10 @@ function twoDLaserTargetQuantityText(item: OrderItem) {
   return `${formatOrderQuantity(quantity)} Stück`
 }
 
+function orderYear(order: Pick<Order, 'created_at'>) {
+  return order.created_at?.match(/^(\d{4})/)?.[1] || ''
+}
+
 function OrdersContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -162,17 +166,20 @@ function OrdersContent() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
   const [overdueOnly, setOverdueOnly] = useState(false)
+  const [year, setYear] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('order_number')
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
   const [sortMode, setSortMode] = useState<SortMode>('latest_order')
   const [showTubeStatistics, setShowTubeStatistics] = useState(false)
   const [tubeStatisticsSearch, setTubeStatisticsSearch] = useState('')
   const [tubeStatisticsMaterial, setTubeStatisticsMaterial] = useState('')
+  const [tubeStatisticsYear, setTubeStatisticsYear] = useState('')
   const [tubeStatisticsSortKey, setTubeStatisticsSortKey] = useState<TubeStatisticsSortKey>('pieces')
   const [tubeStatisticsSortDirection, setTubeStatisticsSortDirection] = useState<SortDirection>('desc')
   const [showTwoDStatistics, setShowTwoDStatistics] = useState(false)
   const [twoDStatisticsSearch, setTwoDStatisticsSearch] = useState('')
   const [twoDStatisticsMaterial, setTwoDStatisticsMaterial] = useState('')
+  const [twoDStatisticsYear, setTwoDStatisticsYear] = useState('')
   const [twoDStatisticsSortKey, setTwoDStatisticsSortKey] = useState<TwoDStatisticsSortKey>('sheets')
   const [twoDStatisticsSortDirection, setTwoDStatisticsSortDirection] = useState<SortDirection>('desc')
   const [activeStatusMenu, setActiveStatusMenu] = useState<ActiveStatusMenu | null>(null)
@@ -604,6 +611,11 @@ function OrdersContent() {
     return orders.filter(order => showArchive === archivedIds.has(order.id))
   }, [orders, archivedOrders, showArchive])
 
+  const availableYears = useMemo(() => (
+    Array.from(new Set(orders.map(orderYear).filter(Boolean)))
+      .sort((a, b) => Number(b) - Number(a))
+  ), [orders])
+
   const latestGroupTime = useMemo(() => {
     const groups = new Map<string, string>()
 
@@ -635,6 +647,7 @@ function OrdersContent() {
       const normalizedText = text.replace(/[\s._/-]+/g, '')
       const matchesSearch = !search || text.includes(search) || normalizedText.includes(normalizedSearch)
       const matchesStatus = !status || visibleStatus(o) === status
+      const matchesYear = !year || orderYear(o) === year
       const matchesOverdue =
         !overdueOnly ||
         Boolean(
@@ -643,9 +656,9 @@ function OrdersContent() {
           !['geliefert', 'storniert'].includes(o.status)
         )
 
-      return matchesSearch && matchesStatus && matchesOverdue
+      return matchesSearch && matchesStatus && matchesYear && matchesOverdue
     }).sort(sortMode === 'latest_order' ? latestOrderSort : sortOrders)
-  }, [listedOrders, q, status, overdueOnly, today, sortKey, sortDirection, sortMode, profiles, latestGroupTime])
+  }, [listedOrders, q, status, year, overdueOnly, today, sortKey, sortDirection, sortMode, profiles, latestGroupTime])
 
   const statusCounts = useMemo(() => {
     return listedOrders.reduce<Record<string, number>>((counts, order) => {
@@ -671,6 +684,7 @@ function OrdersContent() {
 
     for (const order of orders) {
       if (order.status === 'storniert') continue
+      if (twoDStatisticsYear && orderYear(order) !== twoDStatisticsYear) continue
 
       for (const item of normalizeOrderItems(order)) {
         const material = item.material.trim() || 'Ohne Materialangabe'
@@ -711,7 +725,7 @@ function OrdersContent() {
     }
 
     return { rows: Array.from(variants.values()) }
-  }, [orders, orderArea, loadedOrderArea])
+  }, [orders, orderArea, loadedOrderArea, twoDStatisticsYear])
 
   const twoDStatisticsMaterials = useMemo(() => (
     Array.from(new Set(twoDStatistics.rows.map(row => row.material))).sort((a, b) => (
@@ -798,6 +812,7 @@ function OrdersContent() {
 
     for (const order of orders) {
       if (order.status === 'storniert') continue
+      if (tubeStatisticsYear && orderYear(order) !== tubeStatisticsYear) continue
 
       orderIds.add(order.id)
       for (const item of normalizeOrderItems(order)) {
@@ -850,7 +865,7 @@ function OrdersContent() {
       totalPrice,
       orderCount: orderIds.size
     }
-  }, [orders, orderArea, loadedOrderArea])
+  }, [orders, orderArea, loadedOrderArea, tubeStatisticsYear])
 
   const tubeStatisticsMaterials = useMemo(() => (
     Array.from(new Set(tubeStatistics.rows.map(row => row.material))).sort((a, b) => (
@@ -1080,6 +1095,16 @@ function OrdersContent() {
             <option value="overdue">Nur überfällig</option>
           </select>
         </div>}
+
+        <div>
+          <label>Jahr</label>
+          <select value={year} onChange={e => setYear(e.target.value)}>
+            <option value="">Alle Jahre</option>
+            {availableYears.map(optionYear => (
+              <option key={optionYear} value={optionYear}>{optionYear}</option>
+            ))}
+          </select>
+        </div>
 
         <div>
           <label>Sortieren nach</label>
@@ -1416,6 +1441,19 @@ function OrdersContent() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label htmlFor="two-d-statistics-year">Jahr</label>
+                <select
+                  id="two-d-statistics-year"
+                  value={twoDStatisticsYear}
+                  onChange={event => setTwoDStatisticsYear(event.target.value)}
+                >
+                  <option value="">Alle Jahre</option>
+                  {availableYears.map(optionYear => (
+                    <option key={optionYear} value={optionYear}>{optionYear}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="tube-statistics-totals">
@@ -1535,6 +1573,19 @@ function OrdersContent() {
                   <option value="">Alle Materialien</option>
                   {tubeStatisticsMaterials.map(material => (
                     <option key={material} value={material}>{material}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="tube-statistics-year">Jahr</label>
+                <select
+                  id="tube-statistics-year"
+                  value={tubeStatisticsYear}
+                  onChange={event => setTubeStatisticsYear(event.target.value)}
+                >
+                  <option value="">Alle Jahre</option>
+                  {availableYears.map(optionYear => (
+                    <option key={optionYear} value={optionYear}>{optionYear}</option>
                   ))}
                 </select>
               </div>
