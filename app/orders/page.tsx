@@ -41,11 +41,21 @@ type Order = {
     file_url: string | null
     document_type: string | null
     price_import_status: string | null
+    price_import_data: PriceImportContribution[] | null
   }[] | null
   suppliers: { name: string } | null
   order_items?: OrderItem[] | null
   goods_receipts?: { received_quantity: number | null; delivery_note_number: string | null; received_at: string | null }[]
   scrap_items?: { quantity: number | null }[]
+}
+
+type PriceImportContribution = {
+  orderItemId: string
+  priceQuantity: number
+  priceUnit: string
+  unitPriceEur: number
+  lineTotalEur: number
+  pieceQuantity: number | null
 }
 
 type Profile = {
@@ -253,6 +263,10 @@ function OrdersContent() {
       }
 
       const pdfs = order.order_pdfs || []
+      if (pdfs.filter(pdf => pdf.document_type === 'supplier_confirmation').length > 1) {
+        return []
+      }
+
       const supplierConfirmation = pdfs.find(pdf => pdf.document_type === 'supplier_confirmation')
       const pricePdf = supplierConfirmation || pdfs.find(pdf => pdf.document_type === 'supplier_quote')
 
@@ -356,7 +370,7 @@ function OrdersContent() {
           ordered_at,
           supplier_order_pdf_name,
           supplier_order_pdf_url,
-          order_pdfs(id,file_name,file_url,document_type,price_import_status),
+          order_pdfs(id,file_name,file_url,document_type,price_import_status,price_import_data),
           suppliers(name),
           order_items(${orderItemsSelect}),
           goods_receipts(received_quantity,delivery_note_number,received_at),
@@ -479,6 +493,7 @@ function OrdersContent() {
           position: number
           priceQuantity: number
           priceUnit: string
+          pieceQuantity: number | null
           unitPriceEur: number
           lineTotalEur: number
         }[]
@@ -513,12 +528,21 @@ function OrdersContent() {
         if (updateError) throw updateError
 
         const importMessage = `${updates.length} Positionspreis${updates.length === 1 ? '' : 'e'} automatisch in der Übersicht übernommen.`
+        const importData: PriceImportContribution[] = updates.map(({ item, price }) => ({
+          orderItemId: item.id,
+          priceQuantity: Number(price.priceQuantity),
+          priceUnit: price.priceUnit,
+          unitPriceEur: Number(price.unitPriceEur),
+          lineTotalEur: Number(price.lineTotalEur),
+          pieceQuantity: price.pieceQuantity == null ? null : Number(price.pieceQuantity)
+        }))
         await supabase
           .from('order_pdfs')
           .update({
             price_import_status: 'imported',
             price_import_message: importMessage,
-            prices_imported_at: new Date().toISOString()
+            prices_imported_at: new Date().toISOString(),
+            price_import_data: importData
           })
           .eq('id', pdf.id)
 

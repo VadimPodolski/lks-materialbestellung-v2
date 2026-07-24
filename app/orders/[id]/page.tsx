@@ -75,7 +75,17 @@ type OrderPdf = {
   price_import_status: 'pending' | 'processing' | 'imported' | 'failed' | null
   price_import_message: string | null
   prices_imported_at: string | null
+  price_import_data: PriceImportContribution[] | null
   created_at: string
+}
+
+type PriceImportContribution = {
+  orderItemId: string
+  priceQuantity: number
+  priceUnit: string
+  unitPriceEur: number
+  lineTotalEur: number
+  pieceQuantity: number | null
 }
 
 type PdfDocumentType = 'lks_order' | 'supplier_confirmation' | 'supplier_quote' | 'supplier_delivery_note'
@@ -1766,6 +1776,36 @@ LKS-Team`
         crossSectionHint?: string | null
         pieceLengthMm?: number | null
       }[]
+
+      function supplierPieceQuantity(price: typeof extractedPositions[number], item: OrderItem) {
+        if (price.pieceQuantity != null && Number.isFinite(Number(price.pieceQuantity))) {
+          return Number(price.pieceQuantity)
+        }
+
+        if (price.priceUnit.toLocaleLowerCase('de-DE') === 'stück') {
+          return Number(price.priceQuantity)
+        }
+
+        if (price.priceUnit.toLocaleLowerCase('de-DE') === 'm') {
+          const lengthMeters = Number(item.length_mm) > 0
+            ? Number(item.length_mm) / 1000
+            : 6
+          const pieces = Number(price.priceQuantity) / lengthMeters
+          const roundedPieces = Math.round(pieces)
+
+          if (Number.isFinite(pieces) && Math.abs(pieces - roundedPieces) < 0.01) {
+            return roundedPieces
+          }
+        }
+
+        const pieceMatch = price.description.match(
+          /(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:Stück|Stck\.?|Stk\.?|Stg\.?|St\.?|Stäbe?|Stab|Tafeln?)(?:\s|$)/i
+        )
+        if (!pieceMatch) return null
+
+        return Number(pieceMatch[1].replace(',', '.'))
+      }
+
       const isTwoDLaserOrder = normalizeOrderArea(order.order_area) === '2d-laser'
       const usedItemIds = new Set<string>()
       const updates = extractedPositions.flatMap(price => {
@@ -1809,6 +1849,19 @@ LKS-Team`
         return
       }
 
+      const currentImportData: PriceImportContribution[] = updates.map(({ price, item }) => ({
+        orderItemId: item.id!,
+        priceQuantity: Number(price.priceQuantity),
+        priceUnit: price.priceUnit,
+        unitPriceEur: Number(price.unitPriceEur),
+        lineTotalEur: Number(price.lineTotalEur),
+        pieceQuantity: supplierPieceQuantity(price, item)
+      }))
+      const otherImportData = orderPdfs
+        .filter(pdf => pdf.id !== pdfFile.id)
+        .flatMap(pdf => Array.isArray(pdf.price_import_data) ? pdf.price_import_data : [])
+      const combinedImportData = [...otherImportData, ...currentImportData]
+
       if (!result.referenceNumber || result.supplierFormat === 'dreckshage') {
         if (extractedPositions.length === 0 || updates.length !== extractedPositions.length) {
           await failImport(
@@ -1816,35 +1869,6 @@ LKS-Team`
             `(erkannt: ${extractedPositions.length}, zugeordnet: ${updates.length}).`
           )
           return
-        }
-
-        function supplierPieceQuantity(price: typeof extractedPositions[number], item: OrderItem) {
-          if (price.pieceQuantity != null && Number.isFinite(Number(price.pieceQuantity))) {
-            return Number(price.pieceQuantity)
-          }
-
-          if (price.priceUnit.toLocaleLowerCase('de-DE') === 'stück') {
-            return Number(price.priceQuantity)
-          }
-
-          if (price.priceUnit.toLocaleLowerCase('de-DE') === 'm') {
-            const lengthMeters = Number(item.length_mm) > 0
-              ? Number(item.length_mm) / 1000
-              : 6
-            const pieces = Number(price.priceQuantity) / lengthMeters
-            const roundedPieces = Math.round(pieces)
-
-            if (Number.isFinite(pieces) && Math.abs(pieces - roundedPieces) < 0.01) {
-              return roundedPieces
-            }
-          }
-
-          const pieceMatch = price.description.match(
-            /(?:^|\s)(\d+(?:[.,]\d+)?)\s*(?:Stück|Stck\.?|Stk\.?|Stg\.?|St\.?|Stäbe?|Stab|Tafeln?)(?:\s|$)/i
-          )
-          if (!pieceMatch) return null
-
-          return Number(pieceMatch[1].replace(',', '.'))
         }
 
         if (result.supplierFormat === 'dreckshage') {
@@ -1881,20 +1905,34 @@ LKS-Team`
           return Number(item.quantity)
         }
 
+        const supplierConfirmationCount = orderPdfs.filter(
+          pdf => pdf.document_type === 'supplier_confirmation'
+        ).length
+        const isSplitConfirmation = supplierConfirmationCount > 1
         const quantityMismatch = updates.find(({ price, item }) => {
           const expectedQuantity = expectedSupplierPieceQuantity(item)
           if (expectedQuantity == null) return false
 
           const pdfQuantity = supplierPieceQuantity(price, item)
-          return pdfQuantity != null && pdfQuantity !== expectedQuantity
+          if (pdfQuantity == null) return false
+          if (!isSplitConfirmation) return pdfQuantity !== expectedQuantity
+
+          const combinedQuantity = combinedImportData
+            .filter(contribution => contribution.orderItemId === item.id)
+            .reduce((sum, contribution) => sum + Number(contribution.pieceQuantity || 0), 0)
+          return combinedQuantity > expectedQuantity
         })
 
         if (quantityMismatch) {
-          const pdfQuantity = supplierPieceQuantity(quantityMismatch.price, quantityMismatch.item)
+          const pdfQuantity = isSplitConfirmation
+            ? combinedImportData
+                .filter(contribution => contribution.orderItemId === quantityMismatch.item.id)
+                .reduce((sum, contribution) => sum + Number(contribution.pieceQuantity || 0), 0)
+            : supplierPieceQuantity(quantityMismatch.price, quantityMismatch.item)
           await failImport(
             `Keine AB-Nummer in der PDF gefunden. Die Stückzahl von Position ` +
             `${quantityMismatch.price.position} stimmt nicht überein ` +
-            `(Auftrag: ${quantityMismatch.item.quantity}, PDF: ${pdfQuantity}).`
+            `(Auftrag: ${quantityMismatch.item.quantity}, ${isSplitConfirmation ? 'PDFs zusammen' : 'PDF'}: ${pdfQuantity}).`
           )
           return
         }
@@ -1912,7 +1950,36 @@ LKS-Team`
         }
       }
 
-      const updateResults = await Promise.all(updates.map(({ price, item }) => {
+      const affectedItemIds = [...new Set(currentImportData.map(contribution => contribution.orderItemId))]
+      const aggregatedUpdates = affectedItemIds.map(orderItemId => {
+        const contributions = combinedImportData.filter(
+          contribution => contribution.orderItemId === orderItemId
+        )
+        const priceQuantity = contributions.reduce(
+          (sum, contribution) => sum + Number(contribution.priceQuantity || 0), 0
+        )
+        const lineTotalEur = contributions.reduce(
+          (sum, contribution) => sum + Number(contribution.lineTotalEur || 0), 0
+        )
+        const unitPriceEur = priceQuantity > 0
+          ? Math.round((lineTotalEur / priceQuantity) * 10000) / 10000
+          : Number(contributions[0]?.unitPriceEur || 0)
+
+        return {
+          item: orderItems.find(item => item.id === orderItemId)!,
+          price: {
+            priceQuantity,
+            priceUnit: contributions[0]?.priceUnit || '',
+            unitPriceEur,
+            lineTotalEur,
+            pieceQuantity: contributions.reduce(
+              (sum, contribution) => sum + Number(contribution.pieceQuantity || 0), 0
+            )
+          }
+        }
+      })
+
+      const updateResults = await Promise.all(aggregatedUpdates.map(({ price, item }) => {
         const confirmedPiecesPerPackage = isTwoDLaserOrder
           && item.order_unit === 'paket'
           && price.pieceQuantity != null
@@ -1960,7 +2027,8 @@ LKS-Team`
           file_name: normalizedPdfName,
           price_import_status: 'imported',
           price_import_message: importMessage,
-          prices_imported_at: new Date().toISOString()
+          prices_imported_at: new Date().toISOString(),
+          price_import_data: currentImportData
         })
         .eq('id', pdfFile.id)
 
@@ -1980,7 +2048,8 @@ LKS-Team`
               file_name: normalizedPdfName,
               price_import_status: 'imported',
               price_import_message: importMessage,
-              prices_imported_at: new Date().toISOString()
+              prices_imported_at: new Date().toISOString(),
+              price_import_data: currentImportData
             }
           : pdf
       )))
