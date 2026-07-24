@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 
@@ -10,11 +10,58 @@ export default function ResetPasswordPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [msg, setMsg] = useState('')
   const [success, setSuccess] = useState('')
+  const [sessionReady, setSessionReady] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+
+    async function restoreRecoverySession() {
+      const hash = new URLSearchParams(window.location.hash.slice(1))
+      const accessToken = hash.get('access_token')
+      const refreshToken = hash.get('refresh_token')
+
+      if (accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken
+        })
+
+        if (error) {
+          if (active) setMsg('Der Passwort-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.')
+          return
+        }
+
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`)
+      }
+
+      const { data, error } = await supabase.auth.getSession()
+      if (!active) return
+
+      if (error || !data.session) {
+        setMsg('Der Passwort-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.')
+        return
+      }
+
+      setSessionReady(true)
+    }
+
+    void restoreRecoverySession()
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   async function updatePassword(e: React.FormEvent) {
     e.preventDefault()
     setMsg('')
     setSuccess('')
+
+    if (!sessionReady) {
+      setMsg('Der Passwort-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.')
+      return
+    }
 
     if (password.length < 8) {
       setMsg('Das Passwort muss mindestens 8 Zeichen lang sein.')
@@ -72,7 +119,7 @@ export default function ResetPasswordPage() {
             <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
           </div>
 
-          <button>Passwort speichern</button>
+          <button disabled={!sessionReady}>Passwort speichern</button>
 
           {msg && <p className="error">{msg}</p>}
           {success && <p className="success">{success}</p>}

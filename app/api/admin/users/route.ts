@@ -21,7 +21,7 @@ function isValidEmail(value: string) {
 }
 
 function resetRedirect(request: Request) {
-  return `${new URL(request.url).origin}/auth/callback?next=/reset-password?forced=1`
+  return `${new URL(request.url).origin}/reset-password?forced=1`
 }
 
 async function requireAdmin() {
