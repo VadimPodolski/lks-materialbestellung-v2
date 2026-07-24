@@ -14,6 +14,7 @@ import {
 } from '@/lib/orderItems'
 import { lksEmailLogoBase64 } from '@/lib/lksEmailLogo'
 import { isAdminRequest } from '@/lib/serverAdminAuth'
+import { createOrderPdf } from '@/lib/orderPdf'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -361,6 +362,17 @@ Mit freundlichen Grüßen
 LKS-Team`
 
     const messageId = `<${randomUUID()}@lks-technik.de>`
+    const orderPdf = isCancellation
+      ? null
+      : await createOrderPdf({
+          orderNumber,
+          orderedBy,
+          orderArea,
+          desiredDeliveryDate,
+          notes,
+          items: orderItems
+        })
+    const safeOrderNumber = String(orderNumber || 'Bestellung').replace(/[^a-zA-Z0-9_-]+/g, '-')
     const mailOptions = {
       from: process.env.SMTP_FROM,
       to: supplierEmail,
@@ -376,11 +388,20 @@ LKS-Team`
         desiredDeliveryDate,
         notes
       }),
-      attachments: [{
-        filename: 'lks-technik-logo.png',
-        content: Buffer.from(lksEmailLogoBase64, 'base64'),
-        cid: 'lks-technik-logo'
-      }]
+      attachments: [
+        {
+          filename: 'lks-technik-logo.png',
+          content: Buffer.from(lksEmailLogoBase64, 'base64'),
+          cid: 'lks-technik-logo'
+        },
+        ...(orderPdf
+          ? [{
+              filename: `Materialbestellung-${safeOrderNumber}.pdf`,
+              content: orderPdf,
+              contentType: 'application/pdf'
+            }]
+          : [])
+      ]
     }
     const rawMessage = await new Promise<Buffer>((resolve, reject) => {
       new MailComposer(mailOptions).compile().build((error, message) => {
