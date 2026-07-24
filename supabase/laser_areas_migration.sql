@@ -68,7 +68,8 @@ create unique index if not exists cross_sections_area_name_unique_idx
 create unique index if not exists work_preparations_area_name_unique_idx
   on public.work_preparations (order_area, lower(trim(name)));
 create unique index if not exists material_orders_area_number_unique_idx
-  on public.material_orders (order_area, lower(trim(order_number)));
+  on public.material_orders (order_area, lower(trim(order_number)))
+  where lower(trim(order_number)) <> 'ab-lager';
 
 create index if not exists material_orders_area_created_idx
   on public.material_orders (order_area, created_at desc);

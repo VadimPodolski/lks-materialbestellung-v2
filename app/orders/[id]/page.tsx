@@ -1031,7 +1031,7 @@ LKS-Team`
       return setMsg('Bitte eine gültige AB-Nummer eintragen, zum Beispiel AB-1234567.')
     }
 
-    if (!twoDLaser && orderNumber !== order.order_number) {
+    if (!twoDLaser && orderNumber !== 'AB-LAGER' && orderNumber !== order.order_number) {
       const { data: existingOrder, error: numberCheckError } = await supabase
         .from('material_orders')
         .select('id')

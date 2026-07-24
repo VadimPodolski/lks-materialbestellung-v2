@@ -45,7 +45,9 @@ create unique index if not exists suppliers_name_unique_idx on public.suppliers 
 create unique index if not exists materials_name_unique_idx on public.materials (lower(trim(name)));
 create unique index if not exists cross_sections_name_unique_idx on public.cross_sections (lower(trim(name)));
 create unique index if not exists work_preparations_name_unique_idx on public.work_preparations (lower(trim(name)));
-create unique index if not exists material_orders_order_number_unique_idx on public.material_orders (lower(trim(order_number)));
+create unique index if not exists material_orders_order_number_unique_idx
+  on public.material_orders (lower(trim(order_number)))
+  where lower(trim(order_number)) <> 'ab-lager';
 create unique index if not exists order_items_order_position_unique_idx on public.order_items (material_order_id, position);
 
 create index if not exists material_orders_status_idx on public.material_orders (status);
