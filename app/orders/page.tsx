@@ -35,7 +35,13 @@ type Order = {
   ordered_at: string | null
   supplier_order_pdf_name: string | null
   supplier_order_pdf_url: string | null
-  order_pdfs?: { file_name: string | null; file_url: string | null }[] | null
+  order_pdfs?: {
+    id: string
+    file_name: string | null
+    file_url: string | null
+    document_type: string | null
+    price_import_status: string | null
+  }[] | null
   suppliers: { name: string } | null
   order_items?: OrderItem[] | null
   goods_receipts?: { received_quantity: number | null; delivery_note_number: string | null; received_at: string | null }[]
@@ -189,6 +195,8 @@ function OrdersContent() {
   const { notify, dialog } = useAppDialog()
   const statusMenuCloseTimer = useRef<number | null>(null)
   const loadRequestId = useRef(0)
+  const automaticPriceImportRunning = useRef(false)
+  const automaticallyProcessedPricePdfIds = useRef(new Set<string>())
 
   useEffect(() => {
     setStatus(searchParams.get('status') || '')
@@ -224,6 +232,48 @@ function OrdersContent() {
     const timer = window.setInterval(() => setDeleteCheckTime(Date.now()), 60_000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (loadedOrderArea !== orderArea || automaticPriceImportRunning.current) return
+
+    const candidates = orders.flatMap(order => {
+      if (
+        order.status === 'storniert'
+        || !order.suppliers?.name.toLocaleLowerCase('de-DE').includes('ullner')
+      ) {
+        return []
+      }
+
+      const items = normalizeOrderItems(order)
+      if (
+        items.length === 0
+        || !items.some(item => item.unit_price_eur == null || item.line_total_eur == null)
+      ) {
+        return []
+      }
+
+      const pdfs = order.order_pdfs || []
+      const supplierConfirmation = pdfs.find(pdf => pdf.document_type === 'supplier_confirmation')
+      const pricePdf = supplierConfirmation || pdfs.find(pdf => pdf.document_type === 'supplier_quote')
+
+      if (
+        !pricePdf?.id
+        || !pricePdf.file_url
+        || automaticallyProcessedPricePdfIds.current.has(pricePdf.id)
+      ) {
+        return []
+      }
+
+      return [{ order, items, pdf: pricePdf }]
+    })
+
+    if (candidates.length === 0) return
+
+    automaticPriceImportRunning.current = true
+    void importOverviewPrices(candidates.slice(0, 10)).finally(() => {
+      automaticPriceImportRunning.current = false
+    })
+  }, [loadedOrderArea, orderArea, orders])
 
   useEffect(() => {
     if (!showTubeStatistics && !showTwoDStatistics) return
@@ -306,7 +356,7 @@ function OrdersContent() {
           ordered_at,
           supplier_order_pdf_name,
           supplier_order_pdf_url,
-          order_pdfs(file_name,file_url),
+          order_pdfs(id,file_name,file_url,document_type,price_import_status),
           suppliers(name),
           order_items(${orderItemsSelect}),
           goods_receipts(received_quantity,delivery_note_number,received_at),
@@ -390,6 +440,103 @@ function OrdersContent() {
           setCanDeleteCurrentArea(canDeleteForOrderArea(email, true, area))
         }
       })
+    }
+  }
+
+  async function importOverviewPrices(
+    candidates: {
+      order: Order
+      items: OrderItem[]
+      pdf: NonNullable<Order['order_pdfs']>[number]
+    }[]
+  ) {
+    const supabase = createClient()
+    let importedAny = false
+
+    for (const { order, items, pdf } of candidates) {
+      automaticallyProcessedPricePdfIds.current.add(pdf.id)
+
+      try {
+        await supabase
+          .from('order_pdfs')
+          .update({ price_import_status: 'processing', price_import_message: null })
+          .eq('id', pdf.id)
+
+        const response = await fetch(`/api/orders/${order.id}/extract-ullner-prices`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fileUrl: pdf.file_url,
+            orderNumber: order.order_number,
+            supplierName: order.suppliers?.name || ''
+          })
+        })
+        const result = await response.json()
+
+        if (!response.ok) throw new Error(result.error || 'Positionspreise konnten nicht ausgelesen werden.')
+
+        const extractedPositions = (result.positions || []) as {
+          position: number
+          priceQuantity: number
+          priceUnit: string
+          unitPriceEur: number
+          lineTotalEur: number
+        }[]
+        const updates = extractedPositions.map(price => {
+          const item = items.find((candidate, index) => (
+            Number(candidate.position || index + 1) === Number(price.position)
+          ))
+
+          return item?.id ? { item, price } : null
+        }).filter((value): value is {
+          item: OrderItem & { id: string }
+          price: typeof extractedPositions[number]
+        } => Boolean(value))
+
+        if (updates.length !== extractedPositions.length || updates.length !== items.length) {
+          throw new Error('Die PDF-Positionen konnten in der Übersicht nicht eindeutig zugeordnet werden.')
+        }
+
+        const updateResults = await Promise.all(updates.map(({ item, price }) => (
+          supabase
+            .from('order_items')
+            .update({
+              price_quantity: price.priceQuantity,
+              price_unit: price.priceUnit,
+              unit_price_eur: price.unitPriceEur,
+              line_total_eur: price.lineTotalEur
+            })
+            .eq('id', item.id)
+            .eq('material_order_id', order.id)
+        )))
+        const updateError = updateResults.find(update => update.error)?.error
+        if (updateError) throw updateError
+
+        const importMessage = `${updates.length} Positionspreis${updates.length === 1 ? '' : 'e'} automatisch in der Übersicht übernommen.`
+        await supabase
+          .from('order_pdfs')
+          .update({
+            price_import_status: 'imported',
+            price_import_message: importMessage,
+            prices_imported_at: new Date().toISOString()
+          })
+          .eq('id', pdf.id)
+
+        importedAny = true
+      } catch (error: any) {
+        await supabase
+          .from('order_pdfs')
+          .update({
+            price_import_status: 'failed',
+            price_import_message: error.message || 'Automatische Preisprüfung nicht möglich.',
+            prices_imported_at: null
+          })
+          .eq('id', pdf.id)
+      }
+    }
+
+    if (importedAny) {
+      await load(orderArea, ++loadRequestId.current)
     }
   }
 
