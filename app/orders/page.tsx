@@ -9,6 +9,7 @@ import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { newOrderHref, normalizeOrderArea, type OrderArea } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
+import { canManuallySetOrderStatus } from '@/lib/orderStatus'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 import { canDeleteForOrderArea } from '@/lib/areaPermissions'
 import { calculateTubeItemWeightKg, calculateTubeWeightKgPerMeter, formatTubeWeight } from '@/lib/tubeWeight'
@@ -558,6 +559,12 @@ function OrdersContent() {
   }
 
   async function changeOrderStatus(order: Order, nextStatus: string) {
+    if (!canManuallySetOrderStatus(order.status, nextStatus)) {
+      clearStatusMenuCloseTimer()
+      setActiveStatusMenu(null)
+      return
+    }
+
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
     const update: Record<string, string | null> = { status: nextStatus }
@@ -1242,7 +1249,9 @@ function OrdersContent() {
                         onMouseEnter={clearStatusMenuCloseTimer}
                         onMouseLeave={closeStatusMenuSoon}
                       >
-                        {Object.entries(statusLabels).map(([key, label]) => (
+                        {Object.entries(statusLabels)
+                          .filter(([key]) => canManuallySetOrderStatus(o.status, key))
+                          .map(([key, label]) => (
                           <button
                             type="button"
                             key={key}

@@ -23,6 +23,7 @@ import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas
 import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
 import { canDeleteForOrderArea } from '@/lib/areaPermissions'
+import { canManuallySetOrderStatus } from '@/lib/orderStatus'
 import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
 import { calculateTubeItemWeightKg, calculateTubeWeightKgPerMeter, formatTubeWeight, formatTubeWeightPerMeter } from '@/lib/tubeWeight'
 import ConfirmDialog from '@/app/ConfirmDialog'
@@ -61,7 +62,7 @@ function orderHasActiveSend(order: Order | null) {
   if (!order || order.status === 'storniert') return false
   return Boolean(
     order.ordered_at
-    || ['bestellt', 'teilweise_geliefert', 'geliefert'].includes(order.status)
+    || ['teilweise_geliefert', 'geliefert'].includes(order.status)
   )
 }
 
@@ -1152,6 +1153,11 @@ LKS-Team`
 
   async function changeStatus(nextStatus: string) {
     if (!order) return
+    if (!canManuallySetOrderStatus(order.status, nextStatus)) {
+      setMsg('Bestellte Aufträge können manuell nicht auf Offen oder Storniert gesetzt werden.')
+      setShowDetailStatusMenu(false)
+      return
+    }
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
@@ -2278,7 +2284,9 @@ LKS-Team`
 
                 {showDetailStatusMenu && (
                   <div className="status-detail-menu-options">
-                    {Object.entries(statusLabels).map(([key, label]) => (
+                    {Object.entries(statusLabels)
+                      .filter(([key]) => canManuallySetOrderStatus(order.status, key))
+                      .map(([key, label]) => (
                       <button
                         type="button"
                         key={key}
