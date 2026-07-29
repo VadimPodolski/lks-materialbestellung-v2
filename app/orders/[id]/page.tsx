@@ -137,6 +137,7 @@ type Receipt = {
   received_quantity: number
   delivery_note_number: string | null
   notes: string | null
+  received_by: string | null
   received_at: string
 }
 
@@ -149,10 +150,12 @@ type Scrap = {
   quantity: number
   reason: string | null
   reordered: boolean | null
+  created_by: string | null
   created_at: string
 }
 
 type Supplier = { id: string; name: string; email: string }
+type BookingProfile = { id: string; full_name: string | null; email: string | null }
 type MasterData = { id: string; name: string; order_area: OrderArea }
 type SheetFormat = { id: string; name: string; width_mm: number; height_mm: number }
 type MaterialThickness = { id: string; material: string; thickness_mm: number; order_area: string }
@@ -345,6 +348,7 @@ export default function OrderDetailPage() {
   const [orderPdfs, setOrderPdfs] = useState<OrderPdf[]>([])
   const [receipts, setReceipts] = useState<Receipt[]>([])
   const [scraps, setScraps] = useState<Scrap[]>([])
+  const [bookingProfiles, setBookingProfiles] = useState<BookingProfile[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [customers, setCustomers] = useState<MasterData[]>([])
   const [materials, setMaterials] = useState<MasterData[]>([])
@@ -450,6 +454,7 @@ export default function OrderDetailPage() {
       { data: receiptData },
       { data: scrapData },
       { data: pdfData },
+      { data: profileData },
       referenceData
     ] = await Promise.all([
       supabase
@@ -475,6 +480,9 @@ export default function OrderDetailPage() {
         .select('*')
         .eq('material_order_id', params.id)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('profiles')
+        .select('id,full_name,email'),
       referenceDataPromise
     ])
 
@@ -484,6 +492,7 @@ export default function OrderDetailPage() {
     setOrderPdfs(deduplicateOrderPdfs(((pdfData as any) || []) as OrderPdf[]))
     setReceipts(receiptData || [])
     setScraps((scrapData as any) || [])
+    setBookingProfiles((profileData as BookingProfile[]) || [])
     const area = normalizeOrderArea(loadedOrder?.order_area)
     setSuppliers(referenceData.suppliers)
     setCustomers(referenceData.customers.filter(item => item.order_area === area))
@@ -927,6 +936,12 @@ LKS-Team`
     return profileByEmail?.full_name || profileByEmail?.email || user.email || ''
   }
 
+  function bookingProfileName(userId: string | null) {
+    if (!userId) return '-'
+    const profile = bookingProfiles.find(item => item.id === userId)
+    return profile?.full_name || profile?.email || '-'
+  }
+
   async function sendOrderEmail() {
     const orderAlreadySent = orderHasActiveSend(order)
 
@@ -1223,6 +1238,7 @@ LKS-Team`
 
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
+    await ensureCurrentUserProfile(supabase, userData.user)
 
     const { error } = await supabase.from('goods_receipts').insert(
       entries.map(({ item, draft, qty }) => ({
@@ -3017,6 +3033,7 @@ LKS-Team`
           <colgroup>
             <col className="history-selection-column" />
             <col className="history-date-column" />
+            <col className="history-user-column" />
             <col className="history-position-column" />
             <col className="history-quantity-column" />
             <col className="history-detail-column" />
@@ -3036,7 +3053,8 @@ LKS-Team`
                   title="Alle offenen Ausschusspositionen auswählen"
                 />
               </th>
-              <th>Datum</th>
+              <th>Gebucht am</th>
+              <th>Gebucht von</th>
               <th>Position</th>
               <th>Stückzahl</th>
               <th>Grund</th>
@@ -3058,6 +3076,7 @@ LKS-Team`
                   />
                 </td>
                 <td>{new Date(s.created_at).toLocaleString('de-DE')}</td>
+                <td>{bookingProfileName(s.created_by)}</td>
                 {editingScrapId === s.id ? (
                   <>
                     <td>
@@ -3136,6 +3155,7 @@ LKS-Team`
           <colgroup>
             <col className="history-selection-column" />
             <col className="history-date-column" />
+            <col className="history-user-column" />
             <col className="history-position-column" />
             <col className="history-quantity-column" />
             <col className="history-detail-column" />
@@ -3155,7 +3175,8 @@ LKS-Team`
                   title="Alle Wareneingänge auswählen"
                 />
               </th>
-              <th>Datum</th>
+              <th>Gebucht am</th>
+              <th>Gebucht von</th>
               <th>Position</th>
               <th>Stückzahl</th>
               <th>Lieferschein</th>
@@ -3177,6 +3198,7 @@ LKS-Team`
                   />
                 </td>
                 <td>{new Date(r.received_at).toLocaleString('de-DE')}</td>
+                <td>{bookingProfileName(r.received_by)}</td>
 
                 {editingReceiptId === r.id ? (
                   <>

@@ -2083,12 +2083,16 @@ table td {
   width: 180px;
 }
 
+.order-history-table .history-user-column {
+  width: 180px;
+}
+
 .order-history-table .history-position-column {
   width: 480px;
 }
 
-.order-history-table th:nth-child(3),
-.order-history-table td:nth-child(3) {
+.order-history-table th:nth-child(4),
+.order-history-table td:nth-child(4) {
   white-space: nowrap;
 }
 
