@@ -2091,8 +2091,8 @@ table td {
   width: 480px;
 }
 
-.order-history-table th:nth-child(4),
-.order-history-table td:nth-child(4) {
+.order-history-table th:nth-child(3),
+.order-history-table td:nth-child(3) {
   white-space: nowrap;
 }
 

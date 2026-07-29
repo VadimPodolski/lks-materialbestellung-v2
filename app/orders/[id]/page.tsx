@@ -3033,11 +3033,11 @@ LKS-Team`
           <colgroup>
             <col className="history-selection-column" />
             <col className="history-date-column" />
-            <col className="history-user-column" />
             <col className="history-position-column" />
             <col className="history-quantity-column" />
             <col className="history-detail-column" />
             <col className="history-status-column" />
+            <col className="history-user-column" />
             <col className="history-actions-column" />
           </colgroup>
           <thead>
@@ -3054,11 +3054,11 @@ LKS-Team`
                 />
               </th>
               <th>Gebucht am</th>
-              <th>Gebucht von</th>
               <th>Position</th>
               <th>Stückzahl</th>
               <th>Grund</th>
               <th>Status</th>
+              <th>Gebucht von</th>
               <th>Aktionen</th>
             </tr>
           </thead>
@@ -3076,7 +3076,6 @@ LKS-Team`
                   />
                 </td>
                 <td>{new Date(s.created_at).toLocaleString('de-DE')}</td>
-                <td>{bookingProfileName(s.created_by)}</td>
                 {editingScrapId === s.id ? (
                   <>
                     <td>
@@ -3102,6 +3101,7 @@ LKS-Team`
                       />
                     </td>
                     <td>Offen</td>
+                    <td>{bookingProfileName(s.created_by)}</td>
                     <td className="order-history-actions">
                       <div className="actions">
                         <button type="button" onClick={() => saveScrapEdit(s)}>Speichern</button>
@@ -3125,6 +3125,7 @@ LKS-Team`
                     <td>{s.quantity}</td>
                     <td>{s.reason || '-'}</td>
                     <td>{s.reordered ? 'Nachbestellt' : 'Offen'}</td>
+                    <td>{bookingProfileName(s.created_by)}</td>
                     <td className="order-history-actions">
                       {!s.reordered && (
                         <div className="actions">
@@ -3155,11 +3156,11 @@ LKS-Team`
           <colgroup>
             <col className="history-selection-column" />
             <col className="history-date-column" />
-            <col className="history-user-column" />
             <col className="history-position-column" />
             <col className="history-quantity-column" />
             <col className="history-detail-column" />
             <col className="history-status-column" />
+            <col className="history-user-column" />
             <col className="history-actions-column" />
           </colgroup>
           <thead>
@@ -3176,11 +3177,11 @@ LKS-Team`
                 />
               </th>
               <th>Gebucht am</th>
-              <th>Gebucht von</th>
               <th>Position</th>
               <th>Stückzahl</th>
               <th>Lieferschein</th>
               <th>Bemerkung</th>
+              <th>Gebucht von</th>
               <th>Aktionen</th>
             </tr>
           </thead>
@@ -3198,7 +3199,6 @@ LKS-Team`
                   />
                 </td>
                 <td>{new Date(r.received_at).toLocaleString('de-DE')}</td>
-                <td>{bookingProfileName(r.received_by)}</td>
 
                 {editingReceiptId === r.id ? (
                   <>
@@ -3231,6 +3231,7 @@ LKS-Team`
                       />
                     </td>
 
+                    <td>{bookingProfileName(r.received_by)}</td>
                     <td className="order-history-actions">
                       <div className="actions">
                         <button
@@ -3261,6 +3262,7 @@ LKS-Team`
                     <td>{r.delivery_note_number || '-'}</td>
                     <td>{r.notes || '-'}</td>
 
+                    <td>{bookingProfileName(r.received_by)}</td>
                     <td className="order-history-actions">
                       <div className="actions">
                         <ActionIconButton action="edit" label="Wareneingang bearbeiten" onClick={() => startEditReceipt(r)} />
