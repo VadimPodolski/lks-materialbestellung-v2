@@ -186,6 +186,29 @@ export function orderItemQuantityWithoutPackageSizeText(item: OrderItem) {
   return orderItemQuantityText(item)
 }
 
+export function supplierPiecesPerPackage(
+  item: Pick<OrderItem, 'order_unit' | 'quantity'>,
+  supplierPieceQuantity: number | null | undefined
+) {
+  if (item.order_unit !== 'paket' || supplierPieceQuantity == null) return null
+
+  const packageCount = Number(item.quantity)
+  const totalPieces = Number(supplierPieceQuantity)
+  const piecesPerPackage = totalPieces / packageCount
+
+  if (
+    !Number.isFinite(packageCount)
+    || packageCount <= 0
+    || !Number.isFinite(totalPieces)
+    || totalPieces <= 0
+    || !Number.isInteger(piecesPerPackage)
+  ) {
+    return null
+  }
+
+  return piecesPerPackage
+}
+
 export function formatMaterialThickness(value: number | null | undefined) {
   if (!value) return '-'
   return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 3 }).format(Number(value))} mm`

@@ -4,7 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient, statusClass, statusLabels } from '@/lib/supabase'
-import { OrderItem, formatCrossSectionMm, formatMaterialThickness, normalizeOrderItems, orderItemAvText, orderItemQuantityText, orderItemsSelect, orderItemsSummary } from '@/lib/orderItems'
+import { OrderItem, formatCrossSectionMm, formatMaterialThickness, normalizeOrderItems, orderItemAvText, orderItemQuantityText, orderItemsSelect, orderItemsSummary, supplierPiecesPerPackage } from '@/lib/orderItems'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { newOrderHref, normalizeOrderArea, type OrderArea } from '@/lib/orderAreas'
@@ -255,10 +255,22 @@ function OrdersContent() {
       }
 
       const items = normalizeOrderItems(order)
-      if (
-        items.length === 0
-        || !items.some(item => item.unit_price_eur == null || item.line_total_eur == null)
-      ) {
+      const hasUnpricedPosition = items.some(item => (
+        item.unit_price_eur == null || item.line_total_eur == null
+      ))
+      const hasUnappliedSheetQuantity = normalizeOrderArea(order.order_area) === '2d-laser'
+        && (order.order_pdfs || []).some(pdf => (
+          (pdf.price_import_data || []).some(contribution => {
+            const item = items.find(candidate => candidate.id === contribution.orderItemId)
+            if (!item) return false
+
+            const confirmedPieces = supplierPiecesPerPackage(item, contribution.pieceQuantity)
+            return confirmedPieces != null
+              && confirmedPieces !== Number(item.pieces_per_package || 0)
+          })
+        ))
+
+      if (items.length === 0 || (!hasUnpricedPosition && !hasUnappliedSheetQuantity)) {
         return []
       }
 
@@ -512,22 +524,34 @@ function OrdersContent() {
           throw new Error('Die PDF-Positionen konnten in der Übersicht nicht eindeutig zugeordnet werden.')
         }
 
-        const updateResults = await Promise.all(updates.map(({ item, price }) => (
-          supabase
+        const updateResults = await Promise.all(updates.map(({ item, price }) => {
+          const confirmedPieces = normalizeOrderArea(order.order_area) === '2d-laser'
+            ? supplierPiecesPerPackage(item, price.pieceQuantity)
+            : null
+
+          return supabase
             .from('order_items')
             .update({
               price_quantity: price.priceQuantity,
               price_unit: price.priceUnit,
               unit_price_eur: price.unitPriceEur,
-              line_total_eur: price.lineTotalEur
+              line_total_eur: price.lineTotalEur,
+              ...(confirmedPieces != null ? { pieces_per_package: confirmedPieces } : {})
             })
             .eq('id', item.id)
             .eq('material_order_id', order.id)
-        )))
+        }))
         const updateError = updateResults.find(update => update.error)?.error
         if (updateError) throw updateError
 
-        const importMessage = `${updates.length} Positionspreis${updates.length === 1 ? '' : 'e'} automatisch in der Übersicht übernommen.`
+        const importedSheetCounts = updates.filter(({ item, price }) => (
+          normalizeOrderArea(order.order_area) === '2d-laser'
+          && supplierPiecesPerPackage(item, price.pieceQuantity) != null
+        )).length
+        const importMessage = `${updates.length} Positionspreis${updates.length === 1 ? '' : 'e'} automatisch in der Übersicht übernommen` +
+          (importedSheetCounts > 0
+            ? `; ${importedSheetCounts} Tafelanzahl${importedSheetCounts === 1 ? '' : 'en'} aus der Auftragsbestätigung aktualisiert.`
+            : '.')
         const importData: PriceImportContribution[] = updates.map(({ item, price }) => ({
           orderItemId: item.id,
           priceQuantity: Number(price.priceQuantity),

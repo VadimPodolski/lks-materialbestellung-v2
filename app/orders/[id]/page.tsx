@@ -16,7 +16,8 @@ import {
   orderItemsMailText,
   orderItemsSelect,
   orderItemsTotal,
-  primaryOrderItem
+  primaryOrderItem,
+  supplierPiecesPerPackage
 } from '@/lib/orderItems'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
@@ -586,6 +587,17 @@ export default function OrderDetailPage() {
     const hasUnpricedPosition = orderItems.some(item => (
       item.unit_price_eur == null || item.line_total_eur == null
     ))
+    const hasUnappliedSheetQuantity = normalizeOrderArea(order.order_area) === '2d-laser'
+      && orderPdfs.some(pdf => (
+        (pdf.price_import_data || []).some(contribution => {
+          const item = orderItems.find(candidate => candidate.id === contribution.orderItemId)
+          if (!item) return false
+
+          const confirmedPieces = supplierPiecesPerPackage(item, contribution.pieceQuantity)
+          return confirmedPieces != null
+            && confirmedPieces !== Number(item.pieces_per_package || 0)
+        })
+      ))
 
     const hasSupplierConfirmation = orderPdfs.some(pdf => pdf.document_type === 'supplier_confirmation')
     const pendingPdf = orderPdfs.find(pdf => (
@@ -593,7 +605,7 @@ export default function OrderDetailPage() {
         pdf.document_type === 'supplier_confirmation'
         || (pdf.document_type === 'supplier_quote' && !hasSupplierConfirmation)
       )
-      && (pdf.price_import_status !== 'imported' || hasUnpricedPosition)
+      && (pdf.price_import_status !== 'imported' || hasUnpricedPosition || hasUnappliedSheetQuantity)
       && !processedPricePdfIds.current.has(pdf.id)
     ))
 
@@ -1997,12 +2009,8 @@ LKS-Team`
 
       const updateResults = await Promise.all(aggregatedUpdates.map(({ price, item }) => {
         const confirmedPiecesPerPackage = isTwoDLaserOrder
-          && item.order_unit === 'paket'
-          && price.pieceQuantity != null
-          && Number.isInteger(Number(price.pieceQuantity))
-          && Number(price.pieceQuantity) > 0
-            ? Number(price.pieceQuantity)
-            : null
+          ? supplierPiecesPerPackage(item, price.pieceQuantity)
+          : null
 
         return supabase
           .from('order_items')
