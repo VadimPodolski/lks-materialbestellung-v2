@@ -16,7 +16,6 @@ export type OrderItem = {
   unit_price_eur?: number | null
   line_total_eur?: number | null
   position?: number | null
-  is_stock_item?: boolean | null
 }
 
 export type LegacyOrderFields = {
@@ -31,7 +30,7 @@ export type LegacyOrderFields = {
   order_items?: OrderItem[] | null
 }
 
-export const orderItemsSelect = 'id,material,material_thickness_mm,cross_section,av_1,av_2,av_3,av_4,length_mm,quantity,order_unit,pieces_per_package,price_quantity,price_unit,unit_price_eur,line_total_eur,position,is_stock_item'
+export const orderItemsSelect = 'id,material,material_thickness_mm,cross_section,av_1,av_2,av_3,av_4,length_mm,quantity,order_unit,pieces_per_package,price_quantity,price_unit,unit_price_eur,line_total_eur,position'
 
 export function emptyOrderItem(): OrderItem {
   return {
@@ -108,8 +107,7 @@ export function mergeOrderItems(items: OrderItem[]) {
       priceQuantity ?? '',
       priceUnit ?? '',
       unitPriceEur ?? '',
-      lineTotalEur ?? '',
-      item.is_stock_item ? 'stock' : 'order'
+      lineTotalEur ?? ''
     ].join('|')
     const existing = merged.get(key)
 
@@ -134,8 +132,7 @@ export function mergeOrderItems(items: OrderItem[]) {
       price_quantity: priceQuantity,
       price_unit: priceUnit,
       unit_price_eur: unitPriceEur,
-      line_total_eur: lineTotalEur,
-      is_stock_item: Boolean(item.is_stock_item)
+      line_total_eur: lineTotalEur
     })
   }
 
