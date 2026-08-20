@@ -61,10 +61,7 @@ type Order = {
 
 function orderHasActiveSend(order: Order | null) {
   if (!order || order.status === 'storniert') return false
-  return Boolean(
-    order.ordered_at
-    || ['teilweise_geliefert', 'geliefert'].includes(order.status)
-  )
+  return Boolean(order.ordered_at)
 }
 
 type OrderPdf = {
@@ -378,6 +375,8 @@ export default function OrderDetailPage() {
   const [scrapDrafts, setScrapDrafts] = useState<Record<string, ScrapDraft>>({})
   const [selectedReceiptIds, setSelectedReceiptIds] = useState<string[]>([])
   const [selectedScrapIds, setSelectedScrapIds] = useState<string[]>([])
+  const [selectedStockItemIds, setSelectedStockItemIds] = useState<string[]>([])
+  const [markingStockItems, setMarkingStockItems] = useState(false)
   const allReceiptsSelected = receipts.length > 0 && receipts.every(
     receipt => selectedReceiptIds.includes(receipt.id)
   )
@@ -556,6 +555,20 @@ export default function OrderDetailPage() {
   const orderItems = useMemo(
     () => normalizeOrderItems(order),
     [order]
+  )
+  function isStockItem(item: OrderItem) {
+    return receipts.some(receipt => {
+      const belongsToItem = item.id
+        ? receipt.order_item_id === item.id
+        : receipt.material === item.material
+          && receipt.cross_section === item.cross_section
+          && Number(receipt.length_mm || 0) === Number(item.length_mm || 0)
+      return belongsToItem && (receipt.notes || '').trim().toLocaleLowerCase('de-DE') === 'lagerware'
+    })
+  }
+  const orderableItems = useMemo(
+    () => orderItems.filter(item => !isStockItem(item)),
+    [orderItems, receipts]
   )
 
   const totalOrderPrice = useMemo(() => {
@@ -968,6 +981,11 @@ LKS-Team`
       return
     }
 
+    if (orderableItems.length === 0) {
+      setOrderMailMessage('Alle Positionen sind als Lagerware markiert. Es gibt nichts zu bestellen.')
+      return
+    }
+
     const sendConfirmed = await ask({
       title: orderAlreadySent ? 'Bestellung erneut senden' : 'Bestellung senden',
       message: `Bestellung ${order.order_number} wirklich an ${order.suppliers.name} senden?`,
@@ -987,7 +1005,7 @@ LKS-Team`
           supplierEmail: order.suppliers.email,
           orderNumber: order.order_number,
           customer: order.customer,
-          items: orderItems,
+          items: orderableItems,
           orderArea: order.order_area,
           desiredDeliveryDate: order.desired_delivery_date,
           supplierName: order.suppliers.name,
@@ -1047,6 +1065,7 @@ LKS-Team`
     const orderNumber = twoDLaser ? order.order_number : editForm.order_number.trim().toUpperCase()
     const customerName = twoDLaser ? '2D-Laser' : editForm.customer.trim()
     const cleanItems = mergeOrderItems(editItems.map(item => ({
+      id: item.id,
       material: item.material.trim(),
       material_thickness_mm: item.material_thickness_mm ? Number(item.material_thickness_mm) : null,
       cross_section: item.cross_section.trim(),
@@ -1061,7 +1080,7 @@ LKS-Team`
         : 'stück',
       pieces_per_package: twoDLaser && item.order_unit === 'paket'
         ? Number(item.pieces_per_package || 0)
-        : null
+        : null,
     })))
 
     if (!twoDLaser && !/^AB-(?:[0-9]+|LAGER)(?:-NB(?:-[0-9]{2})?)?$/.test(orderNumber)) {
@@ -1179,13 +1198,68 @@ LKS-Team`
     await supabase
       .from('material_orders')
       .update({
-        status: 'bestellt',
         ordered_at: new Date().toISOString(),
         ordered_by: userData.user?.id || null
       })
       .eq('id', order.id)
 
+    await recalculateStatus(order.id, orderItemsTotal(orderItems), true)
     await load()
+  }
+
+  function toggleStockItem(itemId: string) {
+    setSelectedStockItemIds(previous => previous.includes(itemId)
+      ? previous.filter(id => id !== itemId)
+      : [...previous, itemId])
+  }
+
+  async function markSelectedAsStock() {
+    if (!order || selectedStockItemIds.length === 0 || markingStockItems) return
+
+    const selectedItems = orderItems.filter(item => item.id && selectedStockItemIds.includes(item.id))
+    if (selectedItems.length === 0) return
+
+    const confirmed = await ask({
+      title: 'Als Lagerware markieren',
+      message: `${selectedItems.length} Position${selectedItems.length === 1 ? '' : 'en'} als Lagerware markieren und in den Wareneingang buchen?`,
+      confirmLabel: 'Als Lagerware markieren'
+    })
+    if (!confirmed) return
+
+    setMarkingStockItems(true)
+    const supabase = createClient()
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      await ensureCurrentUserProfile(supabase, userData.user)
+
+      const receiptRows = selectedItems.flatMap(item => {
+        const remainingQuantity = Number(item.quantity) - receivedQtyForItem(item)
+        if (remainingQuantity <= 0) return []
+        return [{
+          material_order_id: order.id,
+          order_item_id: item.id,
+          material: item.material,
+          cross_section: item.cross_section,
+          length_mm: item.length_mm,
+          received_quantity: remainingQuantity,
+          delivery_note_number: null,
+          notes: 'Lagerware',
+          received_by: userData.user?.id || null
+        }]
+      })
+
+      if (receiptRows.length > 0) {
+        const { error: receiptError } = await supabase.from('goods_receipts').insert(receiptRows)
+        if (receiptError) return setMsg(receiptError.message)
+      }
+
+      await recalculateStatus(order.id, orderItemsTotal(orderItems), Boolean(order.ordered_at))
+      setSelectedStockItemIds([])
+      await load()
+      setMsg(`${selectedItems.length} Position${selectedItems.length === 1 ? '' : 'en'} als Lagerware markiert und in den Wareneingang gebucht.`)
+    } finally {
+      setMarkingStockItems(false)
+    }
   }
 
   async function changeStatus(nextStatus: string) {
@@ -2398,6 +2472,7 @@ LKS-Team`
               <table className={`position-entry-table ${isTwoDLaser ? 'two-d-position-entry-table' : 'tube-position-entry-table'}`}>
                 <thead>
                   <tr>
+                    {!isTwoDLaser && <th className="stock-selection-column">Lager</th>}
                     <th>Position</th>
                     <th>Material</th>
                     {isTwoDLaser && <th>Materialstärke</th>}
@@ -2432,6 +2507,17 @@ LKS-Team`
 
                     return (
                       <tr key={`${item.cross_section}-${index}`}>
+                        {!isTwoDLaser && (
+                          <td className="stock-selection-column">
+                            <input
+                              type="checkbox"
+                              checked={isStockItem(item) || Boolean(item.id && selectedStockItemIds.includes(item.id))}
+                              disabled={isStockItem(item) || orderAlreadySent || !item.id}
+                              onChange={() => item.id && toggleStockItem(item.id)}
+                              aria-label={`Position ${index + 1} als Lagerware auswählen`}
+                            />
+                          </td>
+                        )}
                         <td>{index + 1}</td>
                         <td>{item.material}</td>
                         {isTwoDLaser && <td>{formatMaterialThickness(item.material_thickness_mm)}</td>}
@@ -2519,7 +2605,18 @@ LKS-Team`
                 </tbody>
                 <tfoot>
                   <tr className="position-booking-row">
-                    <td colSpan={isTwoDLaser ? 8 : 9} />
+                    <td colSpan={isTwoDLaser ? 8 : 10}>
+                      {!isTwoDLaser && (
+                        <button
+                          type="button"
+                          className="stock-items-button"
+                          onClick={markSelectedAsStock}
+                          disabled={selectedStockItemIds.length === 0 || markingStockItems || orderAlreadySent}
+                        >
+                          {markingStockItems ? 'Wird gebucht…' : 'Auswahl als Lagerware markieren'}
+                        </button>
+                      )}
+                    </td>
                     <td className="position-booking-cell we-booking-cell" colSpan={4}>
                       <button type="button" onClick={receiveGoods}>
                         Wareneingang buchen
@@ -2572,6 +2669,7 @@ LKS-Team`
                 disabled={
                   (!isAdminUser && orderAlreadySent)
                   || sendingOrderEmail
+                  || orderableItems.length === 0
                 }
                 title={
                   orderAlreadySent

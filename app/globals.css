@@ -1079,6 +1079,24 @@ a.card:hover {
   padding: 0 18px;
 }
 
+.stock-selection-column {
+  width: 64px;
+  min-width: 64px;
+  text-align: center;
+}
+
+.stock-selection-column input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: #00a859;
+}
+
+.stock-items-button {
+  float: left;
+  margin: 6px 0;
+  background: #0f766e;
+}
+
 .orders-table-shell {
   max-height: calc(100vh - 220px);
   overflow-x: auto;
