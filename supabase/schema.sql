@@ -53,6 +53,7 @@ create table if not exists order_items (
   quantity numeric(12,2) not null check (quantity > 0),
   order_unit text not null default 'stück' check (order_unit in ('stück', 'paket', 'kg')),
   pieces_per_package integer,
+  is_stock_item boolean not null default false,
   created_at timestamptz default now()
 );
 
