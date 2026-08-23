@@ -2730,21 +2730,25 @@ table td {
 }
 
 .audit-pagination {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(170px, 1fr) auto minmax(170px, 1fr);
   align-items: center;
-  justify-content: center;
-  flex-direction: column-reverse;
-  gap: 10px;
+  gap: 16px;
   margin-top: 14px;
   color: #475569;
   font-size: 13px;
-  text-align: center;
+}
+
+.audit-pagination > span {
+  justify-self: start;
 }
 
 .audit-pagination > div {
   display: flex;
   align-items: center;
   gap: 12px;
+  grid-column: 2;
+  justify-self: center;
 }
 
 .audit-pagination button {
@@ -2755,6 +2759,39 @@ table td {
 .audit-pagination button:disabled {
   cursor: not-allowed;
   opacity: .45;
+}
+
+.audit-page-numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: min(62vw, 760px);
+  padding: 2px;
+  overflow-x: auto;
+}
+
+.audit-page-numbers button {
+  min-width: 34px;
+  width: 34px;
+  height: 34px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  box-shadow: none;
+}
+
+.audit-page-numbers button:hover {
+  border-color: #64748b;
+  background: #f1f5f9;
+}
+
+.audit-page-numbers button.active {
+  border-color: #1e3a5f;
+  background: #1e3a5f;
+  color: #fff;
 }
 
 .audit-limit-note {
@@ -2772,11 +2809,18 @@ table td {
   }
 
   .audit-pagination {
-    align-items: center;
+    grid-template-columns: 1fr;
   }
 
   .audit-pagination > div {
-    justify-content: space-between;
+    grid-column: 1;
+    justify-self: stretch;
+    justify-content: center;
+    overflow-x: auto;
+  }
+
+  .audit-page-numbers {
+    max-width: none;
   }
 }
 

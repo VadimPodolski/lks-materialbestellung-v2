@@ -408,7 +408,20 @@ export default function AuditLogPage() {
             >
               Zurück
             </button>
-            <strong>Seite {currentPage.toLocaleString('de-DE')} von {totalPages.toLocaleString('de-DE')}</strong>
+            <div className="audit-page-numbers" aria-label={`Seite ${currentPage} von ${totalPages}`}>
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map(page => (
+                <button
+                  key={page}
+                  type="button"
+                  className={page === currentPage ? 'active' : ''}
+                  aria-label={`Seite ${page}`}
+                  aria-current={page === currentPage ? 'page' : undefined}
+                  onClick={() => setCurrentPage(page)}
+                >
+                  {page}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               className="secondary"
@@ -420,11 +433,6 @@ export default function AuditLogPage() {
           </div>
         </nav>
       )}
-
-      <p className="small audit-limit-note">
-        Historische Bestände wurden aus vorhandenen Datensätzen rekonstruiert. Frühere Änderungen und bereits vor Einführung
-        des Protokolls gelöschte Daten können nicht nachträglich ermittelt werden.
-      </p>
     </main>
   )
 }
