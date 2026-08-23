@@ -627,7 +627,7 @@ export function parseUllnerPriceConfirmation(text: string): UllnerPriceConfirmat
 
   const confirmationNumber = text.match(/KAB\s+(\d+)/i)?.[1] || null
   const referenceNumber = text.match(/Referenznummer:\s*([A-Z0-9-]+)/i)?.[1]
-    || text.match(/Kommission:\s*((?:AB-\d+|TAFEL-\d+))/i)?.[1]
+    || text.match(/Kommission:\s*((?:AB-(?:\d+|LAGER)(?:-NB)*(?:-\d+)?|TAFEL-\d+))/i)?.[1]
     || null
 
   return { confirmationNumber, referenceNumber, supplierFormat: 'ullner', positions }

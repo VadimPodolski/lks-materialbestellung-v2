@@ -247,10 +247,7 @@ function OrdersContent() {
     if (loadedOrderArea !== orderArea || automaticPriceImportRunning.current) return
 
     const candidates = orders.flatMap(order => {
-      if (
-        order.status === 'storniert'
-        || !order.suppliers?.name.toLocaleLowerCase('de-DE').includes('ullner')
-      ) {
+      if (order.status === 'storniert') {
         return []
       }
 
