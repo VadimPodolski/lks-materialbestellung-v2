@@ -22,6 +22,7 @@ type AuditEntry = {
   changed_fields: string[] | null
   old_data: Record<string, unknown> | null
   new_data: Record<string, unknown> | null
+  is_reconstructed: boolean
 }
 
 const tableLabels: Record<string, string> = {
@@ -191,14 +192,30 @@ export default function AuditLogPage() {
       return
     }
 
-    const { data, error } = await supabase
-      .from('audit_log')
-      .select('*')
-      .order('occurred_at', { ascending: false })
-      .limit(500)
+    const allEntries: AuditEntry[] = []
+    const pageSize = 1000
+    let loadError = ''
 
-    if (error) setMessage(error.message)
-    setEntries((data as AuditEntry[] | null) || [])
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await supabase
+        .from('audit_log')
+        .select('*')
+        .order('occurred_at', { ascending: false })
+        .range(from, from + pageSize - 1)
+
+      if (error) {
+        loadError = error.message
+        break
+      }
+
+      const page = (data as AuditEntry[] | null) || []
+      allEntries.push(...page)
+      if (page.length < pageSize) break
+    }
+
+    if (loadError) setMessage(loadError)
+    else setMessage('')
+    setEntries(allEntries)
     setLoading(false)
   }, [router])
 
@@ -310,7 +327,10 @@ export default function AuditLogPage() {
                       <span>{entry.actor_email || 'Automatischer Vorgang'}</span>
                     </div>
                   </td>
-                  <td><span className={`audit-action ${entry.action.toLowerCase()}`}>{actionLabel(entry.action)}</span></td>
+                  <td>
+                    <span className={`audit-action ${entry.action.toLowerCase()}`}>{actionLabel(entry.action)}</span>
+                    {entry.is_reconstructed && <span className="audit-reconstructed">Historischer Bestand</span>}
+                  </td>
                   <td>
                     <div className="audit-location">
                       <strong>{areaLabel(entry.area)}</strong>
@@ -358,8 +378,10 @@ export default function AuditLogPage() {
         {loading && <div className="audit-empty">Protokoll wird geladen...</div>}
       </div>
 
-      <p className="small audit-limit-note">Es werden die neuesten 500 Protokolleinträge angezeigt.</p>
+      <p className="small audit-limit-note">
+        Historische Bestände wurden aus vorhandenen Datensätzen rekonstruiert. Frühere Änderungen und bereits vor Einführung
+        des Protokolls gelöschte Daten können nicht nachträglich ermittelt werden.
+      </p>
     </main>
   )
 }
-

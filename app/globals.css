@@ -2677,6 +2677,16 @@ table td {
   color: #991b1b;
 }
 
+.audit-reconstructed {
+  display: block;
+  width: max-content;
+  margin-top: 0.35rem;
+  color: #64748b;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1.15;
+}
+
 .audit-changes summary {
   color: #1d4ed8;
   cursor: pointer;
