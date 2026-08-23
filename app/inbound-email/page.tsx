@@ -106,7 +106,7 @@ export default function InboundEmailPage() {
     const user = userData.user
     if (user) {
       const profile = await ensureCurrentUserProfile(supabase, user)
-      setIsAdmin(profile?.role === 'admin' || user.email?.toLowerCase() === 'v.podolski@lks-technik.de')
+      setIsAdmin(profile?.role === 'admin')
     }
     setLoading(false)
   }

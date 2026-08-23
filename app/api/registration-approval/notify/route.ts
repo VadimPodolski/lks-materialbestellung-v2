@@ -119,7 +119,7 @@ export async function POST(request: Request) {
     const smtpUser = process.env.SMTP_USER
     const smtpPass = process.env.SMTP_PASS
     const smtpFrom = process.env.SMTP_FROM
-    const approvalEmail = process.env.REGISTRATION_APPROVAL_EMAIL || 'v.podolski@lks-technik.de'
+    const approvalEmail = process.env.REGISTRATION_APPROVAL_EMAIL || 'vadim.podolski@online.de'
     if (!smtpHost || !smtpUser || !smtpPass || !smtpFrom) {
       throw new Error('SMTP-Umgebungsvariablen fehlen.')
     }

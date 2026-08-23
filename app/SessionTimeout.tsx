@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000
-const ADMIN_EMAIL = 'v.podolski@lks-technik.de'
 
 export default function SessionTimeout() {
   useEffect(() => {
@@ -49,7 +48,6 @@ export default function SessionTimeout() {
 
       if (!session?.user || !active) return
 
-      const email = session.user.email?.trim().toLowerCase() || ''
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
@@ -63,7 +61,7 @@ export default function SessionTimeout() {
         return
       }
 
-      if (profile?.role === 'admin' || email === ADMIN_EMAIL) return
+      if (profile?.role === 'admin') return
 
       const signedInAt = Date.parse(session.user.last_sign_in_at || '')
       const remainingMs = Number.isFinite(signedInAt)

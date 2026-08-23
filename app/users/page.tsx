@@ -116,7 +116,7 @@ export default function UsersPage() {
       .eq('id', user.id)
       .maybeSingle()
 
-    const isAdmin = ownProfile?.role === 'admin' || user.email?.toLowerCase() === 'v.podolski@lks-technik.de'
+    const isAdmin = ownProfile?.role === 'admin'
     if (!isAdmin) {
       router.replace('/')
       return
@@ -332,7 +332,7 @@ export default function UsersPage() {
               )}
               {visibleProfiles.map(profile => {
                 const isCurrentUser = profile.id === currentUserId
-                const isProtectedAdmin = profile.email?.toLowerCase() === 'v.podolski@lks-technik.de'
+                const isProtectedAdmin = profile.email?.toLowerCase() === 'vadim.podolski@online.de'
                 const actionBusy = busy.endsWith(profile.id)
 
                 return (

@@ -19,8 +19,6 @@ export async function getAdminRequestUser() {
   const { data } = await supabase.auth.getUser()
   const user = data.user
   if (!user) return null
-  if (user.email?.trim().toLowerCase() === 'v.podolski@lks-technik.de') return user
-
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')

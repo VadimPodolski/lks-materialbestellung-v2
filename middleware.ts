@@ -69,7 +69,7 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle()
 
-    const isAdmin = profile?.role === 'admin' || user.email?.toLowerCase() === 'v.podolski@lks-technik.de'
+    const isAdmin = profile?.role === 'admin'
     const isApproved = isAdmin || profile?.approved === true
     const mustChangePassword = !isAdmin && profile?.must_change_password === true
 

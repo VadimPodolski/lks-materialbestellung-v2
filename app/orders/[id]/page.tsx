@@ -513,7 +513,7 @@ export default function OrderDetailPage() {
 
     if (user) {
       const profile = await ensureCurrentUserProfile(supabase, user)
-      const admin = profile?.role === 'admin' || user.email?.toLowerCase() === 'v.podolski@lks-technik.de'
+      const admin = profile?.role === 'admin'
       setIsAdminUser(admin)
       setCanDeleteThisOrder(canDeleteForOrderArea(user.email, admin, area))
     } else {

@@ -18,11 +18,6 @@ export default function AdminNavLink() {
         return
       }
 
-      if (user.email?.toLowerCase() === 'v.podolski@lks-technik.de') {
-        if (active) setIsAdmin(true)
-        return
-      }
-
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')

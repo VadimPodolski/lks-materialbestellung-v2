@@ -105,8 +105,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not public.is_admin_user()
-     and lower(coalesce(auth.jwt() ->> 'email', '')) <> 'v.podolski@lks-technik.de' then
+  if not public.is_admin_user() then
     raise exception 'Keine Administratorberechtigung.';
   end if;
 

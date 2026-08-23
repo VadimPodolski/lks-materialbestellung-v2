@@ -421,9 +421,7 @@ function OrdersContent() {
     const user = userData.user || null
     const email = user?.email?.toLowerCase() || ''
     const currentProfile = (profileData as Profile[] | null)?.find(profile => profile.id === user?.id)
-    const admin = !LOGIN_DISABLED && (
-      email === 'v.podolski@lks-technik.de' || currentProfile?.role === 'admin'
-    )
+    const admin = !LOGIN_DISABLED && currentProfile?.role === 'admin'
 
     let nextOrders = (orderData as any) || []
 

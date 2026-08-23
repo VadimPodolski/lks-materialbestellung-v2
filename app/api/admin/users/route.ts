@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
 import { getAdminRequestUser } from '@/lib/serverAdminAuth'
 
-const protectedAdminEmail = 'v.podolski@lks-technik.de'
+const protectedAdminEmail = 'vadim.podolski@online.de'
 
 function normalizedEmail(value: unknown) {
   return typeof value === 'string' ? value.trim().toLowerCase() : ''

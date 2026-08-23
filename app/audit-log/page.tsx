@@ -187,7 +187,7 @@ export default function AuditLogPage() {
       .eq('id', user.id)
       .maybeSingle()
 
-    if (profile?.role !== 'admin' && user.email?.toLowerCase() !== 'v.podolski@lks-technik.de') {
+    if (profile?.role !== 'admin') {
       router.replace('/')
       return
     }

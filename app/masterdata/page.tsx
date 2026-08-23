@@ -132,11 +132,11 @@ function MasterDataContent() {
 
     const user = userData.user || null
     const email = user?.email?.toLowerCase() || ''
-    let admin = !LOGIN_DISABLED && email === 'v.podolski@lks-technik.de'
+    let admin = false
 
     if (!LOGIN_DISABLED && user) {
       const profile = await ensureCurrentUserProfile(supabase, user)
-      admin = admin || profile?.role === 'admin'
+      admin = profile?.role === 'admin'
     }
 
     setIsAdmin(admin)
