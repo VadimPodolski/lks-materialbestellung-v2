@@ -25,6 +25,8 @@ type AuditEntry = {
   is_reconstructed: boolean
 }
 
+const ENTRIES_PER_PAGE = 50
+
 const tableLabels: Record<string, string> = {
   material_orders: 'Auftrag',
   order_items: 'Auftragsposition',
@@ -170,6 +172,7 @@ export default function AuditLogPage() {
   const [search, setSearch] = useState('')
   const [action, setAction] = useState<'all' | AuditAction>('all')
   const [area, setArea] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
 
   const load = useCallback(async () => {
     const supabase = createClient()
@@ -254,6 +257,18 @@ export default function AuditLogPage() {
     delete: visibleEntries.filter(entry => entry.action === 'DELETE').length
   }), [visibleEntries])
 
+  const totalPages = Math.max(1, Math.ceil(visibleEntries.length / ENTRIES_PER_PAGE))
+  const pageStart = (currentPage - 1) * ENTRIES_PER_PAGE
+  const paginatedEntries = visibleEntries.slice(pageStart, pageStart + ENTRIES_PER_PAGE)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, action, area])
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages)
+  }, [currentPage, totalPages])
+
   return (
     <main className="container wide audit-page">
       <div className="audit-page-heading">
@@ -316,7 +331,7 @@ export default function AuditLogPage() {
             </tr>
           </thead>
           <tbody>
-            {visibleEntries.map(entry => {
+            {paginatedEntries.map(entry => {
               const changes = changedRows(entry)
               return (
                 <tr key={entry.id}>
@@ -377,6 +392,34 @@ export default function AuditLogPage() {
         )}
         {loading && <div className="audit-empty">Protokoll wird geladen...</div>}
       </div>
+
+      {!loading && visibleEntries.length > 0 && (
+        <nav className="audit-pagination" aria-label="Seitennavigation des Protokolls">
+          <span>
+            {(pageStart + 1).toLocaleString('de-DE')}–{Math.min(pageStart + ENTRIES_PER_PAGE, visibleEntries.length).toLocaleString('de-DE')}
+            {' '}von {visibleEntries.length.toLocaleString('de-DE')} Einträgen
+          </span>
+          <div>
+            <button
+              type="button"
+              className="secondary"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
+            >
+              Zurück
+            </button>
+            <strong>Seite {currentPage.toLocaleString('de-DE')} von {totalPages.toLocaleString('de-DE')}</strong>
+            <button
+              type="button"
+              className="secondary"
+              disabled={currentPage === totalPages}
+              onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
+            >
+              Weiter
+            </button>
+          </div>
+        </nav>
+      )}
 
       <p className="small audit-limit-note">
         Historische Bestände wurden aus vorhandenen Datensätzen rekonstruiert. Frühere Änderungen und bereits vor Einführung

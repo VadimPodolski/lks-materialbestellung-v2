@@ -2729,6 +2729,32 @@ table td {
   text-align: center;
 }
 
+.audit-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  color: #475569;
+  font-size: 13px;
+}
+
+.audit-pagination > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.audit-pagination button {
+  min-width: 90px;
+  margin: 0;
+}
+
+.audit-pagination button:disabled {
+  cursor: not-allowed;
+  opacity: .45;
+}
+
 .audit-limit-note {
   margin-top: 10px;
   text-align: right;
@@ -2741,6 +2767,15 @@ table td {
 
   .audit-filters {
     grid-template-columns: 1fr;
+  }
+
+  .audit-pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .audit-pagination > div {
+    justify-content: space-between;
   }
 }
 
