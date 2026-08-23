@@ -50,5 +50,10 @@ export default function AdminNavLink() {
     }
   }, [])
 
-  return isAdmin ? <Link href="/users">Benutzer</Link> : null
+  return isAdmin ? (
+    <>
+      <Link href="/users">Benutzer</Link>
+      <Link href="/audit-log">Protokoll</Link>
+    </>
+  ) : null
 }
