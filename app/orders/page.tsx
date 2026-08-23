@@ -843,7 +843,7 @@ function OrdersContent() {
       const pdfNames = (o.order_pdfs || [])
         .map(pdf => pdf.file_name || '')
         .join(' ')
-      const text = `${o.order_number} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${deliveryNotes} ${pdfNames} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLocaleLowerCase('de-DE')
+      const text = `${o.order_number} ${o.customer || ''} ${formatDateShort(o.customer_delivery_date)} ${o.material} ${o.cross_section} ${orderItemsSummary(items)} ${deliveryNotes} ${pdfNames} ${o.suppliers?.name || ''} ${formatDateShort(o.desired_delivery_date)} ${formatDateTimeShort(o.created_at)}`.toLocaleLowerCase('de-DE')
       const search = q.trim().toLocaleLowerCase('de-DE')
       const normalizedSearch = search.replace(/[\s._/-]+/g, '')
       const normalizedText = text.replace(/[\s._/-]+/g, '')
@@ -1271,7 +1271,7 @@ function OrdersContent() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Auftrag, KAB-Nummer, Material, Lieferschein..."
+            placeholder="Auftrag, Kunde, KAB-Nummer, Material, Lieferschein..."
           />
         </div>
 
