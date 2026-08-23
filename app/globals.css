@@ -2739,6 +2739,18 @@ table td {
   font-size: 13px;
 }
 
+.audit-page-top-anchor {
+  scroll-margin-top: 105px;
+}
+
+.audit-pagination.top {
+  margin: 0 0 14px;
+}
+
+.audit-pagination.bottom {
+  margin-top: 14px;
+}
+
 .audit-pagination > span {
   justify-self: start;
 }

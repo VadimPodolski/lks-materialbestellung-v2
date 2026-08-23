@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 
 type AuditAction = 'INSERT' | 'UPDATE' | 'DELETE'
@@ -167,6 +167,7 @@ function changedRows(entry: AuditEntry) {
 
 export default function AuditLogPage() {
   const router = useRouter()
+  const tableTopRef = useRef<HTMLDivElement>(null)
   const [entries, setEntries] = useState<AuditEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -276,6 +277,58 @@ export default function AuditLogPage() {
     if (currentPage > totalPages) setCurrentPage(totalPages)
   }, [currentPage, totalPages])
 
+  function goToPage(page: number) {
+    setCurrentPage(Math.min(totalPages, Math.max(1, page)))
+    window.requestAnimationFrame(() => {
+      tableTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }
+
+  function pagination(position: 'top' | 'bottom') {
+    if (loading || visibleEntries.length === 0) return null
+
+    return (
+      <nav className={`audit-pagination ${position}`} aria-label={`Seitennavigation des Protokolls ${position === 'top' ? 'oben' : 'unten'}`}>
+        <span>
+          {(pageStart + 1).toLocaleString('de-DE')}–{Math.min(pageStart + ENTRIES_PER_PAGE, visibleEntries.length).toLocaleString('de-DE')}
+          {' '}von {visibleEntries.length.toLocaleString('de-DE')} Einträgen
+        </span>
+        <div>
+          <button
+            type="button"
+            className="secondary"
+            disabled={currentPage === 1}
+            onClick={() => goToPage(currentPage - 1)}
+          >
+            Zurück
+          </button>
+          <div className="audit-page-numbers" aria-label={`Seite ${currentPage} von ${totalPages}`}>
+            {visiblePageNumbers.map(page => (
+              <button
+                key={page}
+                type="button"
+                className={page === currentPage ? 'active' : ''}
+                aria-label={`Seite ${page}`}
+                aria-current={page === currentPage ? 'page' : undefined}
+                onClick={() => goToPage(page)}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="secondary"
+            disabled={currentPage === totalPages}
+            onClick={() => goToPage(currentPage + 1)}
+          >
+            Weiter
+          </button>
+        </div>
+      </nav>
+    )
+  }
+
   return (
     <main className="container wide audit-page">
       <div className="audit-page-heading">
@@ -324,6 +377,10 @@ export default function AuditLogPage() {
       </section>
 
       {message && <p className="msg error">{message}</p>}
+
+      <div ref={tableTopRef} className="audit-page-top-anchor">
+        {pagination('top')}
+      </div>
 
       <div className="audit-table-shell">
         <table className="audit-table">
@@ -400,46 +457,7 @@ export default function AuditLogPage() {
         {loading && <div className="audit-empty">Protokoll wird geladen...</div>}
       </div>
 
-      {!loading && visibleEntries.length > 0 && (
-        <nav className="audit-pagination" aria-label="Seitennavigation des Protokolls">
-          <span>
-            {(pageStart + 1).toLocaleString('de-DE')}–{Math.min(pageStart + ENTRIES_PER_PAGE, visibleEntries.length).toLocaleString('de-DE')}
-            {' '}von {visibleEntries.length.toLocaleString('de-DE')} Einträgen
-          </span>
-          <div>
-            <button
-              type="button"
-              className="secondary"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(page => Math.max(1, page - 1))}
-            >
-              Zurück
-            </button>
-            <div className="audit-page-numbers" aria-label={`Seite ${currentPage} von ${totalPages}`}>
-              {visiblePageNumbers.map(page => (
-                <button
-                  key={page}
-                  type="button"
-                  className={page === currentPage ? 'active' : ''}
-                  aria-label={`Seite ${page}`}
-                  aria-current={page === currentPage ? 'page' : undefined}
-                  onClick={() => setCurrentPage(page)}
-                >
-                  {page}
-                </button>
-              ))}
-            </div>
-            <button
-              type="button"
-              className="secondary"
-              disabled={currentPage === totalPages}
-              onClick={() => setCurrentPage(page => Math.min(totalPages, page + 1))}
-            >
-              Weiter
-            </button>
-          </div>
-        </nav>
-      )}
+      {pagination('bottom')}
     </main>
   )
 }
