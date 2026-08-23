@@ -26,6 +26,7 @@ type AuditEntry = {
 }
 
 const ENTRIES_PER_PAGE = 50
+const VISIBLE_PAGE_BUTTONS = 15
 
 const tableLabels: Record<string, string> = {
   material_orders: 'Auftrag',
@@ -260,6 +261,12 @@ export default function AuditLogPage() {
   const totalPages = Math.max(1, Math.ceil(visibleEntries.length / ENTRIES_PER_PAGE))
   const pageStart = (currentPage - 1) * ENTRIES_PER_PAGE
   const paginatedEntries = visibleEntries.slice(pageStart, pageStart + ENTRIES_PER_PAGE)
+  const visiblePageNumbers = useMemo(() => {
+    const visibleCount = Math.min(VISIBLE_PAGE_BUTTONS, totalPages)
+    const maximumStart = Math.max(1, totalPages - visibleCount + 1)
+    const start = Math.min(maximumStart, Math.max(1, currentPage - Math.floor(visibleCount / 2)))
+    return Array.from({ length: visibleCount }, (_, index) => start + index)
+  }, [currentPage, totalPages])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -409,7 +416,7 @@ export default function AuditLogPage() {
               Zurück
             </button>
             <div className="audit-page-numbers" aria-label={`Seite ${currentPage} von ${totalPages}`}>
-              {Array.from({ length: totalPages }, (_, index) => index + 1).map(page => (
+              {visiblePageNumbers.map(page => (
                 <button
                   key={page}
                   type="button"
