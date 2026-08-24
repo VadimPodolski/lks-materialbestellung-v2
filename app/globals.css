@@ -2608,7 +2608,7 @@ table td {
 }
 
 .audit-table {
-  width: 100%;
+  width: 1505px;
   min-width: 1505px;
   table-layout: fixed;
   box-shadow: none;
@@ -2706,8 +2706,8 @@ table td {
 
 .audit-table th,
 .audit-table td {
-  padding-right: 20px;
-  padding-left: 20px;
+  padding-right: 10px;
+  padding-left: 10px;
 }
 
 .audit-changes summary {
