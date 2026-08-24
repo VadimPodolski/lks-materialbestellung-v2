@@ -25,6 +25,8 @@ type AuditEntry = {
   is_reconstructed: boolean
 }
 
+type DisplayAuditEntry = AuditEntry & { repeatCount?: number }
+
 const ENTRIES_PER_PAGE = 50
 const VISIBLE_PAGE_BUTTONS = 15
 
@@ -73,6 +75,8 @@ const fieldLabels: Record<string, string> = {
   file_name: 'Dateiname',
   document_type: 'Dokumentart',
   price_import_status: 'Preisimport',
+  price_import_message: 'Ergebnis der Preisprüfung',
+  prices_imported_at: 'Preise übernommen am',
   full_name: 'Name',
   email: 'E-Mail',
   role: 'Rolle',
@@ -102,6 +106,13 @@ function formatDateTime(value: string) {
 function formatValue(value: unknown, field = '') {
   if (value == null || value === '') return '–'
   if (typeof value === 'boolean') return value ? 'Ja' : 'Nein'
+  if (field === 'price_import_status' && typeof value === 'string') {
+    return ({ pending: 'Wartet', processing: 'Wird geprüft', imported: 'Erfolgreich', failed: 'Fehlgeschlagen' } as Record<string, string>)[value] || value
+  }
+  if ((field.endsWith('_at') || field === 'occurred_at') && typeof value === 'string') {
+    const date = new Date(value)
+    if (!Number.isNaN(date.getTime())) return formatDateTime(value)
+  }
   if (field.endsWith('_date') && typeof value === 'string') {
     const date = new Date(`${value}T00:00:00`)
     if (!Number.isNaN(date.getTime())) return new Intl.DateTimeFormat('de-DE').format(date)
@@ -114,6 +125,53 @@ function actionLabel(action: AuditAction) {
   if (action === 'INSERT') return 'Erstellt'
   if (action === 'DELETE') return 'Gelöscht'
   return 'Geändert'
+}
+
+function entryActionLabel(entry: AuditEntry) {
+  const table = tableLabels[entry.table_name] || 'Datensatz'
+  if (entry.table_name === 'order_pdfs') {
+    if (entry.action === 'INSERT') return 'PDF hochgeladen'
+    if (entry.action === 'DELETE') return 'PDF gelöscht'
+    const status = entry.new_data?.price_import_status
+    if (status === 'failed') return 'Preisprüfung fehlgeschlagen'
+    if (status === 'imported') return 'Preise übernommen'
+    if (status === 'processing') return 'Preisprüfung gestartet'
+    return 'PDF geändert'
+  }
+  if (entry.action === 'INSERT') return `${table} erstellt`
+  if (entry.action === 'DELETE') return `${table} gelöscht`
+  return `${table} geändert`
+}
+
+function compactAuditEntries(entries: AuditEntry[]): DisplayAuditEntry[] {
+  const compacted: DisplayAuditEntry[] = []
+
+  for (const entry of entries) {
+    const technicalPdfProcessing = entry.table_name === 'order_pdfs'
+      && entry.action === 'UPDATE'
+      && entry.new_data?.price_import_status === 'processing'
+    if (technicalPdfProcessing) continue
+
+    const previous = compacted[compacted.length - 1]
+    const samePdfResult = previous
+      && entry.table_name === 'order_pdfs'
+      && previous.table_name === 'order_pdfs'
+      && entry.action === 'UPDATE'
+      && previous.action === 'UPDATE'
+      && entry.record_id === previous.record_id
+      && entry.new_data?.price_import_status === previous.new_data?.price_import_status
+      && entry.new_data?.price_import_message === previous.new_data?.price_import_message
+      && Math.abs(new Date(previous.occurred_at).getTime() - new Date(entry.occurred_at).getTime()) <= 10 * 60 * 1000
+
+    if (samePdfResult) {
+      previous.repeatCount = (previous.repeatCount || 1) + 1
+      continue
+    }
+
+    compacted.push({ ...entry, repeatCount: 1 })
+  }
+
+  return compacted
 }
 
 function areaLabel(area: string | null) {
@@ -235,7 +293,7 @@ export default function AuditLogPage() {
 
   const visibleEntries = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('de-DE')
-    return entries.filter(entry => {
+    return compactAuditEntries(entries).filter(entry => {
       const data = entryData(entry)
       const searchable = [
         entry.actor_name,
@@ -407,7 +465,8 @@ export default function AuditLogPage() {
                     </div>
                   </td>
                   <td>
-                    <span className={`audit-action ${entry.action.toLowerCase()}`}>{actionLabel(entry.action)}</span>
+                    <span className={`audit-action ${entry.action.toLowerCase()}`}>{entryActionLabel(entry)}</span>
+                    {(entry.repeatCount || 1) > 1 && <span className="audit-repeat">{entry.repeatCount} gleiche Vorgänge zusammengefasst</span>}
                     {entry.is_reconstructed && <span className="audit-reconstructed">Historischer Bestand</span>}
                   </td>
                   <td>

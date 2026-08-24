@@ -2687,6 +2687,14 @@ table td {
   line-height: 1.15;
 }
 
+.audit-repeat {
+  display: block;
+  margin-top: 5px;
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
 .audit-changes summary {
   color: #1d4ed8;
   cursor: pointer;
