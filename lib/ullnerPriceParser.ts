@@ -582,7 +582,7 @@ export function parseUllnerPriceConfirmation(text: string): UllnerPriceConfirmat
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(Boolean)
-  const tableStart = lines.findIndex(line => line.includes('Pos.Bezeichnung'))
+  const tableStart = lines.findIndex(line => /Pos\.?\s*Bezeichnung/i.test(line))
   const tableEnd = lines.findIndex((line, index) => index > tableStart && line.includes('Nettowarenwert'))
   const positions: UllnerPositionPrice[] = []
 
@@ -623,11 +623,43 @@ export function parseUllnerPriceConfirmation(text: string): UllnerPriceConfirmat
         }
       }
     }
+
+    // Manche Ullner-PDFs liefern Position und Artikelbezeichnung in derselben
+    // Textzeile (z. B. "1 1VAROHR..."). Andere schieben die Preisfelder erst
+    // hinter mehrere Beschreibungszeilen. Werte deshalb bei Bedarf den ganzen
+    // Positionsblock bis zur nächsten Position aus.
+    if (positions.length === 0) {
+      const positionMarkers = lines
+        .slice(tableStart + 1, end)
+        .map((line, offset) => ({
+          line,
+          index: tableStart + 1 + offset,
+          position: Number(line.match(/^0*(\d{1,3})(?:\s+\S|$)/)?.[1] || 0)
+        }))
+        .filter(marker => marker.position > 0)
+
+      for (let markerIndex = 0; markerIndex < positionMarkers.length; markerIndex += 1) {
+        const marker = positionMarkers[markerIndex]
+        const blockEnd = positionMarkers[markerIndex + 1]?.index ?? end
+        const blockLines = lines.slice(marker.index, blockEnd)
+        const block = blockLines.join(' ')
+        const price = parseGenericPriceLine(block)
+        if (!price) continue
+
+        positions.push({
+          position: marker.position,
+          ...price,
+          pieceQuantity: price.pieceQuantity ?? extractPieceQuantity(block),
+          description: block
+        })
+      }
+    }
   }
 
   const confirmationNumber = text.match(/KAB\s+(\d+)/i)?.[1] || null
   const referenceNumber = text.match(/Referenznummer:\s*([A-Z0-9-]+)/i)?.[1]
     || text.match(/Kommission:\s*((?:AB-(?:\d+|LAGER)(?:-NB)*(?:-\d+)?|TAFEL-\d+))/i)?.[1]
+    || text.match(/Kommission\s*:[\s\S]{0,100}?\b((?:AB-(?:\d+|LAGER)(?:-NB)*(?:-\d+)?|TAFEL-\d+))\b/i)?.[1]
     || null
 
   return { confirmationNumber, referenceNumber, supplierFormat: 'ullner', positions }
