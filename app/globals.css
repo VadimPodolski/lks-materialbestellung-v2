@@ -2608,7 +2608,9 @@ table td {
 }
 
 .audit-table {
-  min-width: 1120px;
+  width: 100%;
+  min-width: 1505px;
+  table-layout: fixed;
   box-shadow: none;
 }
 
@@ -2620,11 +2622,16 @@ table td {
   white-space: nowrap;
 }
 
-.audit-table th:nth-child(1) { width: 145px; }
-.audit-table th:nth-child(2) { width: 190px; }
-.audit-table th:nth-child(3) { width: 105px; }
-.audit-table th:nth-child(4) { width: 150px; }
-.audit-table th:nth-child(5) { width: 245px; }
+.audit-table th:nth-child(1), .audit-table td:nth-child(1) { width: 155px; }
+.audit-table th:nth-child(2), .audit-table td:nth-child(2) { width: 210px; }
+.audit-table th:nth-child(3), .audit-table td:nth-child(3) { width: 200px; }
+.audit-table th:nth-child(4), .audit-table td:nth-child(4) { width: 180px; }
+.audit-table th:nth-child(5), .audit-table td:nth-child(5) { width: 340px; }
+.audit-table th:nth-child(6), .audit-table td:nth-child(6) { width: 420px; }
+
+.audit-table td {
+  vertical-align: top;
+}
 
 .audit-time {
   white-space: nowrap;
@@ -2654,12 +2661,13 @@ table td {
 .audit-action {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  min-width: 78px;
+  width: max-content;
+  max-width: 100%;
   padding: 5px 9px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .audit-action.insert {
@@ -2693,6 +2701,7 @@ table td {
   color: #64748b;
   font-size: 11px;
   line-height: 1.25;
+  white-space: nowrap;
 }
 
 .audit-changes summary {

@@ -200,6 +200,10 @@ function recordLabel(entry: AuditEntry) {
   if (entry.table_name === 'goods_receipts') return `Lieferschein ${data.delivery_note_number || '–'}`
   if (entry.table_name === 'scrap_items') return `${data.quantity || '–'} Stück · ${data.reason || 'ohne Grund'}`
   if (entry.table_name === 'order_pdfs') return String(data.file_name || 'PDF')
+  if (entry.table_name === 'material_thicknesses') {
+    const thickness = data.thickness_mm == null ? '' : `${formatValue(data.thickness_mm)} mm`
+    return [data.material, thickness].filter(Boolean).join(' · ') || 'Materialstärke'
+  }
   if (entry.table_name === 'profiles') return String(data.full_name || data.email || 'Benutzer')
   if (data.name) return String(data.name)
   return `${table}${entry.record_id ? ` · ${entry.record_id}` : ''}`
@@ -466,7 +470,7 @@ export default function AuditLogPage() {
                   </td>
                   <td>
                     <span className={`audit-action ${entry.action.toLowerCase()}`}>{entryActionLabel(entry)}</span>
-                    {(entry.repeatCount || 1) > 1 && <span className="audit-repeat">{entry.repeatCount} gleiche Vorgänge zusammengefasst</span>}
+                    {(entry.repeatCount || 1) > 1 && <span className="audit-repeat">{entry.repeatCount}× gleicher Vorgang</span>}
                     {entry.is_reconstructed && <span className="audit-reconstructed">Historischer Bestand</span>}
                   </td>
                   <td>
