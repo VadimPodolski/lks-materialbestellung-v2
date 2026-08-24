@@ -319,11 +319,11 @@ function materialMatchesDescription(material: string | null | undefined, descrip
   const expected = String(material || '').toLocaleLowerCase('de-DE')
   const actual = description.toLocaleLowerCase('de-DE')
 
-  if (/v2a|1\s*[.,]\s*4301|1\s*[.,]\s*4307|1\s*[.,]\s*4541/.test(expected)) {
+  if (/v2a|(?:1\s*[.,]\s*)?(?:4301|4307|4541)\b/.test(expected)) {
     return /v2a|(?:1\s*[.,]\s*)?(?:4301|4307|4541)\b|x\s*5\s*crni\s*18\s*[-–]\s*10/.test(actual)
   }
 
-  if (/v4a|1\s*[.,]\s*4401|1\s*[.,]\s*4404|1\s*[.,]\s*4435|1\s*[.,]\s*4571/.test(expected)) {
+  if (/v4a|(?:1\s*[.,]\s*)?(?:4401|4404|4435|4571)\b/.test(expected)) {
     return /v4a|(?:1\s*[.,]\s*)?(?:4401|4404|4435|4571)\b/.test(actual)
   }
 
