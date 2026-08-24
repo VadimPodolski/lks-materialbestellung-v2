@@ -336,6 +336,15 @@ function materialMatchesDescription(material: string | null | undefined, descrip
   return false
 }
 
+function workPreparationMatchesDescription(item: OrderItem, description: string) {
+  const expected = orderItemAvText(item).toLocaleLowerCase('de-DE')
+  const actual = description.toLocaleLowerCase('de-DE')
+  const expectedGrain = expected.match(/\b(?:k|korn)\s*(\d{2,4})\b/i)?.[1]
+  const actualGrain = actual.match(/\b(?:k|korn)\s*(\d{2,4})\b/i)?.[1]
+
+  return Boolean(expectedGrain && actualGrain && expectedGrain === actualGrain)
+}
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -1931,9 +1940,14 @@ LKS-Team`
             ))
           : signatureMatches
         const materialMatches = thicknessMatches.filter(item => materialMatchesDescription(item.material, price.description))
+        const workPreparationMatches = orderItems.filter(item => (
+          workPreparationMatchesDescription(item, price.description)
+        ))
         let item = result.supplierFormat === 'dreckshage'
           ? positionItem
-          : materialMatches.length === 1
+          : workPreparationMatches.length === 1
+            ? workPreparationMatches[0]
+            : materialMatches.length === 1
             ? materialMatches[0]
             : thicknessMatches.length === 1 ? thicknessMatches[0] : null
 
