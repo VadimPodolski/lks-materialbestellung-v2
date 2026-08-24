@@ -2704,6 +2704,12 @@ table td {
   white-space: nowrap;
 }
 
+.audit-table th,
+.audit-table td {
+  padding-right: 15px;
+  padding-left: 15px;
+}
+
 .audit-changes summary {
   color: #1d4ed8;
   cursor: pointer;
