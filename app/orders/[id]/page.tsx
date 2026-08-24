@@ -1848,39 +1848,6 @@ LKS-Team`
       setMsg(message)
     }
 
-    // Ältere Aufträge besitzen nur die Materialfelder am Auftrag und noch
-    // keinen Datensatz in order_items. Die angezeigte Legacy-Position hat dann
-    // keine ID, sodass ein erkannter Preis nicht gespeichert werden kann.
-    if (orderItems.length === 1 && !orderItems[0].id) {
-      const legacyItem = orderItems[0]
-      const { error: legacyItemError } = await supabase.from('order_items').insert({
-        material_order_id: order.id,
-        position: 1,
-        material: legacyItem.material,
-        material_thickness_mm: legacyItem.material_thickness_mm,
-        cross_section: legacyItem.cross_section,
-        av_1: legacyItem.av_1 || null,
-        av_2: legacyItem.av_2 || null,
-        av_3: legacyItem.av_3 || null,
-        av_4: legacyItem.av_4 || null,
-        length_mm: legacyItem.length_mm,
-        quantity: legacyItem.quantity,
-        order_unit: legacyItem.order_unit || 'stück',
-        pieces_per_package: legacyItem.pieces_per_package || null
-      })
-
-      if (legacyItemError) {
-        await failImport(`Die erkannte Position konnte nicht für die Preisübernahme angelegt werden: ${legacyItemError.message}`)
-        setProcessingPricePdfId('')
-        return
-      }
-
-      processedPricePdfIds.current.delete(pdfFile.id)
-      setProcessingPricePdfId('')
-      await load()
-      return
-    }
-
     try {
       await supabase
         .from('order_pdfs')
