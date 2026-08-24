@@ -2608,8 +2608,8 @@ table td {
 }
 
 .audit-table {
-  width: 100%;
-  min-width: 1505px;
+  width: 50%;
+  min-width: 1100px;
   table-layout: fixed;
   box-shadow: none;
 }
