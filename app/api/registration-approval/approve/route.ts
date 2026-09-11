@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     .from('profiles')
     .update({ approved: true })
     .eq('id', payload.userId)
-    .neq('role', 'admin')
+    .eq('role', 'user')
 
   const status = error ? 'error' : 'approved'
   return NextResponse.redirect(new URL(`/approve-user?status=${status}`, request.url), 303)

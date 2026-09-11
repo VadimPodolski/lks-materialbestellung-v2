@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { isAdminRole } from '@/lib/roles'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
@@ -136,7 +137,7 @@ function MasterDataContent() {
 
     if (!LOGIN_DISABLED && user) {
       const profile = await ensureCurrentUserProfile(supabase, user)
-      admin = profile?.role === 'admin'
+      admin = isAdminRole(profile?.role)
     }
 
     setIsAdmin(admin)

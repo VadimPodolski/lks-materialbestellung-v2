@@ -23,6 +23,7 @@ import { ensureCurrentUserProfile } from '@/lib/profiles'
 import { normalizeOrderArea, ordersHref, type OrderArea } from '@/lib/orderAreas'
 import { canDeleteOrder } from '@/lib/orderDeletion'
 import { deleteMaterialOrder } from '@/lib/materialOrderDeletion'
+import { isAdminRole } from '@/lib/roles'
 import { canDeleteForOrderArea } from '@/lib/areaPermissions'
 import { canManuallySetOrderStatus } from '@/lib/orderStatus'
 import { packagingDefaultKey, packagingDefaultRows, packagingDefaultsMap, type PackagingDefault } from '@/lib/packagingDefaults'
@@ -522,7 +523,7 @@ export default function OrderDetailPage() {
 
     if (user) {
       const profile = await ensureCurrentUserProfile(supabase, user)
-      const admin = profile?.role === 'admin'
+      const admin = isAdminRole(profile?.role)
       setIsAdminUser(admin)
       setCanDeleteThisOrder(canDeleteForOrderArea(user.email, admin, area))
     } else {

@@ -16,6 +16,7 @@ import { calculateTubeItemWeightKg, calculateTubeWeightKgPerMeter, formatTubeWei
 import ConfirmDialog from '@/app/ConfirmDialog'
 import ActionIconButton from '@/app/ActionIconButton'
 import { useAppDialog } from '@/app/useAppDialog'
+import { isAdminRole } from '@/lib/roles'
 
 type Order = {
   id: string
@@ -421,7 +422,7 @@ function OrdersContent() {
     const user = userData.user || null
     const email = user?.email?.toLowerCase() || ''
     const currentProfile = (profileData as Profile[] | null)?.find(profile => profile.id === user?.id)
-    const admin = !LOGIN_DISABLED && currentProfile?.role === 'admin'
+    const admin = !LOGIN_DISABLED && isAdminRole(currentProfile?.role)
 
     let nextOrders = (orderData as any) || []
 
@@ -457,7 +458,7 @@ function OrdersContent() {
           return next
         })
 
-        if (profile.role === 'admin') {
+        if (isAdminRole(profile.role)) {
           setCanDeleteCurrentArea(canDeleteForOrderArea(email, true, area))
         }
       })

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import ActionIconButton from '@/app/ActionIconButton'
 import { useAppDialog } from '@/app/useAppDialog'
 import { createClient } from '@/lib/supabase'
+import { isAdminRole, normalizeUserRole, type UserRole } from '@/lib/roles'
 
 type UserProfile = {
   id: string
@@ -19,7 +20,7 @@ type UserForm = {
   id: string
   fullName: string
   email: string
-  role: 'user' | 'admin'
+  role: UserRole
 }
 
 type UserSortKey = 'name' | 'email' | 'role' | 'created' | 'status'
@@ -45,6 +46,7 @@ export default function UsersPage() {
   const { ask, notify, dialog } = useAppDialog()
   const [profiles, setProfiles] = useState<UserProfile[]>([])
   const [currentUserId, setCurrentUserId] = useState('')
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>('user')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
@@ -52,7 +54,7 @@ export default function UsersPage() {
   const [form, setForm] = useState<UserForm | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending'>('all')
-  const [roleFilter, setRoleFilter] = useState<'all' | 'user' | 'admin'>('all')
+  const [roleFilter, setRoleFilter] = useState<'all' | UserRole>('all')
   const [sortMode, setSortMode] = useState<UserSortMode>('created_desc')
 
   const visibleProfiles = useMemo(() => {
@@ -116,13 +118,15 @@ export default function UsersPage() {
       .eq('id', user.id)
       .maybeSingle()
 
-    const isAdmin = ownProfile?.role === 'admin'
+    const ownRole = normalizeUserRole(ownProfile?.role)
+    const isAdmin = isAdminRole(ownRole)
     if (!isAdmin) {
       router.replace('/')
       return
     }
 
     setCurrentUserId(user.id)
+    setCurrentUserRole(ownRole)
     const { data, error } = await supabase
       .from('profiles')
       .select('id,full_name,email,role,approved,created_at')
@@ -294,6 +298,7 @@ export default function UsersPage() {
                   <option value="all">Alle Rollen</option>
                   <option value="user">Benutzer</option>
                   <option value="admin">Administrator</option>
+                  <option value="superadmin">Superadmin</option>
                 </select>
               </div>
               <div>
@@ -339,7 +344,7 @@ export default function UsersPage() {
                   <tr key={profile.id}>
                     <td><b>{profile.full_name || '-'}</b>{isCurrentUser && <small className="current-user-label">Du</small>}</td>
                     <td>{profile.email || '-'}</td>
-                    <td>{profile.role === 'admin' ? 'Administrator' : 'Benutzer'}</td>
+                    <td>{profile.role === 'superadmin' ? 'Superadmin' : profile.role === 'admin' ? 'Administrator' : 'Benutzer'}</td>
                     <td>{formatRegistrationDate(profile.created_at)}</td>
                     <td>
                       <span className={`user-status ${profile.approved ? 'approved' : 'pending'}`}>
@@ -351,12 +356,12 @@ export default function UsersPage() {
                         <ActionIconButton
                           action="edit"
                           label="Benutzer bearbeiten"
-                          disabled={actionBusy}
+                          disabled={actionBusy || (isAdminRole(profile.role) && currentUserRole !== 'superadmin')}
                           onClick={() => setForm({
                             id: profile.id,
                             fullName: profile.full_name || '',
                             email: profile.email || '',
-                            role: profile.role === 'admin' ? 'admin' : 'user'
+                            role: normalizeUserRole(profile.role)
                           })}
                         />
                         <button
@@ -367,8 +372,8 @@ export default function UsersPage() {
                         >
                           Passwort-Link
                         </button>
-                        {profile.role === 'admin' ? (
-                          <span className="admin-protected-label">Administrator</span>
+                        {isAdminRole(profile.role) ? (
+                          <span className="admin-protected-label">{profile.role === 'superadmin' ? 'Superadmin' : 'Administrator'}</span>
                         ) : (
                           <button
                             type="button"
@@ -379,7 +384,7 @@ export default function UsersPage() {
                             {profile.approved ? 'Sperren' : 'Freigeben'}
                           </button>
                         )}
-                        {!isCurrentUser && !isProtectedAdmin && (
+                        {!isCurrentUser && !isProtectedAdmin && (!isAdminRole(profile.role) || currentUserRole === 'superadmin') && (
                           <ActionIconButton
                             action="delete"
                             label="Benutzer löschen"
@@ -422,11 +427,12 @@ export default function UsersPage() {
             <label>Rolle</label>
             <select
               value={form.role}
-              onChange={event => setForm(current => current ? { ...current, role: event.target.value === 'admin' ? 'admin' : 'user' } : current)}
+              onChange={event => setForm(current => current ? { ...current, role: normalizeUserRole(event.target.value) } : current)}
               disabled={form.id === currentUserId}
             >
               <option value="user">Benutzer</option>
-              <option value="admin">Administrator</option>
+              {currentUserRole === 'superadmin' && <option value="admin">Administrator</option>}
+              {currentUserRole === 'superadmin' && <option value="superadmin">Superadmin</option>}
             </select>
 
             {!form.id && <p className="small">Der Benutzer erhält automatisch eine Einladungs-Mail zum Festlegen des Passworts.</p>}
