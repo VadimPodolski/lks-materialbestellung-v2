@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { isAdminRole } from '@/lib/roles'
 
 export default function AdminNavLink() {
   const [isAdmin, setIsAdmin] = useState(false)
@@ -25,7 +24,7 @@ export default function AdminNavLink() {
         .eq('id', user.id)
         .maybeSingle()
 
-      if (active) setIsAdmin(isAdminRole(profile?.role))
+      if (active) setIsAdmin(profile?.role === 'admin')
     }
 
     void supabase.auth.getUser().then(({ data }) => refreshAdmin(data.user))

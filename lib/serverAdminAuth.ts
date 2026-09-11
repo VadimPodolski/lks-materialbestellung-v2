@@ -1,8 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { isAdminRole, normalizeUserRole } from '@/lib/roles'
 
-export async function getAdminRequestContext() {
+export async function getAdminRequestUser() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!url || !anonKey) return null
@@ -26,12 +25,7 @@ export async function getAdminRequestContext() {
     .eq('id', user.id)
     .maybeSingle()
 
-  const role = normalizeUserRole(profile?.role)
-  return isAdminRole(role) ? { user, role } : null
-}
-
-export async function getAdminRequestUser() {
-  return (await getAdminRequestContext())?.user || null
+  return profile?.role === 'admin' ? user : null
 }
 
 export async function isAdminRequest() {

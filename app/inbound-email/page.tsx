@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { isAdminRole } from '@/lib/roles'
 import { ensureCurrentUserProfile } from '@/lib/profiles'
 
 type Suggestion = {
@@ -107,7 +106,7 @@ export default function InboundEmailPage() {
     const user = userData.user
     if (user) {
       const profile = await ensureCurrentUserProfile(supabase, user)
-      setIsAdmin(isAdminRole(profile?.role))
+      setIsAdmin(profile?.role === 'admin')
     }
     setLoading(false)
   }

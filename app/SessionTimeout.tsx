@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase'
-import { isAdminRole } from '@/lib/roles'
 import { LOGIN_DISABLED } from '@/lib/authMode'
 
 const SESSION_DURATION_MS = 8 * 60 * 60 * 1000
@@ -62,7 +61,7 @@ export default function SessionTimeout() {
         return
       }
 
-      if (isAdminRole(profile?.role)) return
+      if (profile?.role === 'admin') return
 
       const signedInAt = Date.parse(session.user.last_sign_in_at || '')
       const remainingMs = Number.isFinite(signedInAt)

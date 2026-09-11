@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
-import { isAdminRole } from '@/lib/roles'
 
 type AuditAction = 'INSERT' | 'UPDATE' | 'DELETE'
 
@@ -255,7 +254,7 @@ export default function AuditLogPage() {
       .eq('id', user.id)
       .maybeSingle()
 
-    if (!isAdminRole(profile?.role)) {
+    if (profile?.role !== 'admin') {
       router.replace('/')
       return
     }

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabaseAdmin'
-import { getAdminRequestContext } from '@/lib/serverAdminAuth'
-import { isAdminRole, normalizeUserRole } from '@/lib/roles'
+import { getAdminRequestUser } from '@/lib/serverAdminAuth'
 
 const protectedAdminEmail = 'vadim.podolski@online.de'
 
@@ -13,6 +12,10 @@ function normalizedName(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
 }
 
+function normalizedRole(value: unknown) {
+  return value === 'admin' ? 'admin' : 'user'
+}
+
 function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
 }
@@ -22,11 +25,12 @@ function resetRedirect(request: Request) {
 }
 
 async function requireAdmin() {
-  const context = await getAdminRequestContext()
-  if (!context) {
-    return { context: null, response: NextResponse.json({ error: 'Keine Administratorberechtigung.' }, { status: 403 }) }
+  const currentUser = await getAdminRequestUser()
+  if (!currentUser) {
+    return { currentUser: null, response: NextResponse.json({ error: 'Keine Administratorberechtigung.' }, { status: 403 }) }
   }
-  return { context, response: null }
+
+  return { currentUser, response: null }
 }
 
 export async function POST(request: Request) {
@@ -43,10 +47,6 @@ export async function POST(request: Request) {
       if (!isValidEmail(email)) {
         return NextResponse.json({ error: 'Bitte eine gültige E-Mail-Adresse angeben.' }, { status: 400 })
       }
-      const { data: targetProfile } = await admin.from('profiles').select('role').eq('email', email).maybeSingle()
-      if (isAdminRole(targetProfile?.role) && authorization.context?.role !== 'superadmin') {
-        return NextResponse.json({ error: 'Nur der Superadmin darf das Passwort eines Administrators zurücksetzen.' }, { status: 403 })
-      }
 
       const { error } = await admin.auth.resetPasswordForEmail(email, {
         redirectTo: resetRedirect(request)
@@ -58,10 +58,7 @@ export async function POST(request: Request) {
 
     const email = normalizedEmail(body.email)
     const fullName = normalizedName(body.fullName)
-    const role = normalizeUserRole(body.role)
-    if (isAdminRole(role) && authorization.context?.role !== 'superadmin') {
-      return NextResponse.json({ error: 'Nur der Superadmin darf Administratoren anlegen.' }, { status: 403 })
-    }
+    const role = normalizedRole(body.role)
     if (!fullName) {
       return NextResponse.json({ error: 'Bitte einen Namen angeben.' }, { status: 400 })
     }
@@ -98,24 +95,19 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   const authorization = await requireAdmin()
-  if (authorization.response || !authorization.context) return authorization.response
+  if (authorization.response || !authorization.currentUser) return authorization.response
 
   try {
     const body = await request.json()
     const id = typeof body.id === 'string' ? body.id : ''
     const email = normalizedEmail(body.email)
     const fullName = normalizedName(body.fullName)
-    const role = normalizeUserRole(body.role)
+    const role = normalizedRole(body.role)
     if (!id || !fullName || !isValidEmail(email)) {
       return NextResponse.json({ error: 'Name und gültige E-Mail-Adresse sind erforderlich.' }, { status: 400 })
     }
 
     const admin = createAdminClient()
-    const { data: existingProfile } = await admin.from('profiles').select('role').eq('id', id).maybeSingle()
-    const existingRole = normalizeUserRole(existingProfile?.role)
-    if ((isAdminRole(existingRole) || isAdminRole(role)) && authorization.context.role !== 'superadmin') {
-      return NextResponse.json({ error: 'Nur der Superadmin darf Administratoren bearbeiten.' }, { status: 403 })
-    }
     const { data: existingData, error: existingError } = await admin.auth.admin.getUserById(id)
     if (existingError || !existingData.user) {
       return NextResponse.json({ error: 'Benutzer wurde nicht gefunden.' }, { status: 404 })
@@ -123,9 +115,9 @@ export async function PATCH(request: Request) {
 
     const existingEmail = normalizedEmail(existingData.user.email)
     const isProtectedAdmin = existingEmail === protectedAdminEmail
-    const isCurrentUser = authorization.context.user.id === id
-    if ((isProtectedAdmin || isCurrentUser) && role !== existingRole) {
-      return NextResponse.json({ error: 'Das eigene Superadmin-Konto kann nicht herabgestuft werden.' }, { status: 400 })
+    const isCurrentUser = authorization.currentUser.id === id
+    if ((isProtectedAdmin || isCurrentUser) && role !== 'admin') {
+      return NextResponse.json({ error: 'Das eigene Administratorkonto kann nicht herabgestuft werden.' }, { status: 400 })
     }
 
     const { error: authError } = await admin.auth.admin.updateUserById(id, {
@@ -150,21 +142,17 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   const authorization = await requireAdmin()
-  if (authorization.response || !authorization.context) return authorization.response
+  if (authorization.response || !authorization.currentUser) return authorization.response
 
   try {
     const body = await request.json()
     const id = typeof body.id === 'string' ? body.id : ''
     if (!id) return NextResponse.json({ error: 'Benutzer-ID fehlt.' }, { status: 400 })
-    if (authorization.context.user.id === id) {
+    if (authorization.currentUser.id === id) {
       return NextResponse.json({ error: 'Das eigene Administratorkonto kann nicht gelöscht werden.' }, { status: 400 })
     }
 
     const admin = createAdminClient()
-    const { data: existingProfile } = await admin.from('profiles').select('role').eq('id', id).maybeSingle()
-    if (isAdminRole(existingProfile?.role) && authorization.context.role !== 'superadmin') {
-      return NextResponse.json({ error: 'Nur der Superadmin darf Administratoren löschen.' }, { status: 403 })
-    }
     const { data, error: userError } = await admin.auth.admin.getUserById(id)
     if (userError || !data.user) {
       const { error: profileError } = await admin.from('profiles').delete().eq('id', id)

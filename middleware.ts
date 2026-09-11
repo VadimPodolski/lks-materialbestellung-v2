@@ -1,7 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 import { LOGIN_DISABLED } from '@/lib/authMode'
-import { isAdminRole } from '@/lib/roles'
 
 export async function middleware(request: NextRequest) {
   if (LOGIN_DISABLED) {
@@ -70,7 +69,7 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .maybeSingle()
 
-    const isAdmin = isAdminRole(profile?.role)
+    const isAdmin = profile?.role === 'admin'
     const isApproved = isAdmin || profile?.approved === true
     const mustChangePassword = !isAdmin && profile?.must_change_password === true
 
